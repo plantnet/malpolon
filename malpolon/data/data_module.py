@@ -1,20 +1,18 @@
 from abc import ABC, abstractmethod
-from typing import Optional
 
+import attrs
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 
 
+@attrs.define(slots=False, kw_only=True)
 class BaseDataModule(pl.LightningDataModule, ABC):
-    def __init__(
-        self,
-        train_batch_size: Optional[int] = 32,
-        inference_batch_size: Optional[int] = 256,
-        num_workers: Optional[int] = 8,
-    ):
-        self.train_batch_size = train_batch_size
-        self.inference_batch_size = inference_batch_size
-        self.num_workers = num_workers
+    train_batch_size: int = 32
+    inference_batch_size: int = 256
+    num_workers: int = 8
+
+    def __attrs_post_init__(self):
+        # TODO check if uses GPU or not before using pin memory
         self.pin_memory = True
 
     @property
@@ -32,11 +30,13 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         pass
 
     def get_train_dataset(self, test):
-        train_dataset = self.get_dataset(
+        dataset = self.get_dataset(
             split="train",
             transform=self.train_transform,
         )
-        return train_dataset
+        print("Number of classes: {}".format(dataset.n_classes))
+        print("Train set size: {}".format(len(dataset)))
+        return dataset
 
     def get_test_dataset(self, test):
         split = "test" if test else "val"
@@ -44,6 +44,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             split=split,
             transform=self.test_transform,
         )
+        print("Test set size: {}".format(len(dataset)))
         return dataset
 
     # called for every GPU/machine

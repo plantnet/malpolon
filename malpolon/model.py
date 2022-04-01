@@ -1,10 +1,11 @@
+from typing import Optional
 from argparse import ArgumentParser, Namespace
 from typing import Any, Union
 
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
-import torchmetrics
+import torchmetrics.functional as Fmetrics
 from pytorch_lightning.utilities.argparse import add_argparse_args, from_argparse_args
 from torchvision import models
 
@@ -20,30 +21,35 @@ def load_standard_classification_model(model_name, pretrained, n_classes):
 
 
 class StandardClassificationSystem(pl.LightningModule):
+    r"""
+    Args:
+        model_name: name of model to use
+        num_classes: number of classes
+        pretrained: load weights pretrained on ImageNet
+        lr: learning rate
+        momentum: value of momentum
+        nesterov: if True, uses Nesterov's momentum
+        weight_decay: weight decay value (0 to disable)
+    """
+
     def __init__(
         self,
-        model_name: str = "resnet50",
-        pretrained: bool = True,
-        lr: float = 1e-2,
-        weight_decay: float = 0,
-        num_classes: int = 17037,
+        model: torch.nn.Module,
+        optimizer: torch.optim.Optimizer,
+        binary_classification: bool = False,
     ):
-        r"""Data module for MNIST.
-
-        Args:
-            model_name: name of model to use
-            pretrained: load weights pretrained on ImageNet
-            lr: learning rate
-            weight_decay: weight decay value (0 to disable)
-            num_classes: number of classes
-        """
         super().__init__()
 
-        model = load_standard_classification_model(model_name, pretrained, num_classes)
-
-        self.lr = lr
-        self.weight_decay = weight_decay
         self.model = model
+        self.optimizer = optimizer
+        self.binary_classification = binary_classification
+
+        if self.binary_classification:
+            self.loss = F.binary_cross_entropy_with_logits
+        else:
+            self.loss = F.cross_entropy
+
+        self.metrics = {}
 
     def forward(self, x):
         return self.model(x)
@@ -51,7 +57,7 @@ class StandardClassificationSystem(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
+        loss = self.loss(y_hat, y)
 
         self.log("train_loss", loss, on_step=False, on_epoch=True)
 
@@ -61,14 +67,12 @@ class StandardClassificationSystem(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
 
-        val_loss = F.cross_entropy(y_hat, y)
+        val_loss = self.loss(y_hat, y)
         self.log("val_loss", val_loss)
 
-        val_accuracy = torchmetrics.functional.accuracy(y_hat, y)
-        self.log("val_accuracy", val_accuracy)
-
-        val_top_k_accuracy = torchmetrics.functional.accuracy(y_hat, y, top_k=30)
-        self.log("val_top_k_accuracy", val_top_k_accuracy)
+        for metric_name, metric_func in self.metrics.items():
+            val_score = metric_func(y_hat, y)
+            self.log("val_{}".format(metric_name), val_score)
 
         return val_loss
 
@@ -76,27 +80,17 @@ class StandardClassificationSystem(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
 
-        test_loss = F.cross_entropy(y_hat, y)
+        test_loss = self.loss(y_hat, y)
         self.log("test_loss", test_loss)
 
-        test_accuracy = torchmetrics.functional.accuracy(y_hat, y)
-        self.log("test_accuracy", test_accuracy)
-
-        test_top_k_accuracy = torchmetrics.functional.accuracy(y_hat, y, top_k=30)
-        self.log("test_top_k_accuracy", test_top_k_accuracy)
+        for metric_name, metric_func in self.metrics.items():
+            test_score = metric_func(y_hat, y)
+            self.log("test_{}".format(metric_name), test_score)
 
         return test_loss
 
     def configure_optimizers(self):
-        params = self.parameters()
-        optimizer = torch.optim.SGD(
-            params,
-            lr=self.lr,
-            weight_decay=self.weight_decay,
-            momentum=0.9,
-            nesterov=True,
-        )
-        return optimizer
+        return self.optimizer
 
     @classmethod
     def from_argparse_args(
@@ -113,3 +107,42 @@ class StandardClassificationSystem(pl.LightningModule):
         **kwargs,
     ) -> ArgumentParser:
         return add_argparse_args(cls, parent_parser, **kwargs)
+
+
+class StandardFinetuningClassificationSystem(StandardClassificationSystem):
+    def __init__(
+        self,
+        model_name: str,
+        num_classes: int,
+        pretrained: bool = True,
+        lr: float = 1e-2,
+        weight_decay: Optional[float] = None,
+        momentum: float = 0.9,
+        nesterov: bool = True,
+    ):
+        self.model_name = model_name
+        self.num_classes = num_classes
+        self.pretrained = pretrained
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.momentum = momentum
+        self.nesterov = nesterov
+
+        model = load_standard_classification_model(
+            self.model_name,
+            self.pretrained,
+            self.num_classes,
+        )
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=self.lr,
+            weight_decay=self.weight_decay,
+            momentum=self.momentum,
+            nesterov=self.nesterov,
+        )
+
+        super().__init__(model, optimizer)
+
+        self.metrics = {
+            "accuracy": Fmetrics.accuracy,
+        }
