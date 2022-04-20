@@ -90,6 +90,7 @@ class StandardClassificationSystem(pl.LightningModule):
         return test_loss
 
     def configure_optimizers(self):
+        print(self.optimizer)
         return self.optimizer
 
     @classmethod

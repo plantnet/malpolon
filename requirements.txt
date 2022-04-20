@@ -2,3 +2,4 @@ torch
 torchvision
 pytorch_lightning
 torchmetrics
+hydra-core

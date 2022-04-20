@@ -1,17 +1,20 @@
 from abc import ABC, abstractmethod
 
-import attrs
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 
 
-@attrs.define(slots=False, kw_only=True)
 class BaseDataModule(pl.LightningDataModule, ABC):
-    train_batch_size: int = 32
-    inference_batch_size: int = 256
-    num_workers: int = 8
+    def __init__(
+        self,
+        train_batch_size: int = 32,
+        inference_batch_size: int = 256,
+        num_workers: int = 8,
+    ):
+        self.train_batch_size = train_batch_size
+        self.inference_batch_size = inference_batch_size
+        self.num_workers = num_workers
 
-    def __attrs_post_init__(self):
         # TODO check if uses GPU or not before using pin memory
         self.pin_memory = True
 

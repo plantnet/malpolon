@@ -154,7 +154,7 @@ class MiniGeoLifeCLEF2022Dataset(Dataset):
             #self.root
             #/ "metadata"
             #/ "species_details.csv",
-            "minigeolifeclef2022_species_details.csv",
+            "../../../minigeolifeclef2022_species_details.csv",
             sep=";",
             index_col="species_id",
         )
