@@ -1,3 +1,4 @@
+from importlib import resources
 from pathlib import Path
 
 import numpy as np
@@ -6,6 +7,8 @@ import tifffile
 from PIL import Image
 
 from torch.utils.data import Dataset
+
+from ._base import DATA_MODULE
 
 
 def load_patch(
@@ -149,15 +152,15 @@ class MiniGeoLifeCLEF2022Dataset(Dataset):
             sep=";",
             index_col="observation_id",
         )
-        # TODO restrict to plants and regenerate species ids
-        df_species = pd.read_csv(
-            #self.root
-            #/ "metadata"
-            #/ "species_details.csv",
-            "../../../minigeolifeclef2022_species_details.csv",
-            sep=";",
-            index_col="species_id",
-        )
+
+        file_name = "minigeolifeclef2022_species_details.csv"
+        with resources.path(DATA_MODULE, file_name) as species_file_path:
+            df_species = pd.read_csv(
+                species_file_path,
+                sep=";",
+                index_col="species_id",
+            )
+
         df = df[np.isin(df["species_id"], df_species.index)]
         value_counts = df.species_id.value_counts()
         species_id = value_counts.iloc[:100].index
