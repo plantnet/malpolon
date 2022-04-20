@@ -43,9 +43,9 @@ def load_patch(
 
     region_id = observation_id[0]
     if region_id == "1":
-        region = "fr"
+        region = "patches-fr"
     elif region_id == "2":
-        region = "us"
+        region = "patches-us"
     else:
         raise ValueError(
             "Incorrect 'observation_id' {}, can not extract region id from it".format(
@@ -92,8 +92,171 @@ def load_patch(
     return patches
 
 
-class MiniGeoLifeCLEF2022Dataset(Dataset):
+class GeoLifeCLEF2022Dataset(Dataset):
     """Pytorch dataset handler for GeoLifeCLEF 2022 dataset.
+    Parameters
+    ----------
+    root : string or pathlib.Path
+        Root directory of dataset.
+    subset : string, either "train", "val", "train+val" or "test"
+        Use the given subset ("train+val" is the complete training data).
+    region : string, either "both", "fr" or "us"
+        Load the observations of both France and US or only a single region.
+    patch_data : string or list of string
+        Specifies what type of patch data to load, possible values: 'all', 'rgb', 'near_ir', 'landcover' or 'altitude'.
+    use_rasters : boolean (optional)
+        If True, extracts patches from environmental rasters.
+    patch_extractor : PatchExtractor object (optional)
+        Patch extractor to use if rasters are used.
+    transform : callable (optional)
+        A function/transform that takes a list of arrays and returns a transformed version.
+    target_transform : callable (optional)
+        A function/transform that takes in the target and transforms it.
+    """
+
+    def __init__(
+        self,
+        root,
+        subset,
+        *,
+        region="both",
+        patch_data="all",
+        use_rasters=True,
+        patch_extractor=None,
+        transform=None,
+        target_transform=None
+    ):
+        root = Path(root)
+
+        possible_subsets = ["train", "val", "train+val", "test"]
+        if subset not in possible_subsets:
+            raise ValueError(
+                "Possible values for 'subset' are: {} (given {})".format(
+                    possible_subsets, subset
+                )
+            )
+
+        possible_regions = ["both", "fr", "us"]
+        if region not in possible_regions:
+            raise ValueError(
+                "Possible values for 'region' are: {} (given {})".format(
+                    possible_regions, region
+                )
+            )
+
+        self.root = root
+        self.subset = subset
+        self.region = region
+        self.patch_data = patch_data
+        self.transform = transform
+        self.target_transform = target_transform
+        self.training_data = (subset != "test")
+        self.n_classes = 17037
+
+        df = self._load_observation_data(root, region, subset)
+
+        self.observation_ids = df.index
+        self.coordinates = df[["latitude", "longitude"]].values
+
+        if self.training_data:
+            self.targets = df["species_id"].values
+        else:
+            self.targets = None
+
+        # FIXME: add back landcover one hot encoding?
+        # self.one_hot_size = 34
+        # self.one_hot = np.eye(self.one_hot_size)
+
+        if use_rasters:
+            if patch_extractor is None:
+                from .environmental_raster import PatchExtractor
+
+                patch_extractor = PatchExtractor(self.root / "rasters", size=256)
+                patch_extractor.add_all_rasters()
+
+            self.patch_extractor = patch_extractor
+        else:
+            self.patch_extractor = None
+
+    def _load_observation_data(self, root, region, subset):
+        if subset == "test":
+            subset_file_suffix = "test"
+        else:
+            subset_file_suffix = "train"
+
+        df_fr = pd.read_csv(
+            root
+            / "observations"
+            / "observations_fr_{}.csv".format(subset_file_suffix),
+            sep=";",
+            index_col="observation_id",
+        )
+        df_us = pd.read_csv(
+            root
+            / "observations"
+            / "observations_us_{}.csv".format(subset_file_suffix),
+            sep=";",
+            index_col="observation_id",
+        )
+
+        if region == "both":
+            df = pd.concat((df_fr, df_us))
+        elif region == "fr":
+            df = df_fr
+        elif region == "us":
+            df = df_us
+
+        if subset not in ["train+val", "test"]:
+            ind = df.index[df["subset"] == subset]
+            df = df.loc[ind]
+
+        return df
+
+    def __len__(self):
+        return len(self.observation_ids)
+
+    def __getitem__(self, index):
+        latitude = self.coordinates[index][0]
+        longitude = self.coordinates[index][1]
+        observation_id = self.observation_ids[index]
+
+        patches = load_patch(
+            observation_id, self.root, data=self.patch_data
+        )
+
+        # FIXME: add back landcover one hot encoding?
+        # lc = patches[3]
+        # lc_one_hot = np.zeros((self.one_hot_size,lc.shape[0], lc.shape[1]))
+        # row_index = np.arange(lc.shape[0]).reshape(lc.shape[0], 1)
+        # col_index = np.tile(np.arange(lc.shape[1]), (lc.shape[0], 1))
+        # lc_one_hot[lc, row_index, col_index] = 1
+
+        # Extracting patch from rasters
+        if self.patch_extractor is not None:
+            environmental_patches = self.patch_extractor[(latitude, longitude)]
+            patches = patches + tuple(environmental_patches)
+
+        # Concatenate all patches into a single tensor
+        if len(patches) == 1:
+            patches = patches[0]
+
+        if self.transform:
+            patches = self.transform(patches)
+
+        if self.training_data:
+            target = self.targets[index]
+
+            if self.target_transform:
+                target = self.target_transform(target)
+
+            return patches, target
+        else:
+            return patches
+
+
+class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
+    """Pytorch dataset handler for a subset of GeoLifeCLEF 2022 dataset.
+    It consists in a restriction to France and to the 100 most present plant species.
 
     Parameters
     ----------
@@ -124,29 +287,27 @@ class MiniGeoLifeCLEF2022Dataset(Dataset):
         transform=None,
         target_transform=None
     ):
-        self.root = Path(root)
-        self.subset = subset
-        self.patch_data = patch_data
-        self.transform = transform
-        self.target_transform = target_transform
+        super().__init__(
+            root,
+            subset,
+            region="fr",
+            patch_data=patch_data,
+            use_rasters=use_rasters,
+            patch_extractor=patch_extractor,
+            transform=transform,
+            target_transform=target_transform,
+        )
 
-        possible_subsets = ["train", "val", "train+val", "test"]
-        if subset not in possible_subsets:
-            raise ValueError(
-                "Possible values for 'subset' are: {} (given {})".format(
-                    possible_subsets, subset
-                )
-            )
+        self.n_classes = 100
 
+    def _load_observation_data(self, root, region, subset):
         if subset == "test":
             subset_file_suffix = "test"
-            self.training_data = False
         else:
             subset_file_suffix = "train"
-            self.training_data = True
 
         df = pd.read_csv(
-            self.root
+            root
             / "observations"
             / "observations_fr_{}.csv".format(subset_file_suffix),
             sep=";",
@@ -172,61 +333,8 @@ class MiniGeoLifeCLEF2022Dataset(Dataset):
         df["species_id"] = label_encoder.transform(df["species_id"])
         df_species.index = label_encoder.transform(df_species.index)
 
-        if self.training_data and subset != "train+val":
+        if subset not in ["train+val", "test"]:
             ind = df.index[df["subset"] == subset]
             df = df.loc[ind]
 
-        self.observation_ids = df.index
-        self.coordinates = df[["latitude", "longitude"]].values
-        self.species = df_species
-        self.n_classes = len(self.species)
-
-        if self.training_data:
-            self.targets = df["species_id"].values
-        else:
-            self.targets = None
-
-        if use_rasters:
-            if patch_extractor is None:
-                from .environmental_raster import PatchExtractor
-
-                patch_extractor = PatchExtractor(self.root / "rasters", size=256)
-                patch_extractor.add_all_rasters()
-
-            self.patch_extractor = patch_extractor
-        else:
-            self.patch_extractor = None
-
-    def __len__(self):
-        return len(self.observation_ids)
-
-    def __getitem__(self, index):
-        latitude = self.coordinates[index][0]
-        longitude = self.coordinates[index][1]
-        observation_id = self.observation_ids[index]
-
-        patches = load_patch(
-            observation_id, self.root / "patches", data=self.patch_data
-        )
-
-        # Extracting patch from rasters
-        if self.patch_extractor is not None:
-            environmental_patches = self.patch_extractor[(latitude, longitude)]
-            patches = patches + tuple(environmental_patches)
-
-        # Concatenate all patches into a single tensor
-        if len(patches) == 1:
-            patches = patches[0]
-
-        if self.transform:
-            patches = self.transform(patches)
-
-        if self.training_data:
-            target = self.targets[index]
-
-            if self.target_transform:
-                target = self.target_transform(target)
-
-            return patches, target
-        else:
-            return patches
+        return df
