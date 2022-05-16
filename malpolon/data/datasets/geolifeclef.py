@@ -19,7 +19,7 @@ def load_patch(
     landcover_mapping=None,
     return_arrays=True
 ):
-    """Loads the patch data associated to an observation id
+    """Loads the patch data associated to an observation id.
 
     Parameters
     ----------
@@ -94,6 +94,7 @@ def load_patch(
 
 class GeoLifeCLEF2022Dataset(Dataset):
     """Pytorch dataset handler for GeoLifeCLEF 2022 dataset.
+
     Parameters
     ----------
     root : string or pathlib.Path
@@ -213,6 +214,7 @@ class GeoLifeCLEF2022Dataset(Dataset):
         return df
 
     def __len__(self):
+        """Returns the number of observations in the dataset."""
         return len(self.observation_ids)
 
     def __getitem__(self, index):
