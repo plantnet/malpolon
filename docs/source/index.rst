@@ -16,7 +16,7 @@ Installation
 
 Currently, only the development version is available.
 First make sure that the dependances listed in the ``requirements.txt`` file are installed.
-malpolon can then be installed via ``pip`` using::
+``malpolon`` can then be installed via ``pip`` using::
 
 	git clone https://github.com/plantnet/malpolon.git
 	cd malpolon
