@@ -4,7 +4,7 @@ from typing import Optional
 import pytorch_lightning as pl
 from torchvision import transforms
 
-from malpolon.data_module import BaseDataModule
+from malpolon.data.data_module import BaseDataModule
 from malpolon.model import StandardClassificationSystem
 
 from GLC.data_loading.pytorch_dataset import GeoLifeCLEF2022Dataset

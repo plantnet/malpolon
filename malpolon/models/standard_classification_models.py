@@ -82,6 +82,8 @@ def load_standard_classification_model(
 
 class StandardClassificationSystem(pl.LightningModule):
     r"""
+    Basic classification system providing standard methods.
+
     Parameters
     ----------
         model_name: name of model to use

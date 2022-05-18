@@ -22,26 +22,23 @@ raster_names = bioclimatic_raster_names + pedologic_raster_names
 
 
 class Raster(object):
-    """
-    Handles the loading and the patch extraction for a single raster
+    """Loads a GeoTIFF file and extract patches for a single environmental raster
+
+    Parameters
+    ----------
+    path : string / pathlib.Path
+        Path to the folder containing all the rasters.
+    country : string, either "FR" or "USA"
+        Which country to load raster from.
+    size : integer
+        Size in pixels (size x size) of the patch to extract around each location.
+    nan : float or None
+        Value to use to replace missing data in original rasters, if None, leaves default values.
+    out_of_bounds : string, either "error", "warn" or "ignore"
+        If "error", raises an exception if the location requested is out of bounds of the rasters. Set to "warn" to only produces a warning and to "ignore" to silently ignore it and return a patch filled with missing data.
     """
 
     def __init__(self, path, country, size=256, nan=np.nan, out_of_bounds="error"):
-        """Loads a GeoTIFF file containing an environmental raster
-
-        Parameters
-        ----------
-        path : string / pathlib.Path
-            Path to the folder containing all the rasters.
-        country : string, either "FR" or "USA"
-            Which country to load raster from.
-        size : integer
-            Size in pixels (size x size) of the patch to extract around each location.
-        nan : float or None
-            Value to use to replace missing data in original rasters, if None, leaves default values.
-        out_of_bounds : string, either "error", "warn" or "ignore"
-            If "error", raises an exception if the location requested is out of bounds of the rasters. Set to "warn" to only produces a warning and to "ignore" to silently ignore it and return a patch filled with missing data.
-        """
         path = Path(path)
         if not path.exists():
             raise ValueError(
@@ -151,20 +148,17 @@ class Raster(object):
 
 
 class PatchExtractor(object):
-    """
-    Handles the loading and extraction of an environmental tensor from multiple rasters given GPS coordinates.
+    """Handles the loading and extraction of an environmental tensor from multiple rasters given GPS coordinates.
+
+    Parameters
+    ----------
+    root_path : string or pathlib.Path
+        Path to the folder containing all the rasters.
+    size : integer
+        Size in pixels (size x size) of the patches to extract around each location.
     """
 
     def __init__(self, root_path, size=256):
-        """Constructor
-
-        Parameters
-        ----------
-        root_path : string or pathlib.Path
-            Path to the folder containing all the rasters.
-        size : integer
-            Size in pixels (size x size) of the patches to extract around each location.
-        """
         self.root_path = Path(root_path)
         if not self.root_path.exists():
             raise ValueError(

@@ -6,3 +6,5 @@
 *.egg-info
 
 !.gitignore
+
+docs/_build
