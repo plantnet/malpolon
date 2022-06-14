@@ -1,0 +1,13 @@
+name: malpolon
+channels:
+  - defaults
+dependencies:
+  - python=3.9
+  - pytorch
+  - torchvision
+  - cudatoolkit==10.2
+  - torchmetrics
+  - hydra-core
+  - sphinx
+  - sphinx_rtd_theme
+prefix: /home/tlorieul/miniconda3/envs/malpolon

@@ -6,6 +6,14 @@ Malpolon is a framework facilitating the training of Deep Species Distribution m
 
 Currently, only the development version is available.
 First make sure that the dependences listed in the `requirements.txt` file are installed.
+
+One way to do so is to use `conda`
+
+```script
+conda env create -n <name> -f environment.yml
+conda activate <name>
+```
+
 `malpolon` can then be installed via `pip` using
 
 ```script

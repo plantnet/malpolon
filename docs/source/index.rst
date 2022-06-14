@@ -16,6 +16,11 @@ Installation
 
 Currently, only the development version is available.
 First make sure that the dependences listed in the ``requirements.txt`` file are installed.
+One way to do so is to use ``conda``::
+
+	conda env create -n <name> -f environment.yml
+	conda activate <name>
+
 ``malpolon`` can then be installed via ``pip`` using::
 
 	git clone https://github.com/plantnet/malpolon.git
