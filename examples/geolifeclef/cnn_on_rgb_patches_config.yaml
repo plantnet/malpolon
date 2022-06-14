@@ -12,6 +12,7 @@ model:
 
 data:
   dataset_path: ???
+  minigeolifeclef: True
   train_batch_size: 32
   inference_batch_size: 256
   num_workers: 8
