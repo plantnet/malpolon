@@ -10,4 +10,8 @@ dependencies:
   - hydra-core
   - sphinx
   - sphinx_rtd_theme
+  - pytorch-lightning
+  - pandas
+  - tifffile
+  - scikit-learn
 prefix: /home/tlorieul/miniconda3/envs/malpolon
