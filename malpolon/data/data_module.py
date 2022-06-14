@@ -11,6 +11,8 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         inference_batch_size: int = 256,
         num_workers: int = 8,
     ):
+        super().__init__()
+
         self.train_batch_size = train_batch_size
         self.inference_batch_size = inference_batch_size
         self.num_workers = num_workers

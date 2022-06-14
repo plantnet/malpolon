@@ -101,11 +101,7 @@ class ClassificationSystem(StandardFinetuningClassificationSystem):
 
 @hydra.main(config_path=".", config_name="cnn_on_rgb_patches_config")
 def main(cls: DictConfig):
-    """
-    logger = pl.loggers.CSVLogger("logs")
-    logger.log_hyperparams(args)
-    """
-    logger = None
+    logger = pl.loggers.CSVLogger(".", name="logs")
 
     datamodule = GeoLifeCLEF2022DataModule.from_argparse_args(Namespace(**cls.data))
 

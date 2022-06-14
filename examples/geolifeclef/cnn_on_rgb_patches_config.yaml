@@ -1,5 +1,6 @@
 params:
   max_epochs: 10
+  val_check_interval: 0.2
 
 model:
   model_name: "resnet18"
