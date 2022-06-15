@@ -1,5 +1,7 @@
+from __future__ import annotations
 from importlib import resources
 from pathlib import Path
+from typing import Callable, Optional, Union, TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -8,22 +10,29 @@ from PIL import Image
 
 from torch.utils.data import Dataset
 
+from ..environmental_raster import PatchExtractor
 from ._base import DATA_MODULE
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
+
+    Patches = npt.NDArray
+    Targets = npt.NDArray[np.int64]
 
 
 def load_patch(
-    observation_id,
-    patches_path,
+    observation_id: Union[int, str],
+    patches_path: Union[str, Path],
     *,
-    data="all",
-    landcover_mapping=None,
-    return_arrays=True
-):
+    data: Union[str, list[str]] = "all",
+    landcover_mapping: Optional[npt.NDArray] = None,
+    return_arrays: bool = True,
+) -> list[Patches]:
     """Loads the patch data associated to an observation id.
 
     Parameters
     ----------
-    observation_id : integer
+    observation_id : integer / string
         Identifier of the observation.
     patches_path : string / pathlib.Path
         Path to the folder containing all the patches.
@@ -36,8 +45,8 @@ def load_patch(
 
     Returns
     -------
-    patches : tuple of size 4 containing 2d array-like objects
-        Returns a tuple containing all the patches in the following order: RGB, Near-IR, altitude and landcover.
+    patches : list of size 4 containing 2d array-like objects
+        Returns a list containing all the patches in the following order: RGB, Near-IR, altitude and landcover.
     """
     observation_id = str(observation_id)
 
@@ -117,15 +126,15 @@ class GeoLifeCLEF2022Dataset(Dataset):
 
     def __init__(
         self,
-        root,
-        subset,
+        root: Union[str, Path],
+        subset: str,
         *,
-        region="both",
-        patch_data="all",
-        use_rasters=True,
-        patch_extractor=None,
-        transform=None,
-        target_transform=None
+        region: str = "both",
+        patch_data: str = "all",
+        use_rasters: bool = True,
+        patch_extractor: Optional[PatchExtractor] = None,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
     ):
         root = Path(root)
 
@@ -170,8 +179,6 @@ class GeoLifeCLEF2022Dataset(Dataset):
 
         if use_rasters:
             if patch_extractor is None:
-                from .environmental_raster import PatchExtractor
-
                 patch_extractor = PatchExtractor(self.root / "rasters", size=256)
                 patch_extractor.add_all_rasters()
 
@@ -179,7 +186,12 @@ class GeoLifeCLEF2022Dataset(Dataset):
         else:
             self.patch_extractor = None
 
-    def _load_observation_data(self, root, region, subset):
+    def _load_observation_data(
+        self,
+        root: Path,
+        region: str,
+        subset: str,
+    ) -> pd.DataFrame:
         if subset == "test":
             subset_file_suffix = "test"
         else:
@@ -213,11 +225,16 @@ class GeoLifeCLEF2022Dataset(Dataset):
 
         return df
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Returns the number of observations in the dataset."""
         return len(self.observation_ids)
 
-    def __getitem__(self, index):
+    def __getitem__(
+        self,
+        index: int,
+    ) -> Union[
+        Union[Patches, list[Patches]], tuple[Union[Patches, list[Patches]], Targets]
+    ]:
         latitude = self.coordinates[index][0]
         longitude = self.coordinates[index][1]
         observation_id = self.observation_ids[index]
@@ -236,7 +253,7 @@ class GeoLifeCLEF2022Dataset(Dataset):
         # Extracting patch from rasters
         if self.patch_extractor is not None:
             environmental_patches = self.patch_extractor[(latitude, longitude)]
-            patches = patches + tuple(environmental_patches)
+            patches = patches + [environmental_patches]
 
         # Concatenate all patches into a single tensor
         if len(patches) == 1:
@@ -280,14 +297,14 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
 
     def __init__(
         self,
-        root,
-        subset,
+        root: Union[str, Path],
+        subset: str,
         *,
-        patch_data="all",
-        use_rasters=True,
-        patch_extractor=None,
-        transform=None,
-        target_transform=None
+        patch_data: str = "all",
+        use_rasters: bool = True,
+        patch_extractor: Optional[PatchExtractor] = None,
+        transform: Optional[Callable] = None,
+        target_transform: Optional[Callable] = None,
     ):
         super().__init__(
             root,
@@ -302,7 +319,12 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
 
         self.n_classes = 100
 
-    def _load_observation_data(self, root, region, subset):
+    def _load_observation_data(
+        self,
+        root: Path,
+        region: str,
+        subset: str,
+    ) -> pd.DataFrame:
         if subset == "test":
             subset_file_suffix = "test"
         else:
