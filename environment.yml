@@ -18,4 +18,7 @@ dependencies:
   - scikit-learn
   - matplotlib
   - rasterio
+  - pip
+  - pip:
+    - hydra-core
 prefix: /home/tlorieul/miniconda3/envs/malpolon
