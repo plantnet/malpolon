@@ -1,11 +1,13 @@
 name: malpolon
 channels:
   - defaults
+  - conda-forge
+  - pytorch
 dependencies:
   - python=3.9
   - pytorch
   - torchvision
-  - cudatoolkit==10.2
+  - cudatoolkit=10.2
   - torchmetrics
   - hydra-core
   - sphinx
