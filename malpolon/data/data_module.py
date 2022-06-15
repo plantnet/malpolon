@@ -20,9 +20,6 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         # TODO check if uses GPU or not before using pin memory
         self.pin_memory = True
 
-        # TODO check this when doing multi-node training
-        self.prepare_data_per_node = True
-
     @property
     @abstractmethod
     def train_transform(self):
