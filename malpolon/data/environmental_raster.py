@@ -1,9 +1,17 @@
+from __future__ import annotations
 import warnings
 from pathlib import Path
+from typing import Any, Optional, Union, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
+
+    Coordinates = tuple[float, float]
+    Patch = npt.NDArray[np.float32]
 
 
 # fmt: off
@@ -38,7 +46,14 @@ class Raster(object):
         If "error", raises an exception if the location requested is out of bounds of the rasters. Set to "warn" to only produces a warning and to "ignore" to silently ignore it and return a patch filled with missing data.
     """
 
-    def __init__(self, path, country, size=256, nan=np.nan, out_of_bounds="error"):
+    def __init__(
+        self,
+        path: Union[str, Path],
+        country: str,
+        size: int = 256,
+        nan: Optional[float] = np.nan,
+        out_of_bounds: str = "error",
+    ):
         path = Path(path)
         if not path.exists():
             raise ValueError(
@@ -57,18 +72,21 @@ class Raster(object):
         filename = path / "{}_{}.tif".format(self.name, country)
         with rasterio.open(filename) as dataset:
             self.dataset = dataset
-            self.raster = dataset.read(1).astype(np.float32)
-            mask = self.dataset.read_masks(1).astype(bool)
+            raster = dataset.read(1, masked=True, out_dtype=np.float32)
 
         # Changes nodata to user specified value
         if nan:
-            self.raster[np.isnan(self.raster)] = nan
-            self.raster[~mask] = nan
+            raster[np.isnan(raster)] = nan
+            raster = raster.filled(nan)
+        else:
+            raster = raster.data
+
+        self.raster = raster
 
         # setting the shape of the raster
         self.shape = self.raster.shape
 
-    def _extract_patch(self, coordinates):
+    def _extract_patch(self, coordinates: Coordinates) -> Patch:
         """Extracts the patch around the given GPS coordinates.
         Avoid using this method directly.
 
@@ -88,18 +106,33 @@ class Raster(object):
             # Environmental vector
             patch = self.raster[row, col]
         else:
-            # FIXME: can it happen that part of the patch is outside the raster? (and how about the mask of the dataset?)
-            half_size = int(self.size / 2)
+            half_size = self.size // 2
+            height, width = self.shape
+
             # FIXME: only way to trigger an exception? (slices don't)
             self.raster[row, col]
-            patch = self.raster[
-                row - half_size : row + half_size, col - half_size : col + half_size
+
+            raster_row_slice = slice(max(0, row - half_size), row + half_size)
+            raster_col_slice = slice(max(0, col - half_size), col + half_size)
+
+            patch_row_slice = slice(
+                max(0, half_size - row), self.size - max(0, half_size - (height - row))
+            )
+            patch_col_slice = slice(
+                max(0, half_size - col), self.size - max(0, half_size - (width - col))
+            )
+
+            patch = np.full(
+                (self.size, self.size), fill_value=self.nan, dtype=np.float32
+            )
+            patch[patch_row_slice, patch_col_slice] = self.raster[
+                raster_row_slice, raster_col_slice
             ]
 
         patch = patch[np.newaxis]
         return patch
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Number of bands in the raster (should always be equal to 1).
 
         Returns
@@ -109,7 +142,7 @@ class Raster(object):
         """
         return self.dataset.count
 
-    def __getitem__(self, coordinates):
+    def __getitem__(self, coordinates: Coordinates) -> Patch:
         """Extracts the patch around the given GPS coordinates.
 
         Parameters
@@ -134,16 +167,18 @@ class Raster(object):
                     )
 
                 if self.size == 1:
-                    return np.array([self.nan], dtype=np.float32)
+                    patch = np.array([self.nan], dtype=np.float32)
                 else:
-                    patch = np.empty((1, self.size, self.size), dtype=np.float32)
-                    patch.fill(self.nan)
-                    return patch
+                    patch = np.full(
+                        (1, self.size, self.size), fill_value=self.nan, dtype=np.float32
+                    )
 
-    def __repr__(self):
+                return patch
+
+    def __repr__(self) -> str:
         return str(self)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "name: " + self.name + "\n"
 
 
@@ -158,7 +193,7 @@ class PatchExtractor(object):
         Size in pixels (size x size) of the patches to extract around each location.
     """
 
-    def __init__(self, root_path, size=256):
+    def __init__(self, root_path: Union[str, Path], size: int = 256):
         self.root_path = Path(root_path)
         if not self.root_path.exists():
             raise ValueError(
@@ -169,10 +204,10 @@ class PatchExtractor(object):
 
         self.size = size
 
-        self.rasters_fr = []
-        self.rasters_us = []
+        self.rasters_fr: list[Raster] = []
+        self.rasters_us: list[Raster] = []
 
-    def add_all_rasters(self, **kwargs):
+    def add_all_rasters(self, **kwargs: Any) -> None:
         """Add all variables (rasters) available
 
         Parameters
@@ -183,7 +218,7 @@ class PatchExtractor(object):
         for raster_name in raster_names:
             self.append(raster_name, **kwargs)
 
-    def add_all_bioclimatic_rasters(self, **kwargs):
+    def add_all_bioclimatic_rasters(self, **kwargs: Any) -> None:
         """Add all bioclimatic variables (rasters) available
 
         Parameters
@@ -194,7 +229,7 @@ class PatchExtractor(object):
         for raster_name in bioclimatic_raster_names:
             self.append(raster_name, **kwargs)
 
-    def add_all_pedologic_rasters(self, **kwargs):
+    def add_all_pedologic_rasters(self, **kwargs: Any) -> None:
         """Add all pedologic variables (rasters) available
 
         Parameters
@@ -205,7 +240,7 @@ class PatchExtractor(object):
         for raster_name in pedologic_raster_names:
             self.append(raster_name, **kwargs)
 
-    def append(self, raster_name, **kwargs):
+    def append(self, raster_name: str, **kwargs: Any) -> None:
         """Loads and appends a single raster to the rasters already loaded.
 
         Can be useful to load only a subset of rasters or to pass configurations specific to each raster.
@@ -223,12 +258,12 @@ class PatchExtractor(object):
         self.rasters_us.append(r_us)
         self.rasters_fr.append(r_fr)
 
-    def clean(self):
+    def clean(self) -> None:
         """Remove all rasters from the extractor."""
         self.rasters_fr = []
         self.rasters_us = []
 
-    def _get_rasters_list(self, coordinates):
+    def _get_rasters_list(self, coordinates: Coordinates) -> list[Raster]:
         """Returns the list of rasters from the appropriate country
 
         Parameters
@@ -246,10 +281,10 @@ class PatchExtractor(object):
         else:
             return self.rasters_us
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
-    def __str__(self):
+    def __str__(self) -> str:
         result = ""
 
         for rasters in [self.rasters_fr, self.rasters_us]:
@@ -259,7 +294,7 @@ class PatchExtractor(object):
 
         return result
 
-    def __getitem__(self, coordinates):
+    def __getitem__(self, coordinates: Coordinates) -> npt.NDArray[np.float32]:
         """Extracts the patches around the given GPS coordinates for all the previously loaded rasters.
 
         Parameters
@@ -275,7 +310,7 @@ class PatchExtractor(object):
         rasters = self._get_rasters_list(coordinates)
         return np.concatenate([r[coordinates] for r in rasters])
 
-    def __len__(self):
+    def __len__(self) -> int:
         """Number of variables/rasters loaded.
 
         Returns
@@ -285,7 +320,14 @@ class PatchExtractor(object):
         """
         return len(self.rasters_fr)
 
-    def plot(self, coordinates, return_fig=False, n_cols=5, fig=None, resolution=1.0):
+    def plot(
+        self,
+        coordinates: Coordinates,
+        return_fig: bool = False,
+        n_cols: int = 5,
+        fig: Optional[plt.Figure] = None,
+        resolution: float = 1.0,
+    ) -> Optional[plt.Figure]:
         """Plot an environmental tensor (only works if size > 1)
 
         Parameters
@@ -353,3 +395,5 @@ class PatchExtractor(object):
 
         if return_fig:
             return fig
+
+        return None
