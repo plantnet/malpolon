@@ -1,3 +1,4 @@
+import os
 from argparse import Namespace
 from pathlib import Path
 
@@ -6,13 +7,14 @@ from omegaconf import DictConfig
 import numpy as np
 import pytorch_lightning as pl
 import torch
-import torchmetrics.functional as Fmetrics
+from pytorch_lightning.callbacks import ModelCheckpoint, ModelSummary
 from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
 from malpolon.data.environmental_raster import PatchExtractor
 from malpolon.data.datasets.geolifeclef import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
-from malpolon.models.standard_classification_models import StandardFinetuningClassificationSystem
+
+from cnn_on_rgb_patches import ClassificationSystem
 
 
 class ReplaceChannelsByBIOTEMPTransform:
@@ -32,6 +34,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
     Parameters
     ----------
         dataset_path: Path to dataset
+        minigeolifeclef: if True, loads MiniGeoLifeCLEF 2022, otherwise loads GeoLifeCLEF2022
         train_batch_size: Size of batch for training
         inference_batch_size: Size of batch for inference (validation, testing, prediction)
         num_workers: Number of workers to use for data loading
@@ -98,35 +101,25 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
         return dataset
 
 
-class ClassificationSystem(StandardFinetuningClassificationSystem):
-    def __init__(
-        self,
-        model_name: str = "resnet18",
-        num_classes: int = 100,
-        pretrained: bool = True,
-        lr: float = 1e-2,
-        weight_decay: float = 0,
-        momentum: float = 0.9,
-        nesterov: bool = True,
-    ):
-        super().__init__(model_name, num_classes, pretrained, lr, weight_decay, momentum, nesterov)
+@hydra.main(version_base="1.1", config_path=".", config_name="cnn_on_rgb_patches_config")
+def main(cfg: DictConfig) -> None:
+    logger = pl.loggers.CSVLogger(".", name=False, version="")
+    logger.log_hyperparams(cfg)
 
-        self.metrics = {
-            "accuracy": Fmetrics.accuracy,
-            "top_k_accuracy": lambda y_hat, y: Fmetrics.accuracy(y_hat, y, top_k=30),
-        }
+    datamodule = GeoLifeCLEF2022DataModule.from_argparse_args(Namespace(**cfg.data))
 
+    model = ClassificationSystem.from_argparse_args(Namespace(**cfg.model))
 
-@hydra.main(config_path=".", config_name="cnn_on_rgb_patches_config")
-def main(cls: DictConfig):
-    logger = pl.loggers.CSVLogger(".", name="logs")
-
-    datamodule = GeoLifeCLEF2022DataModule.from_argparse_args(Namespace(**cls.data))
-
-    model = ClassificationSystem.from_argparse_args(Namespace(**cls.model))
-    print(model.model)
-
-    trainer = pl.Trainer(gpus=1, logger=logger, **cls.params)
+    callbacks = [
+        ModelSummary(max_depth=3),
+        ModelCheckpoint(
+            dirpath=os.getcwd(),
+            filename="checkpoint-{epoch:02d}-{step}-{val_top_k_accuracy:.4f}",
+            monitor="val_top_k_accuracy",
+            mode="max",
+        ),
+    ]
+    trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
     trainer.fit(model, datamodule=datamodule)
 
     trainer.test(model, datamodule=datamodule)

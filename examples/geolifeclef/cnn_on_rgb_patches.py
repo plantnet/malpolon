@@ -1,9 +1,11 @@
+import os
 from argparse import Namespace
 
 import hydra
 from omegaconf import DictConfig
 import pytorch_lightning as pl
 import torchmetrics.functional as Fmetrics
+from pytorch_lightning.callbacks import ModelCheckpoint, ModelSummary
 from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
@@ -18,6 +20,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
     Parameters
     ----------
         dataset_path: Path to dataset
+        minigeolifeclef: if True, loads MiniGeoLifeCLEF 2022, otherwise loads GeoLifeCLEF2022
         train_batch_size: Size of batch for training
         inference_batch_size: Size of batch for inference (validation, testing, prediction)
         num_workers: Number of workers to use for data loading
@@ -99,16 +102,25 @@ class ClassificationSystem(StandardFinetuningClassificationSystem):
         }
 
 
-@hydra.main(config_path=".", config_name="cnn_on_rgb_patches_config")
-def main(cls: DictConfig):
-    logger = pl.loggers.CSVLogger(".", name="logs")
+@hydra.main(version_base="1.1", config_path=".", config_name="cnn_on_rgb_patches_config")
+def main(cfg: DictConfig) -> None:
+    logger = pl.loggers.CSVLogger(".", name=False, version="")
+    logger.log_hyperparams(cfg)
 
-    datamodule = GeoLifeCLEF2022DataModule.from_argparse_args(Namespace(**cls.data))
+    datamodule = GeoLifeCLEF2022DataModule.from_argparse_args(Namespace(**cfg.data))
 
-    model = ClassificationSystem.from_argparse_args(Namespace(**cls.model))
-    print(model.model)
+    model = ClassificationSystem.from_argparse_args(Namespace(**cfg.model))
 
-    trainer = pl.Trainer(gpus=1, logger=logger, **cls.params)
+    callbacks = [
+        ModelSummary(max_depth=3),
+        ModelCheckpoint(
+            dirpath=os.getcwd(),
+            filename="checkpoint-{epoch:02d}-{step}-{val_top_k_accuracy:.4f}",
+            monitor="val_top_k_accuracy",
+            mode="max",
+        ),
+    ]
+    trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
     trainer.fit(model, datamodule=datamodule)
 
     trainer.test(model, datamodule=datamodule)
