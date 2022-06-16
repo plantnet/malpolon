@@ -1,5 +1,4 @@
 import os
-from argparse import Namespace
 
 import hydra
 from omegaconf import DictConfig
@@ -102,14 +101,14 @@ class ClassificationSystem(StandardFinetuningClassificationSystem):
         }
 
 
-@hydra.main(version_base="1.1", config_path=".", config_name="cnn_on_rgb_patches_config")
+@hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_patches_config")
 def main(cfg: DictConfig) -> None:
     logger = pl.loggers.CSVLogger(".", name=False, version="")
     logger.log_hyperparams(cfg)
 
-    datamodule = GeoLifeCLEF2022DataModule.from_argparse_args(Namespace(**cfg.data))
+    datamodule = GeoLifeCLEF2022DataModule(**cfg.data)
 
-    model = ClassificationSystem.from_argparse_args(Namespace(**cfg.model))
+    model = ClassificationSystem(**cfg.model)
 
     callbacks = [
         ModelSummary(max_depth=3),

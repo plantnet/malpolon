@@ -39,7 +39,8 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             split="train",
             transform=self.train_transform,
         )
-        print("Number of classes: {}".format(dataset.n_classes))
+        if hasattr(dataset, "n_classes"):
+            print("Number of classes: {}".format(dataset.n_classes))
         print("Train set size: {}".format(len(dataset)))
         return dataset
 
