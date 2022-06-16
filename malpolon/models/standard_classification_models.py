@@ -1,12 +1,9 @@
 from typing import Optional
-from argparse import ArgumentParser, Namespace
-from typing import Any, Union
 
 import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 import torchmetrics.functional as Fmetrics
-from pytorch_lightning.utilities.argparse import add_argparse_args, from_argparse_args
 from torchvision import models
 
 
@@ -155,22 +152,6 @@ class StandardClassificationSystem(pl.LightningModule):
     def configure_optimizers(self):
         print(self.optimizer)
         return self.optimizer
-
-    @classmethod
-    def from_argparse_args(
-        cls: Any,
-        args: Union[Namespace, ArgumentParser],
-        **kwargs,
-    ) -> Any:
-        return from_argparse_args(cls, args, **kwargs)
-
-    @classmethod
-    def add_argparse_args(
-        cls,
-        parent_parser: ArgumentParser,
-        **kwargs,
-    ) -> ArgumentParser:
-        return add_argparse_args(cls, parent_parser, **kwargs)
 
 
 class StandardFinetuningClassificationSystem(StandardClassificationSystem):
