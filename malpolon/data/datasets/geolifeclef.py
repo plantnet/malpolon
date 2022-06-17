@@ -160,7 +160,7 @@ class GeoLifeCLEF2022Dataset(Dataset):
         self.patch_data = patch_data
         self.transform = transform
         self.target_transform = target_transform
-        self.training_data = (subset != "test")
+        self.training = (subset != "test")
         self.n_classes = 17037
 
         df = self._load_observation_data(root, region, subset)
@@ -168,14 +168,10 @@ class GeoLifeCLEF2022Dataset(Dataset):
         self.observation_ids = df.index
         self.coordinates = df[["latitude", "longitude"]].values
 
-        if self.training_data:
+        if self.training:
             self.targets = df["species_id"].values
         else:
             self.targets = None
-
-        # FIXME: add back landcover one hot encoding?
-        # self.one_hot_size = 34
-        # self.one_hot = np.eye(self.one_hot_size)
 
         if use_rasters:
             if patch_extractor is None:
@@ -243,13 +239,6 @@ class GeoLifeCLEF2022Dataset(Dataset):
             observation_id, self.root, data=self.patch_data
         )
 
-        # FIXME: add back landcover one hot encoding?
-        # lc = patches[3]
-        # lc_one_hot = np.zeros((self.one_hot_size,lc.shape[0], lc.shape[1]))
-        # row_index = np.arange(lc.shape[0]).reshape(lc.shape[0], 1)
-        # col_index = np.tile(np.arange(lc.shape[1]), (lc.shape[0], 1))
-        # lc_one_hot[lc, row_index, col_index] = 1
-
         # Extracting patch from rasters
         if self.patch_extractor is not None:
             environmental_patches = self.patch_extractor[(latitude, longitude)]
@@ -262,7 +251,7 @@ class GeoLifeCLEF2022Dataset(Dataset):
         if self.transform:
             patches = self.transform(patches)
 
-        if self.training_data:
+        if self.training:
             target = self.targets[index]
 
             if self.target_transform:
