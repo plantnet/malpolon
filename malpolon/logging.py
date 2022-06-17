@@ -1,3 +1,5 @@
+import logging
+
 from pytorch_lightning.callbacks import Callback
 
 
@@ -37,7 +39,12 @@ class Summary(Callback):
     """
     FIXME handle multi validation data loaders, combined datasets
     """
+    def __init__(self):
+        self.logger = logging.getLogger("malpolon")
+
     def _log_data_loading_summary(self, data_loader, split):
+        logger = self.logger
+
         if split == "Train":
             dataset = data_loader.dataset.datasets
         else:
@@ -47,36 +54,38 @@ class Summary(Callback):
         if isinstance(dataset, Subset):
             dataset = dataset.dataset
 
-        print("{} dataset: {}".format(split, dataset))
-        print("{} set size: {}".format(split, len(dataset)))
+        logger.info("{} dataset: {}".format(split, dataset))
+        logger.info("{} set size: {}".format(split, len(dataset)))
 
         if split == "Train" and hasattr(dataset, "n_classes"):
-            print("Number of classes: {}".format(dataset.n_classes))
+            logger.info("Number of classes: {}".format(dataset.n_classes))
 
         if hasattr(dataset, "transform"):
-            print("{} data transformations: {}".format(split, dataset.transform))
+            logger.info("{} data transformations: {}".format(split, dataset.transform))
 
         if hasattr(dataset, "target_transform"):
-            print("{} data target transformations: {}".format(split, dataset.target_transform))
+            logger.info("{} data target transformations: {}".format(split, dataset.target_transform))
 
-        print("{} data sampler: {}".format(split, str_object(data_loader.sampler)))
+        logger.info("{} data sampler: {}".format(split, str_object(data_loader.sampler)))
 
         if hasattr(data_loader, "loaders"):
             batch_sampler = data_loader.loaders.batch_sampler
         else:
             batch_sampler = data_loader.batch_sampler
-        print("{} data batch sampler: {}".format(split, str_object(batch_sampler)))
+        logger.info("{} data batch sampler: {}".format(split, str_object(batch_sampler)))
 
     def on_train_start(self, trainer, model):
-        print("\n# Model specification")
-        print(model.model)
-        print(model.loss)
-        print(model.optimizer)
-        print("Metrics: {}".format(model.metrics))
+        logger = self.logger
 
-        print("\n# Data loading information")
-        print("\n## Training data")
+        logger.info("\n# Model specification")
+        logger.info(model.model)
+        logger.info(model.loss)
+        logger.info(model.optimizer)
+        logger.info("Metrics: {}".format(model.metrics))
+
+        logger.info("\n# Data loading information")
+        logger.info("\n## Training data")
         self._log_data_loading_summary(trainer.train_dataloader, "Train")
 
-        print("\n## Validation data")
+        logger.info("\n## Validation data")
         self._log_data_loading_summary(trainer.val_dataloaders[0], "Validation")
