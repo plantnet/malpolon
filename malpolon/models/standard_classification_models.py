@@ -113,15 +113,20 @@ class StandardClassificationSystem(pl.LightningModule):
         return self.model(x)
 
     def _step(self, split, batch, batch_idx):
+        if split == "train":
+            log_kwargs = {"on_step": False, "on_epoch": True}
+        else:
+            log_kwargs = {}
+
         x, y = batch
         y_hat = self(x)
 
         loss = self.loss(y_hat, y)
-        self.log(f"{split}_loss", loss)
+        self.log(f"{split}_loss", loss, **log_kwargs)
 
         for metric_name, metric_func in self.metrics.items():
             score = metric_func(y_hat, y)
-            self.log(f"{split}_{metric_name}", score)
+            self.log(f"{split}_{metric_name}", score, **log_kwargs)
 
         return loss
 
