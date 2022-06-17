@@ -6,12 +6,13 @@ from omegaconf import DictConfig
 import numpy as np
 import pytorch_lightning as pl
 import torch
-from pytorch_lightning.callbacks import ModelCheckpoint, ModelSummary
+from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
 from malpolon.data.environmental_raster import PatchExtractor
 from malpolon.data.datasets.geolifeclef import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
+from malpolon.logging import Summary
 
 from cnn_on_rgb_patches import ClassificationSystem
 
@@ -110,11 +111,11 @@ def main(cfg: DictConfig) -> None:
     model = ClassificationSystem(**cfg.model)
 
     callbacks = [
-        ModelSummary(max_depth=3),
+        Summary(),
         ModelCheckpoint(
             dirpath=os.getcwd(),
-            filename="checkpoint-{epoch:02d}-{step}-{val_top_k_accuracy:.4f}",
-            monitor="val_top_k_accuracy",
+            filename="checkpoint-{epoch:02d}-{step}-{val_top_30_accuracy:.4f}",
+            monitor="val_top_30_accuracy",
             mode="max",
         ),
     ]

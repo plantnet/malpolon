@@ -39,9 +39,6 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             split="train",
             transform=self.train_transform,
         )
-        if hasattr(dataset, "n_classes"):
-            print("Number of classes: {}".format(dataset.n_classes))
-        print("Train set size: {}".format(len(dataset)))
         return dataset
 
     def get_test_dataset(self, test):
@@ -50,7 +47,6 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             split=split,
             transform=self.test_transform,
         )
-        print("Test set size: {}".format(len(dataset)))
         return dataset
 
     # called for every GPU/machine
