@@ -71,6 +71,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             batch_size=self.train_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            shuffle=True,
         )
         return dataloader
 
