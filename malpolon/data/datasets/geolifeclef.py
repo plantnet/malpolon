@@ -40,6 +40,8 @@ def load_patch(
         Specifies what data to load, possible values: 'all', 'rgb', 'near_ir', 'landcover' or 'altitude'.
     landcover_mapping : 1d array-like
         Facultative mapping of landcover codes, useful to align France and US codes.
+    return_localisation : boolean
+        If True, returns also the localisation as a tuple (latitude, longitude)
     return_arrays : boolean
         If True, returns all the patches as Numpy arrays (no PIL.Image returned).
 
@@ -118,6 +120,8 @@ class GeoLifeCLEF2022Dataset(Dataset):
         If True, extracts patches from environmental rasters.
     patch_extractor : PatchExtractor object (optional)
         Patch extractor to use if rasters are used.
+    use_localisation : boolean
+        If True, returns also the localisation as a tuple (latitude, longitude).
     transform : callable (optional)
         A function/transform that takes a list of arrays and returns a transformed version.
     target_transform : callable (optional)
@@ -133,6 +137,7 @@ class GeoLifeCLEF2022Dataset(Dataset):
         patch_data: str = "all",
         use_rasters: bool = True,
         patch_extractor: Optional[PatchExtractor] = None,
+        use_localisation: bool = False,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
     ):
@@ -158,6 +163,7 @@ class GeoLifeCLEF2022Dataset(Dataset):
         self.subset = subset
         self.region = region
         self.patch_data = patch_data
+        self.use_localisation = use_localisation
         self.transform = transform
         self.target_transform = target_transform
         self.training = (subset != "test")
@@ -244,7 +250,9 @@ class GeoLifeCLEF2022Dataset(Dataset):
             environmental_patches = self.patch_extractor[(latitude, longitude)]
             patches = patches + [environmental_patches]
 
-        # Concatenate all patches into a single tensor
+        if self.use_localisation:
+            patches.append([latitude, longitude])
+
         if len(patches) == 1:
             patches = patches[0]
 
