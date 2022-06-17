@@ -2,7 +2,6 @@ from typing import Optional
 
 import pytorch_lightning as pl
 import torch
-import torch.nn.functional as F
 import torchmetrics.functional as Fmetrics
 from torchvision import models
 
@@ -83,13 +82,12 @@ class StandardClassificationSystem(pl.LightningModule):
 
     Parameters
     ----------
-        model_name: name of model to use
-        num_classes: number of classes
-        pretrained: load weights pretrained on ImageNet
-        lr: learning rate
-        momentum: value of momentum
-        nesterov: if True, uses Nesterov's momentum
-        weight_decay: weight decay value (0 to disable)
+    model: torch.nn.Module
+        Model to use.
+    optimizer: torch.optim.Optimizer
+        Optimization algorithm used to train the model.
+    binary_classification: bool
+        If true, uses binary cross entropy loss, otherwise sticks with multiclass cross entropy loss.
     """
 
     def __init__(
@@ -105,56 +103,55 @@ class StandardClassificationSystem(pl.LightningModule):
         self.binary_classification = binary_classification
 
         if self.binary_classification:
-            self.loss = F.binary_cross_entropy_with_logits
+            self.loss = torch.nn.BCEWithLogitsLoss()
         else:
-            self.loss = F.cross_entropy
+            self.loss = torch.nn.CrossEntropyLoss()
 
         self.metrics = {}
 
     def forward(self, x):
         return self.model(x)
 
-    def training_step(self, batch, batch_idx):
+    def _step(self, split, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = self.loss(y_hat, y)
 
-        self.log("train_loss", loss, on_step=False, on_epoch=True)
+        loss = self.loss(y_hat, y)
+        self.log(f"{split}_loss", loss)
+
+        for metric_name, metric_func in self.metrics.items():
+            score = metric_func(y_hat, y)
+            self.log(f"{split}_{metric_name}", score)
 
         return loss
 
+    def training_step(self, batch, batch_idx):
+        return self._step("train", batch, batch_idx)
+
     def validation_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-
-        val_loss = self.loss(y_hat, y)
-        self.log("val_loss", val_loss)
-
-        for metric_name, metric_func in self.metrics.items():
-            val_score = metric_func(y_hat, y)
-            self.log("val_{}".format(metric_name), val_score)
-
-        return val_loss
+        return self._step("val", batch, batch_idx)
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
-        y_hat = self(x)
-
-        test_loss = self.loss(y_hat, y)
-        self.log("test_loss", test_loss)
-
-        for metric_name, metric_func in self.metrics.items():
-            test_score = metric_func(y_hat, y)
-            self.log("test_{}".format(metric_name), test_score)
-
-        return test_loss
+        return self._step("test", batch, batch_idx)
 
     def configure_optimizers(self):
-        print(self.optimizer)
         return self.optimizer
 
 
 class StandardFinetuningClassificationSystem(StandardClassificationSystem):
+    r"""
+    Basic finetuning classification system.
+
+    Parameters
+    ----------
+        model_name: name of model to use
+        num_classes: number of classes
+        pretrained: load weights pretrained on ImageNet
+        lr: learning rate
+        weight_decay: weight decay value
+        momentum: value of momentum
+        nesterov: if True, uses Nesterov's momentum
+    """
     def __init__(
         self,
         model_name: str,
