@@ -8,7 +8,7 @@ from torchvision import models
 
 def change_last_layer(
     model: torch.nn.Module,
-    n_classes: int,
+    num_classes: int,
 ) -> torch.nn.Module:
     """
     Removes the last layer of a classification model and replaces it by a new dense layer with the provided number of classes.
@@ -17,7 +17,7 @@ def change_last_layer(
     ----------
     model: torch.nn.Module
         Model to adapt.
-    n_classes: integer
+    num_classes: integer
         Number of classes, used to update the last classification layer.
 
     Returns
@@ -25,35 +25,38 @@ def change_last_layer(
     model: torch.nn.Module
         Newly created last dense classification layer.
     """
-    if n_classes == 2:
-        n_classes = 1
+    if num_classes == 2:
+        num_classes = 1
 
     if hasattr(model, "fc") and isinstance(model.fc, torch.nn.Linear):
-        num_ftrs = model.fc.in_features
-        model.fc = torch.nn.Linear(num_ftrs, n_classes)
-        return model.fc
+        submodule = model
+        layer_name = "fc"
     elif hasattr(model, "classifier") and isinstance(model.classifier, torch.nn.Linear):
-        num_ftrs = model.classifier
-        model.classifier = torch.nn.Linear(num_ftrs, n_classes)
-        return model.classifier
+        submodule = model
+        layer_name = "classifier"
     elif (
         hasattr(model, "classifier")
         and isinstance(model.classifier, torch.nn.Sequential)
         and isinstance(model.classifier[-1], torch.nn.Linear)
     ):
-        num_ftrs = model.classifier[-1]
-        model.classifier[-1] = torch.nn.Linear(num_ftrs, n_classes)
-        return model.classifier[-1]
+        submodule = model.classifier
+        layer_name = str(len(model.classifier)-1)
     else:
         raise ValueError(
             "not supported architecture {}".format(model.__class__.__name__)
         )
 
+    num_features = getattr(submodule, layer_name).in_features
+    new_layer = torch.nn.Linear(num_features, num_classes)
+    setattr(submodule, layer_name, new_layer)
+
+    return model
+
 
 def load_standard_classification_model(
     model_name: str,
-    n_classes: int,
     pretrained: bool = False,
+    num_classes: Optional[int] = None,
 ) -> torch.nn.Module:
     """
     Loads a standard classification neural network architecture from `torchvision`, removes the last layer and replaces it by a new dense layer with the provided number of classes.
@@ -62,7 +65,7 @@ def load_standard_classification_model(
     ----------
     model_name: string
         Name of the model, should match one of the models in `torchvision.models`.
-    n_classes: integer
+    num_classes: integer
         Number of classes, used to update the last classification layer.
     pretrained: boolean
         If True, load weights from pretrained model learned on ImageNet dataset.
@@ -74,7 +77,9 @@ def load_standard_classification_model(
     """
     model = getattr(models, model_name)
     model = model(pretrained=pretrained)
-    change_last_layer(model, n_classes=n_classes)
+
+    if num_classes is not None:
+        change_last_layer(model, num_classes=num_classes)
 
     return model
 
@@ -150,8 +155,8 @@ class StandardFinetuningClassificationSystem(StandardClassificationSystem):
     Parameters
     ----------
         model_name: name of model to use
-        num_classes: number of classes
         pretrained: load weights pretrained on ImageNet
+        num_classes: number of classes
         lr: learning rate
         weight_decay: weight decay value
         momentum: value of momentum
@@ -161,8 +166,8 @@ class StandardFinetuningClassificationSystem(StandardClassificationSystem):
     def __init__(
         self,
         model_name: str,
-        num_classes: int,
         pretrained: bool = True,
+        num_classes: Optional[int] = None,
         lr: float = 1e-2,
         weight_decay: Optional[float] = None,
         momentum: float = 0.9,
@@ -170,8 +175,8 @@ class StandardFinetuningClassificationSystem(StandardClassificationSystem):
         metrics: Optional[dict[str, Callable]] = None,
     ):
         self.model_name = model_name
-        self.num_classes = num_classes
         self.pretrained = pretrained
+        self.num_classes = num_classes
         self.lr = lr
         self.weight_decay = weight_decay
         self.momentum = momentum
@@ -179,8 +184,8 @@ class StandardFinetuningClassificationSystem(StandardClassificationSystem):
 
         model = load_standard_classification_model(
             self.model_name,
-            self.num_classes,
             self.pretrained,
+            self.num_classes,
         )
         optimizer = torch.optim.SGD(
             model.parameters(),
