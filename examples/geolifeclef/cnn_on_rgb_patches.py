@@ -87,8 +87,8 @@ class ClassificationSystem(StandardFinetuningClassificationSystem):
     def __init__(
         self,
         model_name: str = "resnet18",
-        num_classes: int = 100,
         pretrained: bool = True,
+        num_classes: int = 100,
         lr: float = 1e-2,
         weight_decay: float = 0,
         momentum: float = 0.9,
@@ -101,8 +101,8 @@ class ClassificationSystem(StandardFinetuningClassificationSystem):
 
         super().__init__(
             model_name,
-            num_classes,
             pretrained,
+            num_classes,
             lr,
             weight_decay,
             momentum,
