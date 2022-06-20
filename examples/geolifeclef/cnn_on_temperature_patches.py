@@ -56,7 +56,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
         return transforms.Compose(
             [
                 ReplaceChannelsByBIOTEMPTransform(),
-                transforms.RandomRotation(degrees=45, fill=255),
+                transforms.RandomRotation(degrees=45, fill=1),
                 transforms.RandomCrop(size=224),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomVerticalFlip(),
