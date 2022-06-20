@@ -41,12 +41,11 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
     def train_transform(self):
         return transforms.Compose(
             [
-                transforms.ToPILImage(),
-                transforms.RandomRotation(degrees=45, fill=255),
+                transforms.ToTensor(),
+                transforms.RandomRotation(degrees=45, fill=1),
                 transforms.RandomCrop(size=224),
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomVerticalFlip(),
-                transforms.ToTensor(),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
                 ),
@@ -57,9 +56,8 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
     def test_transform(self):
         return transforms.Compose(
             [
-                transforms.ToPILImage(),
-                transforms.CenterCrop(size=224),
                 transforms.ToTensor(),
+                transforms.CenterCrop(size=224),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
                 ),
