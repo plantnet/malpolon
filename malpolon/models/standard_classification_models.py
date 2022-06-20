@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Callable, Optional
 
 import pytorch_lightning as pl
 import torch
@@ -25,6 +25,9 @@ def change_last_layer(
     model: torch.nn.Module
         Newly created last dense classification layer.
     """
+    if n_classes == 2:
+        n_classes = 1
+
     if hasattr(model, "fc") and isinstance(model.fc, torch.nn.Linear):
         num_ftrs = model.fc.in_features
         model.fc = torch.nn.Linear(num_ftrs, n_classes)
@@ -84,30 +87,27 @@ class StandardClassificationSystem(pl.LightningModule):
     ----------
     model: torch.nn.Module
         Model to use.
+    loss: torch.nn.modules.loss._Loss
+        Loss used to fit the model.
     optimizer: torch.optim.Optimizer
         Optimization algorithm used to train the model.
-    binary_classification: bool
-        If true, uses binary cross entropy loss, otherwise sticks with multiclass cross entropy loss.
+    metrics: dict
+        Dictionary containing the metrics to monitor during the training and to compute at test time.
     """
 
     def __init__(
         self,
         model: torch.nn.Module,
+        loss: torch.nn.modules.loss._Loss,
         optimizer: torch.optim.Optimizer,
-        binary_classification: bool = False,
+        metrics: Optional[dict[str, Callable]] = None,
     ):
         super().__init__()
 
         self.model = model
         self.optimizer = optimizer
-        self.binary_classification = binary_classification
-
-        if self.binary_classification:
-            self.loss = torch.nn.BCEWithLogitsLoss()
-        else:
-            self.loss = torch.nn.CrossEntropyLoss()
-
-        self.metrics = {}
+        self.loss = loss
+        self.metrics = metrics or {}
 
     def forward(self, x):
         return self.model(x)
@@ -156,6 +156,7 @@ class StandardFinetuningClassificationSystem(StandardClassificationSystem):
         weight_decay: weight decay value
         momentum: value of momentum
         nesterov: if True, uses Nesterov's momentum
+        metrics: dictionnary containing the metrics to compute
     """
     def __init__(
         self,
@@ -166,6 +167,7 @@ class StandardFinetuningClassificationSystem(StandardClassificationSystem):
         weight_decay: Optional[float] = None,
         momentum: float = 0.9,
         nesterov: bool = True,
+        metrics: Optional[dict[str, Callable]] = None,
     ):
         self.model_name = model_name
         self.num_classes = num_classes
@@ -187,9 +189,14 @@ class StandardFinetuningClassificationSystem(StandardClassificationSystem):
             momentum=self.momentum,
             nesterov=self.nesterov,
         )
+        if num_classes <= 2:
+            loss = torch.nn.BCEWithLogitsLoss()
+        else:
+            loss = torch.nn.CrossEntropyLoss()
 
-        super().__init__(model, optimizer)
+        if metrics is None:
+            metrics = {
+                "accuracy": Fmetrics.accuracy,
+            }
 
-        self.metrics = {
-            "accuracy": Fmetrics.accuracy,
-        }
+        super().__init__(model, loss, optimizer, metrics)

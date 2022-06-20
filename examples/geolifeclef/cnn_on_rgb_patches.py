@@ -94,12 +94,21 @@ class ClassificationSystem(StandardFinetuningClassificationSystem):
         momentum: float = 0.9,
         nesterov: bool = True,
     ):
-        super().__init__(model_name, num_classes, pretrained, lr, weight_decay, momentum, nesterov)
-
-        self.metrics = {
+        metrics = {
             "accuracy": Fmetrics.accuracy,
             "top_30_accuracy": lambda y_hat, y: Fmetrics.accuracy(y_hat, y, top_k=30),
         }
+
+        super().__init__(
+            model_name,
+            num_classes,
+            pretrained,
+            lr,
+            weight_decay,
+            momentum,
+            nesterov,
+            metrics,
+        )
 
 
 @hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_patches_config")
