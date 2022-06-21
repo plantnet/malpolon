@@ -12,6 +12,8 @@ from malpolon.data.datasets.geolifeclef import GeoLifeCLEF2022Dataset, MiniGeoLi
 from malpolon.models.standard_classification_models import StandardFinetuningClassificationSystem
 from malpolon.logging import Summary
 
+from transforms import RGBDataTransform
+
 
 class GeoLifeCLEF2022DataModule(BaseDataModule):
     r"""
@@ -41,7 +43,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
     def train_transform(self):
         return transforms.Compose(
             [
-                transforms.ToTensor(),
+                RGBDataTransform(),
                 transforms.RandomRotation(degrees=45, fill=1),
                 transforms.RandomCrop(size=224),
                 transforms.RandomHorizontalFlip(),
@@ -56,7 +58,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
     def test_transform(self):
         return transforms.Compose(
             [
-                transforms.ToTensor(),
+                RGBDataTransform(),
                 transforms.CenterCrop(size=224),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
