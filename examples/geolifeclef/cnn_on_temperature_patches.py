@@ -3,9 +3,7 @@ from pathlib import Path
 
 import hydra
 from omegaconf import DictConfig
-import numpy as np
 import pytorch_lightning as pl
-import torch
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
 
@@ -15,16 +13,7 @@ from malpolon.data.datasets.geolifeclef import GeoLifeCLEF2022Dataset, MiniGeoLi
 from malpolon.logging import Summary
 
 from cnn_on_rgb_patches import ClassificationSystem
-
-
-class ReplaceChannelsByBIOTEMPTransform:
-    def __call__(self, data):
-        mu = np.asarray([-12.0, 1.0, 1.0], dtype=np.float32)[:, None, None]
-        sigma = np.asarray([40.0, 22.0, 51.0], dtype=np.float32)[:, None, None]
-        data = (data - mu) / sigma
-        data = torch.as_tensor(data, dtype=torch.float32)
-        data = transforms.functional.resize(data, 256)
-        return data
+from transforms import TemperatureDataTransform
 
 
 class GeoLifeCLEF2022DataModule(BaseDataModule):
@@ -55,7 +44,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
     def train_transform(self):
         return transforms.Compose(
             [
-                ReplaceChannelsByBIOTEMPTransform(),
+                TemperatureDataTransform(),
                 transforms.RandomRotation(degrees=45, fill=1),
                 transforms.RandomCrop(size=224),
                 transforms.RandomHorizontalFlip(),
@@ -70,7 +59,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
     def test_transform(self):
         return transforms.Compose(
             [
-                ReplaceChannelsByBIOTEMPTransform(),
+                TemperatureDataTransform(),
                 transforms.CenterCrop(size=224),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
