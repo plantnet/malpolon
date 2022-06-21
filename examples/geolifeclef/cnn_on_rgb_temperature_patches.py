@@ -153,8 +153,10 @@ class MultiModalModel(nn.Module):
         backbone_model_pretrained: bool,
         num_classes: int,
         final_classifier: Optional[nn.Module] = None,
+        multigpu: bool = False,
     ):
         super().__init__()
+        self.multigpu = multigpu
 
         backbone_models = []
         for _ in range(num_modalities):
@@ -164,21 +166,44 @@ class MultiModalModel(nn.Module):
             )
             num_features = change_last_classification_layer_to_identity(model)
             backbone_models.append(model)
-        self.backbone_models = nn.ModuleList(backbone_models)
+        self.backbone_models = backbone_models
 
         if final_classifier is None:
             self.final_classifier = nn.Linear(num_modalities * num_features, num_classes)
         else:
             self.final_classifier = final_classifier
 
+        if self.multigpu:
+            self.num_gpus = torch.cuda.device_count()
+            self.device_allocation = torch.arange(num_modalities) % self.num_gpus
+
+            for i in range(num_modalities):
+                device = self.device_allocation[i]
+                self.backbone_models[i] = self.backbone_models[i].to(f"cuda:{device}")
+
+            self.final_classifier = self.final_classifier.to("cuda:0")
+        else:
+            # Can not use nn.ModuleList with multigpu=True and modules on different devices for some reason
+            self.backbone_models = nn.ModuleList(backbone_models)
+
         self.input_channels = 3 * torch.arange(num_modalities+1)
 
     def forward(self, x):
         features = []
+
         for i, model in enumerate(self.backbone_models):
             x_i = x[:, self.input_channels[i]:self.input_channels[i+1]]
-            out = model(x_i)
+
+            if self.multigpu:
+                device = self.device_allocation[i]
+                x_i = x_i.to(f"cuda:{device}")
+                out = model(x_i)
+                out = out.to(f"cuda:0")
+            else:
+                out = model(x_i)
+
             features.append(out)
+
         features = torch.concat(features, dim=-1)
         return self.final_classifier(features)
 
@@ -193,6 +218,7 @@ class ClassificationSystem(StandardClassificationSystem):
         weight_decay: float = 0,
         momentum: float = 0.9,
         nesterov: bool = True,
+        multigpu: bool = False,
     ):
         self.model_name = model_name
         self.num_classes = num_classes
@@ -207,6 +233,7 @@ class ClassificationSystem(StandardClassificationSystem):
             self.model_name,
             self.pretrained,
             self.num_classes,
+            multigpu=multigpu,
         )
         loss = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(
