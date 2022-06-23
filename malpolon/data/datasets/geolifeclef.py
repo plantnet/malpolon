@@ -27,7 +27,7 @@ def load_patch(
     data: Union[str, list[str]] = "all",
     landcover_mapping: Optional[npt.NDArray] = None,
     return_arrays: bool = True,
-) -> list[Patches]:
+) -> dict[str, Patches]:
     """Loads the patch data associated to an observation id.
 
     Parameters
@@ -47,8 +47,8 @@ def load_patch(
 
     Returns
     -------
-    patches : list of size 4 containing 2d array-like objects
-        Returns a list containing all the patches in the following order: RGB, Near-IR, altitude and landcover.
+    patches : dict containing 2d array-like objects
+        Returns a dict containing the requested patches.
     """
     observation_id = str(observation_id)
 
@@ -69,7 +69,7 @@ def load_patch(
 
     filename = Path(patches_path) / region / subfolder1 / subfolder2 / observation_id
 
-    patches = []
+    patches = {}
 
     if data == "all":
         data = ["rgb", "near_ir", "landcover", "altitude"]
@@ -79,26 +79,26 @@ def load_patch(
         rgb_patch = Image.open(rgb_filename)
         if return_arrays:
             rgb_patch = np.asarray(rgb_patch)
-        patches.append(rgb_patch)
+        patches["rgb"] = rgb_patch
 
     if "near_ir" in data:
         near_ir_filename = filename.with_name(filename.stem + "_near_ir.jpg")
         near_ir_patch = Image.open(near_ir_filename)
         if return_arrays:
             near_ir_patch = np.asarray(near_ir_patch)
-        patches.append(near_ir_patch)
+        patches["near_ir"] = near_ir_patch
 
     if "altitude" in data:
         altitude_filename = filename.with_name(filename.stem + "_altitude.tif")
         altitude_patch = tifffile.imread(altitude_filename)
-        patches.append(altitude_patch)
+        patches["altitude"] = altitude_patch
 
     if "landcover" in data:
         landcover_filename = filename.with_name(filename.stem + "_landcover.tif")
         landcover_patch = tifffile.imread(landcover_filename)
         if landcover_mapping is not None:
             landcover_patch = landcover_mapping[landcover_patch]
-        patches.append(landcover_patch)
+        patches["landcover"] = landcover_patch
 
     return patches
 
@@ -235,7 +235,7 @@ class GeoLifeCLEF2022Dataset(Dataset):
         self,
         index: int,
     ) -> Union[
-        Union[Patches, list[Patches]], tuple[Union[Patches, list[Patches]], Targets]
+        dict[str, Patches], tuple[dict[str, Patches], Targets]
     ]:
         latitude = self.coordinates[index][0]
         longitude = self.coordinates[index][1]
@@ -248,13 +248,10 @@ class GeoLifeCLEF2022Dataset(Dataset):
         # Extracting patch from rasters
         if self.patch_extractor is not None:
             environmental_patches = self.patch_extractor[(latitude, longitude)]
-            patches = patches + [environmental_patches]
+            patches["environmental_patches"] = environmental_patches
 
         if self.use_localisation:
-            patches.append([latitude, longitude])
-
-        if len(patches) == 1:
-            patches = patches[0]
+            patches["localisation"] = np.asarray([latitude, longitude], dtype=np.float32)
 
         if self.transform:
             patches = self.transform(patches)

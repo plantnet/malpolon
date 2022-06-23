@@ -23,8 +23,8 @@ class RasterDataTransform:
         self.resize = resize
 
     def __call__(self, data):
-        data = (data - self.mu) / self.sigma
         data = torch.as_tensor(data, dtype=torch.float32)
+        data = (data - self.mu) / self.sigma
         if self.resize:
             data = transforms.functional.resize(data, self.resize)
         return data
@@ -49,3 +49,26 @@ class PedologicalDataTransform(RasterDataTransform):
         mu = [-1.0, 31.0, -1.0]
         sigma = [526.0, 68.0, 88.0]
         super().__init__(mu, sigma, resize=256)
+
+
+class DataAugmentation(transforms.Compose):
+    def __init__(self, train):
+        if train:
+            super().__init__([
+                transforms.RandomRotation(degrees=45, fill=1),
+                transforms.RandomCrop(size=224),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomVerticalFlip(),
+            ])
+        else:
+            super().__init__([
+                transforms.CenterCrop(size=224),
+            ])
+
+
+class Normalization(transforms.Normalize):
+    def __init__(self, num_modalities):
+        super().__init__(
+            mean=[0.485, 0.456, 0.406] * num_modalities,
+            std=[0.229, 0.224, 0.225] * num_modalities,
+        )
