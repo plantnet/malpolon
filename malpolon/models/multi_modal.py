@@ -1,8 +1,10 @@
 from __future__ import annotations
-from typing import Optional
+from typing import Any, Optional
 
 import torch
 from torch import nn
+from pytorch_lightning.strategies import SingleDeviceStrategy, StrategyRegistry
+from pytorch_lightning.utilities.apply_func import move_data_to_device
 
 from .standard_classification_models import load_standard_classification_model
 
@@ -54,10 +56,9 @@ class MultiModalModel(nn.Module):
         backbone_model_pretrained: bool,
         num_classes: int,
         final_classifier: Optional[nn.Module] = None,
-        multigpu: bool = False,
     ):
         super().__init__()
-        self.multigpu = multigpu
+        self.num_modalities = num_modalities
 
         backbone_models = []
         for _ in range(num_modalities):
@@ -68,24 +69,12 @@ class MultiModalModel(nn.Module):
             num_features = change_last_classification_layer_to_identity(model)
             backbone_models.append(model)
         self.backbone_models = backbone_models
+        self.backbone_models = nn.ModuleList(self.backbone_models)
 
         if final_classifier is None:
             self.final_classifier = nn.Linear(num_modalities * num_features, num_classes)
         else:
             self.final_classifier = final_classifier
-
-        if self.multigpu:
-            self.num_gpus = torch.cuda.device_count()
-            self.device_allocation = torch.arange(num_modalities) % self.num_gpus
-
-            for i in range(num_modalities):
-                device = self.device_allocation[i]
-                self.backbone_models[i] = self.backbone_models[i].to(f"cuda:{device}")
-
-            self.final_classifier = self.final_classifier.to("cuda:0")
-        else:
-            # Can not use nn.ModuleList with multigpu=True and modules on different devices for some reason
-            self.backbone_models = nn.ModuleList(backbone_models)
 
         self.input_channels = 3 * torch.arange(num_modalities + 1)
 
@@ -93,17 +82,49 @@ class MultiModalModel(nn.Module):
         features = []
 
         for i, model in enumerate(self.backbone_models):
-            x_i = x[:, self.input_channels[i]:self.input_channels[i+1]]
-
-            if self.multigpu:
-                device = self.device_allocation[i]
-                x_i = x_i.to(f"cuda:{device}")
-                out = model(x_i)
-                out = out.to(f"cuda:0")
-            else:
-                out = model(x_i)
-
+            out = model(x[i])
+            out = out.to(next(self.final_classifier.parameters()).device)
             features.append(out)
 
         features = torch.concat(features, dim=-1)
         return self.final_classifier(features)
+
+
+class ParallelMultiModalModelStrategy(SingleDeviceStrategy):
+    strategy_name = "parallel_multi_modal_model"
+
+    def __init__(self, accelerator=None, parallel_devices=None, checkpoint_io=None, precision_plugin=None):
+        super().__init__("cuda:0", accelerator, checkpoint_io, precision_plugin)
+
+    def model_to_device(self) -> None:
+        model = self.model.model
+        self.num_modalities = model.num_modalities
+        self.input_channels = model.input_channels
+
+        self.num_gpus = torch.cuda.device_count()
+        self.device_allocation = torch.arange(self.num_modalities) % self.num_gpus
+        self.device_allocation = list(map(lambda i: f"cuda:{i}", self.device_allocation))
+        # self.root_device = "cuda:0"
+
+        for i in range(self.num_modalities):
+            device = self.device_allocation[i]
+            model.backbone_models[i] = model.backbone_models[i].to(device)
+
+        model.final_classifier = model.final_classifier.to(self.root_device)
+
+    def batch_to_device(self, batch: Any, device: Optional[torch.device] = None, dataloader_idx: int = 0) -> Any:
+        x, target = batch
+
+        for i in range(self.num_modalities):
+            device = self.device_allocation[i]
+            x[i] = move_data_to_device(x[i], device)
+
+        target = move_data_to_device(target, self.root_device)
+        return (x, target)
+
+
+StrategyRegistry.register(
+    ParallelMultiModalModelStrategy.strategy_name,
+    ParallelMultiModalModelStrategy,
+    description="Model parallelism strategy for multi-modal models",
+)

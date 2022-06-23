@@ -21,7 +21,9 @@ from transforms import RGBDataTransform, NIRDataTransform, TemperatureDataTransf
 
 class PreprocessRGBNIRTemperaturePedologicalData:
     def __call__(self, data):
-        rgb_data, nir_data, raster_data = data
+        rgb_data = data["rgb"]
+        nir_data = data["near_ir"]
+        raster_data = data["environmental_patches"]
         temp_data, pedo_data = raster_data[:3], raster_data[3:]
 
         rgb_data = RGBDataTransform()(rgb_data)
@@ -66,8 +68,10 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomVerticalFlip(),
                 transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406, 0.485, 0.456, 0.406, 0.485, 0.456, 0.406, 0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225, 0.229, 0.224, 0.225, 0.229, 0.224, 0.225, 0.229, 0.224, 0.225]
+                    mean=[0.485, 0.456, 0.406] * 4,
+                    std=[0.229, 0.224, 0.225] * 4,
                 ),
+                transforms.Lambda(lambda x: (x[:3], x[3:6], x[6:9], x[9:12])),
             ]
         )
 
@@ -78,8 +82,10 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
                 PreprocessRGBNIRTemperaturePedologicalData(),
                 transforms.CenterCrop(size=224),
                 transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406, 0.485, 0.456, 0.406, 0.485, 0.456, 0.406, 0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225, 0.229, 0.224, 0.225, 0.229, 0.224, 0.225, 0.229, 0.224, 0.225]
+                    mean=[0.485, 0.456, 0.406] * 4,
+                    std=[0.229, 0.224, 0.225] * 4,
                 ),
+                transforms.Lambda(lambda x: (x[:3], x[3:6], x[6:9], x[9:12])),
             ]
         )
 
@@ -119,7 +125,6 @@ class ClassificationSystem(StandardClassificationSystem):
         weight_decay: float = 0,
         momentum: float = 0.9,
         nesterov: bool = True,
-        multigpu: bool = False,
     ):
         self.model_name = model_name
         self.num_classes = num_classes
@@ -134,7 +139,6 @@ class ClassificationSystem(StandardClassificationSystem):
             self.model_name,
             self.pretrained,
             self.num_classes,
-            multigpu=multigpu,
         )
         loss = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(

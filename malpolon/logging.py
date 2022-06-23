@@ -89,3 +89,6 @@ class Summary(Callback):
 
         logger.info("\n## Validation data")
         self._log_data_loading_summary(trainer.val_dataloaders[0], "Validation")
+
+        logger.info("\n# Strategy information")
+        logger.info(trainer.strategy)

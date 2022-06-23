@@ -16,12 +16,12 @@ from malpolon.models.multi_modal import MultiModalModel
 from malpolon.models.standard_classification_models import StandardClassificationSystem
 from malpolon.logging import Summary
 
-from cnn_on_temperature_patches import RGBDataTransform, TemperatureDataTransform
+from transforms import RGBDataTransform, TemperatureDataTransform
 
 
 class PreprocessRGBTemperatureData:
     def __call__(self, data):
-        rgb_data, temp_data = data
+        rgb_data, temp_data = data["rgb"], data["environmental_patches"]
 
         rgb_data = RGBDataTransform()(rgb_data)
         temp_data = TemperatureDataTransform()(temp_data)
@@ -63,8 +63,10 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomVerticalFlip(),
                 transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406, 0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225, 0.229, 0.224, 0.225]
+                    mean=[0.485, 0.456, 0.406] * 2,
+                    std=[0.229, 0.224, 0.225] * 2,
                 ),
+                transforms.Lambda(lambda x: (x[:3], x[3:])),
             ]
         )
 
@@ -75,8 +77,10 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
                 PreprocessRGBTemperatureData(),
                 transforms.CenterCrop(size=224),
                 transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406, 0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225, 0.229, 0.224, 0.225]
+                    mean=[0.485, 0.456, 0.406] * 2,
+                    std=[0.229, 0.224, 0.225] * 2,
                 ),
+                transforms.Lambda(lambda x: (x[:3], x[3:])),
             ]
         )
 
@@ -113,7 +117,6 @@ class ClassificationSystem(StandardClassificationSystem):
         weight_decay: float = 0,
         momentum: float = 0.9,
         nesterov: bool = True,
-        multigpu: bool = False,
     ):
         self.model_name = model_name
         self.num_classes = num_classes
@@ -128,7 +131,6 @@ class ClassificationSystem(StandardClassificationSystem):
             self.model_name,
             self.pretrained,
             self.num_classes,
-            multigpu=multigpu,
         )
         loss = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(
