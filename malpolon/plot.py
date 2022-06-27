@@ -29,16 +29,19 @@ def plot_metric(df_metrics: pd.DataFrame, metric: str, ax: plt.Axis):
     ax: plt.Axis used for plotting
     """
     index = df_metrics.index
+    index_name = index.name
 
     train_metric = df_metrics["train_" + metric]
-    x = index[~train_metric.isnull()]
+    x = index[~train_metric.isnull()].drop_duplicates()
     train_metric = train_metric[~train_metric.isnull()]
+    train_metric = train_metric.reset_index().drop_duplicates(index_name, keep="last").set_index(index_name)
     ax.plot(x, train_metric, color="b", label="train")
 
     if "val_" + metric in df_metrics:
         val_metric = df_metrics["val_" + metric]
-        x = index[~val_metric.isnull()]
+        x = index[~val_metric.isnull()].drop_duplicates()
         val_metric = val_metric[~val_metric.isnull()]
+        val_metric = val_metric.reset_index().drop_duplicates(index_name, keep="last").set_index(index_name)
         ax.plot(x, val_metric, color="g", label="validation")
 
     if index.name:
