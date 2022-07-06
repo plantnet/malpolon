@@ -283,6 +283,8 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
         If True, extracts patches from environmental rasters.
     patch_extractor : PatchExtractor object (optional)
         Patch extractor to use if rasters are used.
+    use_localisation : boolean
+        If True, returns also the localisation as a tuple (latitude, longitude).
     transform : callable (optional)
         A function/transform that takes a list of arrays and returns a transformed version.
     target_transform : callable (optional)
@@ -297,6 +299,7 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
         patch_data: str = "all",
         use_rasters: bool = True,
         patch_extractor: Optional[PatchExtractor] = None,
+        use_localisation: bool = False,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
     ):
@@ -307,6 +310,7 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
             patch_data=patch_data,
             use_rasters=use_rasters,
             patch_extractor=patch_extractor,
+            use_localisation=use_localisation,
             transform=transform,
             target_transform=target_transform,
         )
