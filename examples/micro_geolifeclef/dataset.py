@@ -115,7 +115,6 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
         self.use_localisation = use_localisation
         self.transform = transform
         self.target_transform = target_transform
-        self.training = (subset != "test")
         self.n_classes = 10
 
         df = pd.read_csv(
@@ -124,17 +123,15 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
             index_col="observation_id",
         )
 
-        if subset not in ["train+val", "test"]:
+        if subset != "train+val":
             ind = df.index[df["subset"] == subset]
-            df = df.loc[ind]
+        else:
+            ind = df.index[np.isin(df["subset"], ["train", "val"])]
+        df = df.loc[ind]
 
         self.observation_ids = df.index
         self.coordinates = df[["latitude", "longitude"]].values
-
-        if self.training:
-            self.targets = df["species_id"].values
-        else:
-            self.targets = None
+        self.targets = df["species_id"].values
 
         if use_rasters:
             if patch_extractor is None:
@@ -169,12 +166,9 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
         if self.transform:
             patches = self.transform(patches)
 
-        if self.training:
-            target = self.targets[index]
+        target = self.targets[index]
 
-            if self.target_transform:
-                target = self.target_transform(target)
+        if self.target_transform:
+            target = self.target_transform(target)
 
-            return patches, target
-        else:
-            return patches
+        return patches, target
