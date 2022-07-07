@@ -56,7 +56,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             self.dataset_val = self.get_test_dataset(test=False)
 
         if stage == "test":
-            self.dataset_test = self.get_test_dataset(test=False)
+            self.dataset_test = self.get_test_dataset(test=True)
 
         if stage == "predict":
             self.dataset_test = self.get_test_dataset(test=True)
