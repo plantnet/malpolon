@@ -5,7 +5,7 @@ hydra:
 trainer:
   gpus: ???
   max_epochs: 10
-  val_check_interval: 0.2
+  val_check_interval: 0.5
 
 model:
   model_name: "resnet18"
