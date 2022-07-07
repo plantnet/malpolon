@@ -158,7 +158,7 @@ def main(cfg: DictConfig) -> None:
     trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
     trainer.fit(model, datamodule=datamodule)
 
-    trainer.test(model, datamodule=datamodule)
+    trainer.validate(model, datamodule=datamodule)
 
 
 if __name__ == "__main__":
