@@ -9,7 +9,7 @@ from pytorch_lightning.utilities.apply_func import move_data_to_device
 from .model_builder import ModelBuilder
 
 
-def change_last_classification_layer_to_identity(model: torch.nn.Module) -> None:
+def change_last_classification_layer_to_identity(model: torch.nn.Module) -> int:
     """
     Removes the last layer of a classification model and replaces it by an nn.Identity layer.
 
@@ -62,15 +62,14 @@ class MultiModalModel(nn.Module):
 
         backbone_models = []
         for _ in range(num_modalities):
-            model = ModelBuilder(
+            model = ModelBuilder.build_model(
                 "torchvision",
                 backbone_model_name,
                 [backbone_model_pretrained],
             )
             num_features = change_last_classification_layer_to_identity(model)
             backbone_models.append(model)
-        self.backbone_models = backbone_models
-        self.backbone_models = nn.ModuleList(self.backbone_models)
+        self.backbone_models = nn.ModuleList(backbone_models)
 
         if final_classifier is None:
             self.final_classifier = nn.Linear(
@@ -81,7 +80,7 @@ class MultiModalModel(nn.Module):
 
         self.input_channels = 3 * torch.arange(num_modalities + 1)
 
-    def forward(self, x):
+    def forward(self, x: list[Any]) -> Any:
         features = []
 
         for i, model in enumerate(self.backbone_models):
@@ -115,7 +114,6 @@ class ParallelMultiModalModelStrategy(SingleDeviceStrategy):
         self.device_allocation = list(
             map(lambda i: f"cuda:{i}", self.device_allocation)
         )
-        # self.root_device = "cuda:0"
 
         for i in range(self.num_modalities):
             device = self.device_allocation[i]
