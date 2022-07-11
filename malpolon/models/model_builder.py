@@ -7,7 +7,9 @@ class _ModelBuilder:
     providers = {}
     modifiers = {}
 
-    def build_model(self, provider_name, model_name, model_args=[], model_kwargs={}, modifiers=None):
+    def build_model(
+        self, provider_name, model_name, model_args=[], model_kwargs={}, modifiers=None
+    ):
         provider = self.providers[provider_name]
         model = provider(model_name, *model_args, **model_kwargs)
 
@@ -32,6 +34,25 @@ def torchvision_model_provider(model_name, *model_args, **model_kwargs):
     return model
 
 
+def _find_module_of_type(module, module_type, order):
+    if order == "first":
+        modules = module.named_children()
+    elif order == "last":
+        modules = reversed(list(module.named_children()))
+    else:
+        raise ValueError(
+            "order must be either 'first' or 'last', given {}".format(order)
+        )
+
+    for child_name, child in modules:
+        if isinstance(child, module_type):
+            return module, child_name
+        else:
+            res = _find_module_of_type(child, module_type, order)
+            if res is not None:
+                return res
+
+
 def change_first_convolutional_layer_modifier(
     model: torch.nn.Module,
     num_input_channels: int,
@@ -40,7 +61,7 @@ def change_first_convolutional_layer_modifier(
     ] = None,
 ) -> torch.nn.Module:
     """
-    Removes the first convolutional layer of a model and replaces it by a new convolutional layer with the provided number of input channels.
+    Removes the first registered convolutional layer of a model and replaces it by a new convolutional layer with the provided number of input channels.
 
     Parameters
     ----------
@@ -56,17 +77,7 @@ def change_first_convolutional_layer_modifier(
     model: torch.nn.Module
         Newly created last dense classification layer.
     """
-
-    def find_conv_module(module):
-        for child_name, child in module.named_children():
-            if isinstance(child, torch.nn.Conv2d):
-                return module, child_name
-            else:
-                res = find_conv_module(child)
-                if res is not None:
-                    return res
-
-    submodule, layer_name = find_conv_module(model)
+    submodule, layer_name = _find_module_of_type(model, torch.nn.Conv2d, "first")
     old_layer = getattr(submodule, layer_name)
 
     new_layer = torch.nn.Conv2d(
@@ -96,7 +107,7 @@ def change_last_layer_modifier(
     num_outputs: int,
 ) -> torch.nn.Module:
     """
-    Removes the last linear layer of a model and replaces it by a new dense layer with the provided number of outputs.
+    Removes the last registered linear layer of a model and replaces it by a new dense layer with the provided number of outputs.
 
     Parameters
     ----------
@@ -110,25 +121,10 @@ def change_last_layer_modifier(
     model: torch.nn.Module
         Reference to model object given in input.
     """
-    if hasattr(model, "fc") and isinstance(model.fc, torch.nn.Linear):
-        submodule = model
-        layer_name = "fc"
-    elif hasattr(model, "classifier") and isinstance(model.classifier, torch.nn.Linear):
-        submodule = model
-        layer_name = "classifier"
-    elif (
-        hasattr(model, "classifier")
-        and isinstance(model.classifier, torch.nn.Sequential)
-        and isinstance(model.classifier[-1], torch.nn.Linear)
-    ):
-        submodule = model.classifier
-        layer_name = str(len(model.classifier) - 1)
-    else:
-        raise ValueError(
-            "not supported architecture {}".format(model.__class__.__name__)
-        )
+    submodule, layer_name = _find_module_of_type(model, torch.nn.Linear, "last")
+    old_layer = getattr(submodule, layer_name)
 
-    num_features = getattr(submodule, layer_name).in_features
+    num_features = old_layer.in_features
     new_layer = torch.nn.Linear(num_features, num_outputs)
     setattr(submodule, layer_name, new_layer)
 
