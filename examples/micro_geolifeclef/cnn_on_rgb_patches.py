@@ -8,7 +8,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
-from malpolon.models.standard_classification_models import StandardFinetuningClassificationSystem
+from malpolon.models import FinetuningClassificationSystem
 from malpolon.logging import Summary
 
 from dataset import MicroGeoLifeCLEF2022Dataset
@@ -75,12 +75,10 @@ class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
         return dataset
 
 
-class ClassificationSystem(StandardFinetuningClassificationSystem):
+class ClassificationSystem(FinetuningClassificationSystem):
     def __init__(
         self,
-        model_name: str,
-        pretrained: bool,
-        num_classes: int,
+        model,
         lr: float,
         weight_decay: float,
         momentum: float,
@@ -91,11 +89,7 @@ class ClassificationSystem(StandardFinetuningClassificationSystem):
         }
 
         super().__init__(
-            model_name,
-            pretrained,
-            None,
-            None,
-            num_classes,
+            model,
             lr,
             weight_decay,
             momentum,
@@ -111,7 +105,7 @@ def main(cfg: DictConfig) -> None:
 
     datamodule = MicroGeoLifeCLEF2022DataModule(**cfg.data)
 
-    model = ClassificationSystem(**cfg.model)
+    model = ClassificationSystem(cfg.model, **cfg.optimizer)
 
     callbacks = [
         Summary(),

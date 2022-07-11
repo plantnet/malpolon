@@ -9,7 +9,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
-from malpolon.models.standard_classification_models import StandardFinetuningClassificationSystem
+from malpolon.models import FinetuningClassificationSystem
 from malpolon.logging import Summary
 
 from dataset import MicroGeoLifeCLEF2022Dataset
@@ -105,30 +105,21 @@ class NewConvolutionalLayerInitFuncStrategy:
                 new_layer.bias = old_layer.bias
 
 
-class ClassificationSystem(StandardFinetuningClassificationSystem):
+class ClassificationSystem(FinetuningClassificationSystem):
     def __init__(
         self,
-        model_name: str,
-        pretrained: bool,
-        num_input_channels: int,
-        num_classes: int,
+        model,
         lr: float,
         weight_decay: float,
         momentum: float,
         nesterov: bool,
     ):
-        new_conv_layer_init_func = NewConvolutionalLayerInitFuncStrategy("red_pretraining", rescaling=True)
-
         metrics = {
             "accuracy": Fmetrics.accuracy,
         }
 
         super().__init__(
-            model_name,
-            pretrained,
-            num_input_channels,
-            new_conv_layer_init_func,
-            num_classes,
+            model,
             lr,
             weight_decay,
             momentum,
@@ -137,14 +128,16 @@ class ClassificationSystem(StandardFinetuningClassificationSystem):
         )
 
 
-@hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_patches_config")
+@hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_nir_patches_config")
 def main(cfg: DictConfig) -> None:
     logger = pl.loggers.CSVLogger(".", name=False, version="")
     logger.log_hyperparams(cfg)
 
     datamodule = MicroGeoLifeCLEF2022DataModule(**cfg.data)
 
-    model = ClassificationSystem(**cfg.model)
+    cfg_model = hydra.utils.instantiate(cfg.model)
+    print(cfg_model)
+    model = ClassificationSystem(cfg_model, **cfg.optimizer)
 
     callbacks = [
         Summary(),
