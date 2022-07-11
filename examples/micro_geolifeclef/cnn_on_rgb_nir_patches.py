@@ -136,7 +136,6 @@ def main(cfg: DictConfig) -> None:
     datamodule = MicroGeoLifeCLEF2022DataModule(**cfg.data)
 
     cfg_model = hydra.utils.instantiate(cfg.model)
-    print(cfg_model)
     model = ClassificationSystem(cfg_model, **cfg.optimizer)
 
     callbacks = [
