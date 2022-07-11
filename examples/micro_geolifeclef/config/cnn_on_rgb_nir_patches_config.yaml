@@ -13,6 +13,12 @@ model:
   model_kwargs:
     pretrained: true
   modifiers:
+    change_first_convolutional_layer:
+      num_input_channels: 4
+      new_conv_layer_init_func:
+        _target_: cnn_on_rgb_nir_patches.NewConvolutionalLayerInitFuncStrategy
+        strategy: "red_pretraining"
+        rescaling: true
     change_last_layer:
       num_outputs: 10
 

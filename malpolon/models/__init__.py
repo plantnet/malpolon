@@ -1,7 +1,7 @@
-from .standard_classification_models import StandardClassificationSystem, StandardFinetuningClassificationSystem
+from .standard_prediction_systems import *  # noqa: F403
 
 
-__all__ = [
-    "StandardClassificationSystem",
-    "StandardFinetuningClassificationSystem",
+__all__ = [  # noqa: F405
+    "GenericPredictionSystem",
+    "FinetuningClassificationSystem",
 ]
