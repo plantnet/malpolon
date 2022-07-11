@@ -1,7 +1,14 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 from abc import ABC, abstractmethod
 
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
+
+if TYPE_CHECKING:
+    from typing import Any, Callable, Optional
+    from torch.utils.data import Dataset
 
 
 class BaseDataModule(pl.LightningDataModule, ABC):
@@ -22,26 +29,26 @@ class BaseDataModule(pl.LightningDataModule, ABC):
 
     @property
     @abstractmethod
-    def train_transform(self):
+    def train_transform(self) -> Callable:
         pass
 
     @property
     @abstractmethod
-    def test_transform(self):
+    def test_transform(self) -> Callable:
         pass
 
     @abstractmethod
-    def get_dataset(self, train, transform, **kwargs):
+    def get_dataset(self, split: str, transform: Callable, **kwargs: Any) -> Dataset:
         pass
 
-    def get_train_dataset(self, test):
+    def get_train_dataset(self, test: bool) -> Dataset:
         dataset = self.get_dataset(
             split="train",
             transform=self.train_transform,
         )
         return dataset
 
-    def get_test_dataset(self, test):
+    def get_test_dataset(self, test: bool) -> Dataset:
         split = "test" if test else "val"
         dataset = self.get_dataset(
             split=split,
@@ -50,7 +57,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         return dataset
 
     # called for every GPU/machine
-    def setup(self, stage=None):
+    def setup(self, stage: Optional[str] = None) -> None:
         if stage in (None, "fit"):
             self.dataset_train = self.get_train_dataset(test=False)
             self.dataset_val = self.get_test_dataset(test=False)
@@ -59,9 +66,9 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             self.dataset_test = self.get_test_dataset(test=True)
 
         if stage == "predict":
-            self.dataset_test = self.get_test_dataset(test=True)
+            self.dataset_predict = self.get_test_dataset(test=True)
 
-    def train_dataloader(self):
+    def train_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_train,
             batch_size=self.train_batch_size,
@@ -71,7 +78,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         )
         return dataloader
 
-    def val_dataloader(self):
+    def val_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_val,
             batch_size=self.inference_batch_size,
@@ -80,7 +87,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         )
         return dataloader
 
-    def test_dataloader(self):
+    def test_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_test,
             batch_size=self.inference_batch_size,
@@ -89,7 +96,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         )
         return dataloader
 
-    def predict_dataloader(self):
+    def predict_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_predict,
             batch_size=self.inference_batch_size,

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def escape_tex(s: str):
+def escape_tex(s: str) -> str:
     if not plt.rcParams["text.usetex"]:
         return s
 
@@ -15,7 +15,7 @@ def escape_tex(s: str):
     return s
 
 
-def plot_metric(df_metrics: pd.DataFrame, metric: str, ax: plt.Axis):
+def plot_metric(df_metrics: pd.DataFrame, metric: str, ax: plt.Axis) -> plt.Axis:
     """Plot specific metric monitored during model training history
 
     Parameters
@@ -61,7 +61,7 @@ def plot_history(
     *,
     fig: Optional[plt.Figure] = None,
     axes: Optional[list[plt.Axis]] = None,
-):
+) -> tuple[plt.Figure, list[plt.Axis]]:
     """Plot model training history
 
     Parameters
@@ -81,7 +81,7 @@ def plot_history(
     if axes is None:
         ncols = 2
         nrows = int(np.ceil(len(base_metrics) / float(ncols)))
-        figsize = (7, 2.5*nrows)
+        figsize = (7, 2.5 * nrows)
 
         if fig is None:
             fig = plt.figure(figsize=figsize, constrained_layout=True)

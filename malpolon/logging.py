@@ -1,6 +1,13 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
 import logging
 
 from pytorch_lightning.callbacks import Callback
+
+if TYPE_CHECKING:
+    import pytorch_lightning as pl
+
 
 
 def str_object(obj: object) -> str:
@@ -42,7 +49,7 @@ class Summary(Callback):
     def __init__(self):
         self.logger = logging.getLogger("malpolon")
 
-    def _log_data_loading_summary(self, data_loader, split):
+    def _log_data_loading_summary(self, data_loader, split: str) -> None:
         logger = self.logger
 
         if split == "Train":

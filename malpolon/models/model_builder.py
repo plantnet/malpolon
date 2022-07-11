@@ -1,15 +1,27 @@
-from typing import Callable, Optional
+from __future__ import annotations
+from typing import TYPE_CHECKING
 
-import torch
+from torch import nn
+
+if TYPE_CHECKING:
+    from typing import Any, Callable, Optional
+
+    Provider = Callable[..., nn.Module]
+    Modifier = Callable[..., nn.Module]
 
 
 class _ModelBuilder:
-    providers = {}
-    modifiers = {}
+    providers: dict[str, Provider] = {}
+    modifiers: dict[str, Modifier] = {}
 
     def build_model(
-        self, provider_name, model_name, model_args=[], model_kwargs={}, modifiers=None
-    ):
+        self,
+        provider_name: str,
+        model_name: str,
+        model_args: list = [],
+        model_kwargs: dict = {},
+        modifiers: dict[str, dict[str, Any]] = {},
+    ) -> nn.Module:
         provider = self.providers[provider_name]
         model = provider(model_name, *model_args, **model_kwargs)
 
@@ -19,14 +31,14 @@ class _ModelBuilder:
 
         return model
 
-    def register_provider(self, provider_name, provider):
+    def register_provider(self, provider_name: str, provider: Provider) -> None:
         self.providers[provider_name] = provider
 
-    def register_modifier(self, modifier_name, modifier):
+    def register_modifier(self, modifier_name: str, modifier: Modifier) -> None:
         self.modifiers[modifier_name] = modifier
 
 
-def torchvision_model_provider(model_name, *model_args, **model_kwargs):
+def torchvision_model_provider(model_name: str, *model_args: Any, **model_kwargs: Any) -> nn.Module:
     from torchvision import models
 
     model = getattr(models, model_name)
@@ -34,7 +46,7 @@ def torchvision_model_provider(model_name, *model_args, **model_kwargs):
     return model
 
 
-def _find_module_of_type(module, module_type, order):
+def _find_module_of_type(module: nn.Module, module_type: type, order: str) -> tuple[nn.Module, str]:
     if order == "first":
         modules = module.named_children()
     elif order == "last":
@@ -54,12 +66,12 @@ def _find_module_of_type(module, module_type, order):
 
 
 def change_first_convolutional_layer_modifier(
-    model: torch.nn.Module,
+    model: nn.Module,
     num_input_channels: int,
     new_conv_layer_init_func: Optional[
-        Callable[[torch.nn.Conv2d, torch.nn.Conv2d], None]
+        Callable[[nn.Conv2d, nn.Conv2d], None]
     ] = None,
-) -> torch.nn.Module:
+) -> nn.Module:
     """
     Removes the first registered convolutional layer of a model and replaces it by a new convolutional layer with the provided number of input channels.
 
@@ -77,10 +89,10 @@ def change_first_convolutional_layer_modifier(
     model: torch.nn.Module
         Newly created last dense classification layer.
     """
-    submodule, layer_name = _find_module_of_type(model, torch.nn.Conv2d, "first")
+    submodule, layer_name = _find_module_of_type(model, nn.Conv2d, "first")
     old_layer = getattr(submodule, layer_name)
 
-    new_layer = torch.nn.Conv2d(
+    new_layer = nn.Conv2d(
         num_input_channels,
         out_channels=old_layer.out_channels,
         kernel_size=old_layer.kernel_size,
@@ -103,9 +115,9 @@ def change_first_convolutional_layer_modifier(
 
 
 def change_last_layer_modifier(
-    model: torch.nn.Module,
+    model: nn.Module,
     num_outputs: int,
-) -> torch.nn.Module:
+) -> nn.Module:
     """
     Removes the last registered linear layer of a model and replaces it by a new dense layer with the provided number of outputs.
 
@@ -121,11 +133,11 @@ def change_last_layer_modifier(
     model: torch.nn.Module
         Reference to model object given in input.
     """
-    submodule, layer_name = _find_module_of_type(model, torch.nn.Linear, "last")
+    submodule, layer_name = _find_module_of_type(model, nn.Linear, "last")
     old_layer = getattr(submodule, layer_name)
 
     num_features = old_layer.in_features
-    new_layer = torch.nn.Linear(num_features, num_outputs)
+    new_layer = nn.Linear(num_features, num_outputs)
     setattr(submodule, layer_name, new_layer)
 
     return model

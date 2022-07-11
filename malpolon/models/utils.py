@@ -1,11 +1,12 @@
-from typing import Mapping
+from __future__ import annotations
+from typing import Mapping, Union
 
 from torch import nn, optim
 
 from .model_builder import ModelBuilder
 
 
-def check_loss(loss):
+def check_loss(loss: nn.modules.loss._Loss) -> nn.modules.loss._Loss:
     if isinstance(loss, nn.modules.loss._Loss):
         return loss
     else:
@@ -15,7 +16,7 @@ def check_loss(loss):
         )
 
 
-def check_model(model):
+def check_model(model: Union[nn.Module, Mapping]) -> nn.Module:
     if isinstance(model, nn.Module):
         return model
     elif isinstance(model, Mapping):
@@ -27,7 +28,7 @@ def check_model(model):
         )
 
 
-def check_optimizer(optimizer):
+def check_optimizer(optimizer: optim.Optimizer) -> optim.Optimizer:
     if isinstance(optimizer, optim.Optimizer):
         return optimizer
     else:

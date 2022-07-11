@@ -1,11 +1,15 @@
 from __future__ import annotations
-from typing import Callable, Mapping, Optional, Union
+from typing import TYPE_CHECKING
 
 import pytorch_lightning as pl
 import torch
 import torchmetrics.functional as Fmetrics
 
 from .utils import check_loss, check_model, check_optimizer
+
+if TYPE_CHECKING:
+    from typing import Any, Callable, Mapping, Optional, Union
+    from torch import Tensor
 
 
 class GenericPredictionSystem(pl.LightningModule):
@@ -38,10 +42,10 @@ class GenericPredictionSystem(pl.LightningModule):
         self.loss = check_loss(loss)
         self.metrics = metrics or {}
 
-    def forward(self, x):
+    def forward(self, x: Any) -> Any:
         return self.model(x)
 
-    def _step(self, split, batch, batch_idx):
+    def _step(self, split: str, batch: tuple[Any, Any], batch_idx: int) -> Union[Tensor, dict[str, Any]]:
         if split == "train":
             log_kwargs = {"on_step": False, "on_epoch": True}
         else:
@@ -59,16 +63,16 @@ class GenericPredictionSystem(pl.LightningModule):
 
         return loss
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch: tuple[Any, Any], batch_idx: int) -> Union[Tensor, dict[str, Any]]:
         return self._step("train", batch, batch_idx)
 
-    def validation_step(self, batch, batch_idx):
+    def validation_step(self, batch: tuple[Any, Any], batch_idx: int) -> Union[Tensor, dict[str, Any]]:
         return self._step("val", batch, batch_idx)
 
-    def test_step(self, batch, batch_idx):
+    def test_step(self, batch: tuple[Any, Any], batch_idx: int) -> Union[Tensor, dict[str, Any]]:
         return self._step("test", batch, batch_idx)
 
-    def configure_optimizers(self):
+    def configure_optimizers(self) -> torch.optim.Optimizer:
         return self.optimizer
 
 
@@ -91,7 +95,7 @@ class FinetuningClassificationSystem(GenericPredictionSystem):
         self,
         model: Union[torch.nn.Module, Mapping],
         lr: float = 1e-2,
-        weight_decay: Optional[float] = None,
+        weight_decay: float = 0,
         momentum: float = 0.9,
         nesterov: bool = True,
         metrics: Optional[dict[str, Callable]] = None,
