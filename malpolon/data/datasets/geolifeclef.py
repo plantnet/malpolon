@@ -3,17 +3,21 @@ from importlib import resources
 from pathlib import Path
 from typing import Callable, Optional, Union, TYPE_CHECKING
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tifffile
+from matplotlib.patches import Patch
 from PIL import Image
 
 from torch.utils.data import Dataset
 
+from ...plot.map import plot_map
 from ..environmental_raster import PatchExtractor
 from ._base import DATA_MODULE
 
 if TYPE_CHECKING:
+    from collections.abc import Collection
     import numpy.typing as npt
 
     Patches = npt.NDArray
@@ -101,6 +105,135 @@ def load_patch(
         patches["landcover"] = landcover_patch
 
     return patches
+
+
+def visualize_observation_patch(
+    patch: dict[str, Patches],
+    *,
+    observation_data: Optional[pd.Series] = None,
+    landcover_labels: Optional[Collection] = None,
+    return_fig: bool = False,
+) -> Optional[plt.Figure]:
+    """Plots patch data
+
+    Parameters
+    ----------
+    patch : dict containing 2d array-like objects
+        Patch data as returned by `load_patch`.
+    observation_data : pandas Series
+        Row of the dataframe containing the data of the observation.
+    landcover_labels : list
+        Labels corresponding to the landcover codes.
+    return_fig : boolean
+        If True, returns the created plt.Figure object
+
+    Returns
+    -------
+    fig : plt.Figure
+        If return_fig is True, the used plt.Figure object    Returns
+    """
+    if landcover_labels is None:
+        n_labels = np.max(patch["landcover"]) + 1
+        landcover_labels = np.arange(n_labels)
+
+    cmap = plt.cm.get_cmap("viridis", len(landcover_labels))
+
+    legend_elements = []
+    for landcover_label, color in zip(landcover_labels, cmap.colors):
+        legend_elements.append(Patch(color=color, label=landcover_label))
+
+    if observation_data is not None:
+        import cartopy.crs as ccrs
+
+        localisation = observation_data[["latitude", "longitude"]]
+        species_id = getattr(observation_data, "species_id", None)
+        species_name = getattr(observation_data, "GBIF_species_name", None)
+        kingdom_name = getattr(observation_data, "GBIF_kingdom_name", None)
+
+        fig = plt.figure(figsize=(15, 10))
+
+        gs = fig.add_gridspec(1, 2, width_ratios=[1, 2])
+
+        gs1 = gs[0].subgridspec(1, 1)
+        ax = fig.add_subplot(gs1[0], projection=ccrs.PlateCarree())
+        region = "fr" if localisation[1] > -6 else "us"
+        plot_map(region=region, ax=ax)
+        ax.scatter(
+            localisation[1],
+            localisation[0],
+            marker="o",
+            s=100,
+            transform=ccrs.PlateCarree(),
+        )
+        ax.set_title("Observation localisation")
+
+        s = "Observation id: {}".format(observation_data.name)
+        s += "\nLocalisation: {:.3f}, {:.3f}".format(*localisation)
+        if species_id:
+            s += "\nSpecies id: {}".format(species_id)
+        if species_name:
+            s += "\nSpecies name: {}".format(species_name)
+        if kingdom_name:
+            s += "\nKingdom: {}".format(kingdom_name)
+        pos = ax.get_position()
+        fig.text(
+            pos.x1 - pos.x0, pos.y0 - 0.2 * (pos.y1 - pos.y0), s, ha="center", va="top"
+        )
+
+        gs2 = gs[1].subgridspec(2, 2)
+        axes = np.asarray([fig.add_subplot(gs) for gs in gs2])
+    else:
+        fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(13, 8))
+
+    axes = axes.ravel()
+    axes_iter = iter(axes)
+
+    ax = next(axes_iter)
+    ax.imshow(patch["rgb"])
+    ax.set_title("RGB image")
+
+    ax = next(axes_iter)
+    ax.imshow(patch["near_ir"], cmap="gray")
+    ax.set_title("Near-IR image")
+
+    ax = next(axes_iter)
+    vmin = round(patch["altitude"].min(), -1)
+    vmax = round(patch["altitude"].max(), -1) + 10
+    ax.imshow(patch["altitude"])
+    CS2 = ax.contour(
+        patch["altitude"],
+        levels=np.arange(vmin, vmax, step=10),
+        colors="w",
+    )
+    ax.clabel(CS2, inline=True, fontsize=10)
+    ax.set_aspect("equal")
+    ax.set_title("Altitude (in meters)")
+
+    ax = next(axes_iter)
+    ax.imshow(
+        patch["landcover"],
+        interpolation="none",
+        cmap=cmap,
+        vmin=0,
+        vmax=len(legend_elements),
+    )
+    ax.set_title("Land cover")
+    visible_landcover_categories = np.unique(patch["landcover"])
+    legend = [legend_elements[i] for i in visible_landcover_categories]
+    ax.legend(
+        handles=legend, handlelength=0.75, bbox_to_anchor=(1, 0.5), loc="center left"
+    )
+
+    for ax in axes:
+        ax.axis("off")
+
+    if observation_data is None:
+        fig.tight_layout()
+
+    if return_fig:
+        return fig
+    else:
+        return None
 
 
 class GeoLifeCLEF2022Dataset(Dataset):
