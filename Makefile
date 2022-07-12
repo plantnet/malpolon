@@ -5,3 +5,9 @@ type_check:
 
 style_check:
 	black --check $(SOURCEDIR)
+
+tests:
+	pytest malpolon/tests
+
+coverage:
+	pytest --cov malpolon/
