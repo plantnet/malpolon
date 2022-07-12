@@ -312,14 +312,14 @@ class GeoLifeCLEF2022Dataset(Dataset):
         else:
             self.targets = None
 
+        self.patch_extractor: Optional[PatchExtractor] = None
+
         if use_rasters:
             if patch_extractor is None:
                 patch_extractor = PatchExtractor(self.root / "rasters", size=256)
                 patch_extractor.add_all_rasters()
 
             self.patch_extractor = patch_extractor
-        else:
-            self.patch_extractor = None
 
     def _load_observation_data(
         self,

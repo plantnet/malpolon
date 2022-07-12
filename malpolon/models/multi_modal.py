@@ -54,7 +54,7 @@ class MultiModalModel(nn.Module):
         num_modalities: int,
         backbone_model_name: str,
         backbone_model_pretrained: bool,
-        num_classes: int,
+        num_outputs: int,
         final_classifier: Optional[nn.Module] = None,
     ):
         super().__init__()
@@ -71,9 +71,11 @@ class MultiModalModel(nn.Module):
             backbone_models.append(model)
         self.backbone_models = nn.ModuleList(backbone_models)
 
+        self.final_classifier: nn.Module
+
         if final_classifier is None:
             self.final_classifier = nn.Linear(
-                num_modalities * num_features, num_classes
+                num_modalities * num_features, num_outputs
             )
         else:
             self.final_classifier = final_classifier
