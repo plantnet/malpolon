@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     import pytorch_lightning as pl
 
 
-
 def str_object(obj: object) -> str:
     """
     Formats an object to printing by returning a string containing the
@@ -46,6 +45,7 @@ class Summary(Callback):
     """
     FIXME handle multi validation data loaders, combined datasets
     """
+
     def __init__(self):
         self.logger = logging.getLogger("malpolon")
 
@@ -58,6 +58,7 @@ class Summary(Callback):
             dataset = data_loader.dataset
 
         from torch.utils.data import Subset
+
         if isinstance(dataset, Subset):
             dataset = dataset.dataset
 
@@ -71,15 +72,23 @@ class Summary(Callback):
             logger.info("{} data transformations: {}".format(split, dataset.transform))
 
         if hasattr(dataset, "target_transform"):
-            logger.info("{} data target transformations: {}".format(split, dataset.target_transform))
+            logger.info(
+                "{} data target transformations: {}".format(
+                    split, dataset.target_transform
+                )
+            )
 
-        logger.info("{} data sampler: {}".format(split, str_object(data_loader.sampler)))
+        logger.info(
+            "{} data sampler: {}".format(split, str_object(data_loader.sampler))
+        )
 
         if hasattr(data_loader, "loaders"):
             batch_sampler = data_loader.loaders.batch_sampler
         else:
             batch_sampler = data_loader.batch_sampler
-        logger.info("{} data batch sampler: {}".format(split, str_object(batch_sampler)))
+        logger.info(
+            "{} data batch sampler: {}".format(split, str_object(batch_sampler))
+        )
 
     def on_train_start(self, trainer, model):
         logger = self.logger

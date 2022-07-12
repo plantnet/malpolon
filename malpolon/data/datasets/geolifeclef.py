@@ -166,7 +166,7 @@ class GeoLifeCLEF2022Dataset(Dataset):
         self.use_localisation = use_localisation
         self.transform = transform
         self.target_transform = target_transform
-        self.training = (subset != "test")
+        self.training = subset != "test"
         self.n_classes = 17037
 
         df = self._load_observation_data(root, region, subset)
@@ -200,16 +200,12 @@ class GeoLifeCLEF2022Dataset(Dataset):
             subset_file_suffix = "train"
 
         df_fr = pd.read_csv(
-            root
-            / "observations"
-            / "observations_fr_{}.csv".format(subset_file_suffix),
+            root / "observations" / "observations_fr_{}.csv".format(subset_file_suffix),
             sep=";",
             index_col="observation_id",
         )
         df_us = pd.read_csv(
-            root
-            / "observations"
-            / "observations_us_{}.csv".format(subset_file_suffix),
+            root / "observations" / "observations_us_{}.csv".format(subset_file_suffix),
             sep=";",
             index_col="observation_id",
         )
@@ -234,16 +230,12 @@ class GeoLifeCLEF2022Dataset(Dataset):
     def __getitem__(
         self,
         index: int,
-    ) -> Union[
-        dict[str, Patches], tuple[dict[str, Patches], Targets]
-    ]:
+    ) -> Union[dict[str, Patches], tuple[dict[str, Patches], Targets]]:
         latitude = self.coordinates[index][0]
         longitude = self.coordinates[index][1]
         observation_id = self.observation_ids[index]
 
-        patches = load_patch(
-            observation_id, self.root, data=self.patch_data
-        )
+        patches = load_patch(observation_id, self.root, data=self.patch_data)
 
         # Extracting patch from rasters
         if self.patch_extractor is not None:
@@ -251,7 +243,9 @@ class GeoLifeCLEF2022Dataset(Dataset):
             patches["environmental_patches"] = environmental_patches
 
         if self.use_localisation:
-            patches["localisation"] = np.asarray([latitude, longitude], dtype=np.float32)
+            patches["localisation"] = np.asarray(
+                [latitude, longitude], dtype=np.float32
+            )
 
         if self.transform:
             patches = self.transform(patches)
@@ -329,9 +323,7 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
             subset_file_suffix = "train"
 
         df = pd.read_csv(
-            root
-            / "observations"
-            / "observations_fr_{}.csv".format(subset_file_suffix),
+            root / "observations" / "observations_fr_{}.csv".format(subset_file_suffix),
             sep=";",
             index_col="observation_id",
         )
@@ -351,6 +343,7 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
         df = df[np.isin(df["species_id"], df_species.index)]
 
         from sklearn.preprocessing import LabelEncoder
+
         label_encoder = LabelEncoder().fit(df_species.index)
         df["species_id"] = label_encoder.transform(df["species_id"])
         df_species.index = label_encoder.transform(df_species.index)
