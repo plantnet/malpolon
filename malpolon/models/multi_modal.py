@@ -6,12 +6,12 @@ from torch import nn
 from pytorch_lightning.strategies import SingleDeviceStrategy, StrategyRegistry
 from pytorch_lightning.utilities.apply_func import move_data_to_device
 
-from .model_builder import ModelBuilder
+from .model_builder import ModelBuilder, _find_module_of_type
 
 
-def change_last_classification_layer_to_identity(model: torch.nn.Module) -> int:
+def change_last_layer_to_identity(model: torch.nn.Module) -> int:
     """
-    Removes the last layer of a classification model and replaces it by an nn.Identity layer.
+    Removes the last  linear layer of a model and replaces it by an nn.Identity layer.
 
     Parameters
     ----------
@@ -23,25 +23,10 @@ def change_last_classification_layer_to_identity(model: torch.nn.Module) -> int:
     num_features: int
         Size of the feature space.
     """
-    if hasattr(model, "fc") and isinstance(model.fc, torch.nn.Linear):
-        submodule = model
-        layer_name = "fc"
-    elif hasattr(model, "classifier") and isinstance(model.classifier, torch.nn.Linear):
-        submodule = model
-        layer_name = "classifier"
-    elif (
-        hasattr(model, "classifier")
-        and isinstance(model.classifier, torch.nn.Sequential)
-        and isinstance(model.classifier[-1], torch.nn.Linear)
-    ):
-        submodule = model.classifier
-        layer_name = str(len(model.classifier) - 1)
-    else:
-        raise ValueError(
-            "not supported architecture {}".format(model.__class__.__name__)
-        )
+    submodule, layer_name = _find_module_of_type(model, nn.Linear, "last")
+    old_layer = getattr(submodule, layer_name)
 
-    num_features = getattr(submodule, layer_name).in_features
+    num_features = old_layer.in_features
     new_layer = nn.Identity()
     setattr(submodule, layer_name, new_layer)
 
@@ -52,8 +37,7 @@ class MultiModalModel(nn.Module):
     def __init__(
         self,
         num_modalities: int,
-        backbone_model_name: str,
-        backbone_model_pretrained: bool,
+        backbone_model: dict,
         num_outputs: int,
         final_classifier: Optional[nn.Module] = None,
     ):
@@ -62,12 +46,8 @@ class MultiModalModel(nn.Module):
 
         backbone_models = []
         for _ in range(num_modalities):
-            model = ModelBuilder.build_model(
-                "torchvision",
-                backbone_model_name,
-                [backbone_model_pretrained],
-            )
-            num_features = change_last_classification_layer_to_identity(model)
+            model = ModelBuilder.build_model(**backbone_model)
+            num_features = change_last_layer_to_identity(model)
             backbone_models.append(model)
         self.backbone_models = nn.ModuleList(backbone_models)
 
