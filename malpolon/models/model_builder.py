@@ -38,7 +38,9 @@ class _ModelBuilder:
         self.modifiers[modifier_name] = modifier
 
 
-def torchvision_model_provider(model_name: str, *model_args: Any, **model_kwargs: Any) -> nn.Module:
+def torchvision_model_provider(
+    model_name: str, *model_args: Any, **model_kwargs: Any
+) -> nn.Module:
     from torchvision import models
 
     model = getattr(models, model_name)
@@ -46,7 +48,9 @@ def torchvision_model_provider(model_name: str, *model_args: Any, **model_kwargs
     return model
 
 
-def _find_module_of_type(module: nn.Module, module_type: type, order: str) -> tuple[nn.Module, str]:
+def _find_module_of_type(
+    module: nn.Module, module_type: type, order: str
+) -> tuple[nn.Module, str]:
     if order == "first":
         modules = module.named_children()
     elif order == "last":
@@ -68,9 +72,7 @@ def _find_module_of_type(module: nn.Module, module_type: type, order: str) -> tu
 def change_first_convolutional_layer_modifier(
     model: nn.Module,
     num_input_channels: int,
-    new_conv_layer_init_func: Optional[
-        Callable[[nn.Conv2d, nn.Conv2d], None]
-    ] = None,
+    new_conv_layer_init_func: Optional[Callable[[nn.Conv2d, nn.Conv2d], None]] = None,
 ) -> nn.Module:
     """
     Removes the first registered convolutional layer of a model and replaces it by a new convolutional layer with the provided number of input channels.

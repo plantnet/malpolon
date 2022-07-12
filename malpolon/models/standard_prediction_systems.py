@@ -45,7 +45,9 @@ class GenericPredictionSystem(pl.LightningModule):
     def forward(self, x: Any) -> Any:
         return self.model(x)
 
-    def _step(self, split: str, batch: tuple[Any, Any], batch_idx: int) -> Union[Tensor, dict[str, Any]]:
+    def _step(
+        self, split: str, batch: tuple[Any, Any], batch_idx: int
+    ) -> Union[Tensor, dict[str, Any]]:
         if split == "train":
             log_kwargs = {"on_step": False, "on_epoch": True}
         else:
@@ -63,13 +65,19 @@ class GenericPredictionSystem(pl.LightningModule):
 
         return loss
 
-    def training_step(self, batch: tuple[Any, Any], batch_idx: int) -> Union[Tensor, dict[str, Any]]:
+    def training_step(
+        self, batch: tuple[Any, Any], batch_idx: int
+    ) -> Union[Tensor, dict[str, Any]]:
         return self._step("train", batch, batch_idx)
 
-    def validation_step(self, batch: tuple[Any, Any], batch_idx: int) -> Union[Tensor, dict[str, Any]]:
+    def validation_step(
+        self, batch: tuple[Any, Any], batch_idx: int
+    ) -> Union[Tensor, dict[str, Any]]:
         return self._step("val", batch, batch_idx)
 
-    def test_step(self, batch: tuple[Any, Any], batch_idx: int) -> Union[Tensor, dict[str, Any]]:
+    def test_step(
+        self, batch: tuple[Any, Any], batch_idx: int
+    ) -> Union[Tensor, dict[str, Any]]:
         return self._step("test", batch, batch_idx)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
