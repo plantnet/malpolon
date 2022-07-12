@@ -65,8 +65,10 @@ def _find_module_of_type(
             return module, child_name
         else:
             res = _find_module_of_type(child, module_type, order)
-            if res is not None:
+            if res[1] != "":
                 return res
+
+    return module, ""
 
 
 def change_first_convolutional_layer_modifier(

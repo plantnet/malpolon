@@ -6,10 +6,12 @@ import logging
 from pytorch_lightning.callbacks import Callback
 
 if TYPE_CHECKING:
+    from typing import Any
     import pytorch_lightning as pl
+    from .models.standard_prediction_systems import GenericPredictionSystem
 
 
-def str_object(obj: object) -> str:
+def str_object(obj: Any) -> str:
     """
     Formats an object to printing by returning a string containing the
     class name and attributes (both name and values)
@@ -46,7 +48,7 @@ class Summary(Callback):
     FIXME handle multi validation data loaders, combined datasets
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.logger = logging.getLogger("malpolon")
 
     def _log_data_loading_summary(self, data_loader, split: str) -> None:
@@ -90,7 +92,7 @@ class Summary(Callback):
             "{} data batch sampler: {}".format(split, str_object(batch_sampler))
         )
 
-    def on_train_start(self, trainer, model):
+    def on_train_start(self, trainer: pl.Trainer, model: GenericPredictionSystem) -> None:
         logger = self.logger
 
         logger.info("\n# Model specification")
