@@ -9,7 +9,7 @@ from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
 from malpolon.data.datasets.geolifeclef import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
-from malpolon.models.standard_classification_models import StandardFinetuningClassificationSystem
+from malpolon.models.standard_prediction_systems import FinetuningClassificationSystem
 from malpolon.logging import Summary
 
 from transforms import RGBDataTransform
@@ -43,7 +43,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
     def train_transform(self):
         return transforms.Compose(
             [
-                RGBDataTransform(),
+                lambda data: RGBDataTransform()(data["rgb"]),
                 transforms.RandomRotation(degrees=45, fill=1),
                 transforms.RandomCrop(size=224),
                 transforms.RandomHorizontalFlip(),
@@ -58,7 +58,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
     def test_transform(self):
         return transforms.Compose(
             [
-                RGBDataTransform(),
+                lambda data: RGBDataTransform()(data["rgb"]),
                 transforms.CenterCrop(size=224),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
@@ -83,16 +83,14 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
         return dataset
 
 
-class ClassificationSystem(StandardFinetuningClassificationSystem):
+class ClassificationSystem(FinetuningClassificationSystem):
     def __init__(
         self,
-        model_name: str = "resnet18",
-        pretrained: bool = True,
-        num_classes: int = 100,
-        lr: float = 1e-2,
-        weight_decay: float = 0,
-        momentum: float = 0.9,
-        nesterov: bool = True,
+        model: dict,
+        lr: float,
+        weight_decay: float,
+        momentum: float,
+        nesterov: bool,
     ):
         metrics = {
             "accuracy": Fmetrics.accuracy,
@@ -100,9 +98,7 @@ class ClassificationSystem(StandardFinetuningClassificationSystem):
         }
 
         super().__init__(
-            model_name,
-            pretrained,
-            num_classes,
+            model,
             lr,
             weight_decay,
             momentum,
@@ -118,7 +114,7 @@ def main(cfg: DictConfig) -> None:
 
     datamodule = GeoLifeCLEF2022DataModule(**cfg.data)
 
-    model = ClassificationSystem(**cfg.model)
+    model = ClassificationSystem(cfg.model, **cfg.optimizer)
 
     callbacks = [
         Summary(),
@@ -132,7 +128,7 @@ def main(cfg: DictConfig) -> None:
     trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
     trainer.fit(model, datamodule=datamodule)
 
-    trainer.test(model, datamodule=datamodule)
+    trainer.validate(model, datamodule=datamodule)
 
 
 if __name__ == "__main__":

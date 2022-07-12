@@ -8,9 +8,15 @@ trainer:
   val_check_interval: 0.2
 
 model:
-  model_name: "resnet18"
-  num_classes: 100
-  pretrained: true
+  provider_name: "torchvision"
+  model_name: "resnet50"
+  model_kwargs:
+    pretrained: true
+  modifiers:
+    change_last_layer:
+      num_outputs: 100
+      
+optimizer:
   lr: 1e-2
   weight_decay: 0
   momentum: 0.9

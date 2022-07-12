@@ -108,7 +108,7 @@ class NewConvolutionalLayerInitFuncStrategy:
 class ClassificationSystem(FinetuningClassificationSystem):
     def __init__(
         self,
-        model,
+        model: dict,
         lr: float,
         weight_decay: float,
         momentum: float,

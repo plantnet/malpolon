@@ -13,7 +13,7 @@ from malpolon.data.data_module import BaseDataModule
 from malpolon.data.environmental_raster import PatchExtractor
 from malpolon.data.datasets.geolifeclef import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
 from malpolon.models.multi_modal import MultiModalModel
-from malpolon.models.standard_classification_models import StandardClassificationSystem
+from malpolon.models.standard_prediction_systems import GenericPredictionSystem
 from malpolon.logging import Summary
 
 from transforms import RGBDataTransform, NIRDataTransform, TemperatureDataTransform, PedologicalDataTransform
@@ -115,20 +115,18 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
         return dataset
 
 
-class ClassificationSystem(StandardClassificationSystem):
+class ClassificationSystem(GenericPredictionSystem):
     def __init__(
         self,
-        model_name: str = "resnet18",
-        num_classes: int = 100,
-        pretrained: bool = True,
+        backbone_model: dict,
+        num_outputs: int,
         lr: float = 1e-2,
         weight_decay: float = 0,
         momentum: float = 0.9,
         nesterov: bool = True,
     ):
-        self.model_name = model_name
-        self.num_classes = num_classes
-        self.pretrained = pretrained
+        self.backbone_model = backbone_model
+        self.num_outputs = num_outputs
         self.lr = lr
         self.weight_decay = weight_decay
         self.momentum = momentum
@@ -136,9 +134,8 @@ class ClassificationSystem(StandardClassificationSystem):
 
         model = MultiModalModel(
             4,
-            self.model_name,
-            self.pretrained,
-            self.num_classes,
+            backbone_model,
+            num_outputs,
         )
         loss = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(
@@ -163,7 +160,7 @@ def main(cfg: DictConfig) -> None:
 
     datamodule = GeoLifeCLEF2022DataModule(**cfg.data)
 
-    model = ClassificationSystem(**cfg.model)
+    model = ClassificationSystem(cfg.model, **cfg.optimizer)
 
     callbacks = [
         Summary(),
@@ -177,7 +174,7 @@ def main(cfg: DictConfig) -> None:
     trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
     trainer.fit(model, datamodule=datamodule)
 
-    trainer.test(model, datamodule=datamodule)
+    trainer.validate(model, datamodule=datamodule)
 
 
 if __name__ == "__main__":
