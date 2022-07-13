@@ -1,0 +1,29 @@
+hydra:
+  run:
+    dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+
+trainer:
+  gpus: ???
+  max_epochs: 10
+  val_check_interval: 0.2
+
+model:
+  provider_name: "torchvision"
+  model_name: "resnet50"
+  model_kwargs:
+    pretrained: true
+  modifiers:
+    change_last_layer_to_identity:
+      
+optimizer:
+  lr: 1e-2
+  weight_decay: 0
+  momentum: 0.9
+  nesterov: true
+
+data:
+  dataset_path: ???
+  minigeolifeclef: true
+  train_batch_size: 32
+  inference_batch_size: 256
+  num_workers: 8
