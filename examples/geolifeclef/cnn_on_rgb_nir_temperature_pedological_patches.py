@@ -157,14 +157,14 @@ class ClassificationSystem(GenericPredictionSystem):
         super().__init__(model, loss, optimizer, metrics)
 
 
-@hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_temperature_patches_config")
+@hydra.main(version_base="1.1", config_path="config", config_name="homogeneous_multi_modal_model")
 def main(cfg: DictConfig) -> None:
     logger = pl.loggers.CSVLogger(".", name=False, version="")
     logger.log_hyperparams(cfg)
 
     datamodule = GeoLifeCLEF2022DataModule(**cfg.data)
 
-    model = ClassificationSystem(cfg.model, **cfg.optimizer)
+    model = ClassificationSystem(**cfg.model, **cfg.optimizer)
 
     callbacks = [
         Summary(),

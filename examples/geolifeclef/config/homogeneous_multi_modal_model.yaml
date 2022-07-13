@@ -8,12 +8,15 @@ trainer:
   val_check_interval: 0.2
 
 model:
-  provider_name: "torchvision"
-  model_name: "resnet50"
-  model_kwargs:
-    pretrained: true
-  modifiers:
-    change_last_layer_to_identity:
+  modalities_model:
+    provider_name: "torchvision"
+    model_name: "resnet50"
+    model_kwargs:
+      pretrained: true
+    modifiers:
+      change_last_layer_to_identity:
+  feature_space_size: ???
+  num_outputs: 100
       
 optimizer:
   lr: 1e-2

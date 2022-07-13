@@ -90,7 +90,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
         return dataset
 
 
-@hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_patches_config")
+@hydra.main(version_base="1.1", config_path="config", config_name="mono_modal_3_channels_model")
 def main(cfg: DictConfig) -> None:
     logger = pl.loggers.CSVLogger(".", name=False, version="")
     logger.log_hyperparams(cfg)
