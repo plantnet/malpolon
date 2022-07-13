@@ -1,77 +1,57 @@
 from __future__ import annotations
-from typing import Any, Optional
+from typing import TYPE_CHECKING
 
 import torch
 from torch import nn
 from pytorch_lightning.strategies import SingleDeviceStrategy, StrategyRegistry
 from pytorch_lightning.utilities.apply_func import move_data_to_device
 
-from .model_builder import ModelBuilder, _find_module_of_type
+from .utils import check_model
 
-
-def change_last_layer_to_identity(model: torch.nn.Module) -> int:
-    """
-    Removes the last  linear layer of a model and replaces it by an nn.Identity layer.
-
-    Parameters
-    ----------
-    model: torch.nn.Module
-        Model to adapt.
-
-    Returns
-    -------
-    num_features: int
-        Size of the feature space.
-    """
-    submodule, layer_name = _find_module_of_type(model, nn.Linear, "last")
-    old_layer = getattr(submodule, layer_name)
-
-    num_features = old_layer.in_features
-    new_layer = nn.Identity()
-    setattr(submodule, layer_name, new_layer)
-
-    return num_features
+if TYPE_CHECKING:
+    from typing import Any, Mapping, Optional, Union
 
 
 class MultiModalModel(nn.Module):
     def __init__(
         self,
-        num_modalities: int,
-        backbone_model: dict,
-        num_outputs: int,
-        final_classifier: Optional[nn.Module] = None,
+        modality_models: Union[nn.Module, Mapping],
+        aggregator_model: Union[nn.Module, Mapping],
     ):
         super().__init__()
-        self.num_modalities = num_modalities
 
-        backbone_models = []
-        for _ in range(num_modalities):
-            model = ModelBuilder.build_model(**backbone_model)
-            num_features = change_last_layer_to_identity(model)
-            backbone_models.append(model)
-        self.backbone_models = nn.ModuleList(backbone_models)
+        for modality_name, model in modality_models.items():
+            modality_models[modality_name] = check_model(model)
+        self.modality_models = nn.ModuleDict(modality_models)
 
-        self.final_classifier: nn.Module
-
-        if final_classifier is None:
-            self.final_classifier = nn.Linear(
-                num_modalities * num_features, num_outputs
-            )
-        else:
-            self.final_classifier = final_classifier
-
-        self.input_channels = 3 * torch.arange(num_modalities + 1)
+        self.aggregator_model = check_model(aggregator_model)
 
     def forward(self, x: list[Any]) -> Any:
         features = []
 
-        for i, model in enumerate(self.backbone_models):
-            out = model(x[i])
-            out = out.to(next(self.final_classifier.parameters()).device)
+        for modality_name, model in self.modality_models.items():
+            out = model(x[modality_name])
+            out = out.to(next(self.aggregator_model.parameters()).device)
             features.append(out)
 
         features = torch.concat(features, dim=-1)
-        return self.final_classifier(features)
+        return self.aggregator_model(features)
+
+
+class HomogeneousMultiModalModel(MultiModalModel):
+    def __init__(
+        self,
+        modality_names: list,
+        modalities_model: dict,
+        aggregator_model: Union[nn.Module, Mapping],
+    ):
+        self.modality_names = modality_names
+        self.modalities_model = modalities_model
+
+        modalities_models = {
+            modality_name: dict(modalities_model) for modality_name in modality_names
+        }
+        super().__init__(modalities_models, aggregator_model)
 
 
 class ParallelMultiModalModelStrategy(SingleDeviceStrategy):
@@ -88,29 +68,31 @@ class ParallelMultiModalModelStrategy(SingleDeviceStrategy):
 
     def model_to_device(self) -> None:
         model = self.model.model
-        self.num_modalities = model.num_modalities
-        self.input_channels = model.input_channels
+        self.modalites_names = model.modalities_models.keys()
+        num_modalities = len(self.modalities_names)
 
         self.num_gpus = torch.cuda.device_count()
-        self.device_allocation = torch.arange(self.num_modalities) % self.num_gpus
-        self.device_allocation = list(
-            map(lambda i: f"cuda:{i}", self.device_allocation)
-        )
+        device_allocation = torch.arange(num_modalities) % self.num_gpus
+        self.device_allocation = dict(zip(
+            self.modalities_names,
+            map(lambda i: f"cuda:{i}", device_allocation)
+        ))
+        self.root_device = "cuda:0"
 
-        for i in range(self.num_modalities):
-            device = self.device_allocation[i]
-            model.backbone_models[i] = model.backbone_models[i].to(device)
+        for modality_name in self.modalities_names:
+            device = self.device_allocation[modality_name]
+            model.modalities_models[modality_name] = model.modalities_models[modality_name].to(device)
 
-        model.final_classifier = model.final_classifier.to(self.root_device)
+        model.aggregator_model = model.aggregator_model.to(self.root_device)
 
     def batch_to_device(
         self, batch: Any, device: Optional[torch.device] = None, dataloader_idx: int = 0
     ) -> Any:
         x, target = batch
 
-        for i in range(self.num_modalities):
-            device = self.device_allocation[i]
-            x[i] = move_data_to_device(x[i], device)
+        for modality_name in self.modalities_models:
+            device = self.device_allocation[modality_name]
+            x[modality_name] = move_data_to_device(x[modality_name], device)
 
         target = move_data_to_device(target, self.root_device)
         return (x, target)

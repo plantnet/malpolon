@@ -12,7 +12,7 @@ from torchvision import transforms
 from malpolon.data.data_module import BaseDataModule
 from malpolon.data.environmental_raster import PatchExtractor
 from malpolon.data.datasets.geolifeclef import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
-from malpolon.models.multi_modal import MultiModalModel
+from malpolon.models.multi_modal import HomogeneousMultiModalModel
 from malpolon.models.standard_prediction_systems import GenericPredictionSystem
 from malpolon.logging import Summary
 
@@ -71,7 +71,12 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
                     mean=[0.485, 0.456, 0.406] * 4,
                     std=[0.229, 0.224, 0.225] * 4,
                 ),
-                transforms.Lambda(lambda x: (x[:3], x[3:6], x[6:9], x[9:12])),
+                transforms.Lambda(lambda x: {
+                    "rgb": x[:3],
+                    "near_ir": x[3:6],
+                    "temperature": x[6:9],
+                    "pedological": x[9:12],
+                }),
             ]
         )
 
@@ -85,7 +90,12 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
                     mean=[0.485, 0.456, 0.406] * 4,
                     std=[0.229, 0.224, 0.225] * 4,
                 ),
-                transforms.Lambda(lambda x: (x[:3], x[3:6], x[6:9], x[9:12])),
+                transforms.Lambda(lambda x: {
+                    "rgb": x[:3],
+                    "near_ir": x[3:6],
+                    "temperature": x[6:9],
+                    "pedological": x[9:12],
+                }),
             ]
         )
 
@@ -118,32 +128,26 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
 class ClassificationSystem(GenericPredictionSystem):
     def __init__(
         self,
-        backbone_model: dict,
+        modalities_model: dict,
+        feature_space_size: int,
         num_outputs: int,
         lr: float = 1e-2,
         weight_decay: float = 0,
         momentum: float = 0.9,
         nesterov: bool = True,
     ):
-        self.backbone_model = backbone_model
-        self.num_outputs = num_outputs
-        self.lr = lr
-        self.weight_decay = weight_decay
-        self.momentum = momentum
-        self.nesterov = nesterov
-
-        model = MultiModalModel(
-            4,
-            backbone_model,
-            num_outputs,
+        model = HomogeneousMultiModalModel(
+            ["rgb", "near_ir", "temperature", "pedological"],
+            modalities_model,
+            torch.nn.Linear(feature_space_size, num_outputs),
         )
         loss = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(
             model.parameters(),
-            lr=self.lr,
-            weight_decay=self.weight_decay,
-            momentum=self.momentum,
-            nesterov=self.nesterov,
+            lr=lr,
+            weight_decay=weight_decay,
+            momentum=momentum,
+            nesterov=nesterov,
         )
         metrics = {
             "accuracy": Fmetrics.accuracy,
@@ -153,7 +157,7 @@ class ClassificationSystem(GenericPredictionSystem):
         super().__init__(model, loss, optimizer, metrics)
 
 
-@hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_patches_config")
+@hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_temperature_patches_config")
 def main(cfg: DictConfig) -> None:
     logger = pl.loggers.CSVLogger(".", name=False, version="")
     logger.log_hyperparams(cfg)

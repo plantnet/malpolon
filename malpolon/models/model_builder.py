@@ -20,12 +20,13 @@ class _ModelBuilder:
         model_name: str,
         model_args: list = [],
         model_kwargs: dict = {},
-        modifiers: dict[str, dict[str, Any]] = {},
+        modifiers: dict[str, Optional[dict[str, Any]]] = {},
     ) -> nn.Module:
         provider = self.providers[provider_name]
         model = provider(model_name, *model_args, **model_kwargs)
 
         for modifier_name, modifier_kwargs in modifiers.items():
+            modifier_kwargs = modifier_kwargs or {}
             modifier = self.modifiers[modifier_name]
             model = modifier(model, **modifier_kwargs)
 
@@ -147,6 +148,28 @@ def change_last_layer_modifier(
     return model
 
 
+def change_last_layer_to_identity_modifier(model: nn.Module) -> nn.Module:
+    """
+    Removes the last  linear layer of a model and replaces it by an nn.Identity layer.
+
+    Parameters
+    ----------
+    model: torch.nn.Module
+        Model to adapt.
+
+    Returns
+    -------
+    num_features: int
+        Size of the feature space.
+    """
+    submodule, layer_name = _find_module_of_type(model, nn.Linear, "last")
+
+    new_layer = nn.Identity()
+    setattr(submodule, layer_name, new_layer)
+
+    return model
+
+
 ModelBuilder = _ModelBuilder()
 
 ModelBuilder.register_provider("torchvision", torchvision_model_provider)
@@ -158,4 +181,8 @@ ModelBuilder.register_modifier(
 ModelBuilder.register_modifier(
     "change_last_layer",
     change_last_layer_modifier,
+)
+ModelBuilder.register_modifier(
+    "change_last_layer_to_identity",
+    change_last_layer_to_identity_modifier,
 )
