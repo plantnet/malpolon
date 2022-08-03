@@ -63,6 +63,14 @@ class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
             ]
         )
 
+    def prepare_data(self):
+        MicroGeoLifeCLEF2022Dataset(
+            self.dataset_path,
+            subset="train",
+            use_rasters=False,
+            download=True,
+        )
+
     def get_dataset(self, split, transform, **kwargs):
         dataset = MicroGeoLifeCLEF2022Dataset(
             self.dataset_path,

@@ -6,6 +6,7 @@ import tifffile
 from PIL import Image
 
 from torch.utils.data import Dataset
+from torchvision.datasets.utils import download_and_extract_archive
 
 from malpolon.data.environmental_raster import PatchExtractor
 
@@ -93,6 +94,8 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
         A function/transform that takes a list of arrays and returns a transformed version.
     target_transform : callable (optional)
         A function/transform that takes in the target and transforms it.
+    download : boolean (optional)
+        If True, downloads the dataset from the internet and puts it in root directory. If dataset is already downloaded, it is not downloaded again.
     """
 
     def __init__(
@@ -106,6 +109,7 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
         use_localisation=False,
         transform=None,
         target_transform=None,
+        download=False,
     ):
         root = Path(root)
 
@@ -116,6 +120,12 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
         self.transform = transform
         self.target_transform = target_transform
         self.n_classes = 10
+
+        if download:
+            self.download()
+
+        if not self._check_integrity():
+            raise RuntimeError("Dataset not found or corrupted. You can use download=True to download it")
 
         df = pd.read_csv(
             root / "micro_geolifeclef_observations.csv",
@@ -141,6 +151,22 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
             self.patch_extractor = patch_extractor
         else:
             self.patch_extractor = None
+
+    def _check_integrity(self):
+        return (self.root / "micro_geolifeclef_observations.csv").exists()
+
+    def download(self):
+        if self._check_integrity():
+            print("Files already downloaded and verified")
+            return
+
+        download_and_extract_archive(
+            "https://lab.plantnet.org/seafile/f/b07039ce11f44072a548/?dl=1",
+            self.root,
+            filename="micro_geolifeclef.zip",
+            md5="ff27b08b624c91b1989306afe97f2c6d",
+            remove_finished=True,
+        )
 
     def __len__(self):
         """Returns the number of observations in the dataset."""
