@@ -49,14 +49,14 @@ def load_patch(
         rgb_filename = filename.with_name(filename.stem + "_rgb.jpg")
         rgb_patch = Image.open(rgb_filename)
         if return_arrays:
-            rgb_patch = np.asarray(rgb_patch)
+            rgb_patch = np.array(rgb_patch)
         patches["rgb"] = rgb_patch
 
     if "near_ir" in data:
         near_ir_filename = filename.with_name(filename.stem + "_near_ir.jpg")
         near_ir_patch = Image.open(near_ir_filename)
         if return_arrays:
-            near_ir_patch = np.asarray(near_ir_patch)
+            near_ir_patch = np.array(near_ir_patch)
         patches["near_ir"] = near_ir_patch
 
     if "altitude" in data:
