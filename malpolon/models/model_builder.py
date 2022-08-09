@@ -122,6 +122,7 @@ def change_first_convolutional_layer_modifier(
 def change_last_layer_modifier(
     model: nn.Module,
     num_outputs: int,
+    flatten: bool = False,
 ) -> nn.Module:
     """
     Removes the last registered linear layer of a model and replaces it by a new dense layer with the provided number of outputs.
@@ -132,6 +133,8 @@ def change_last_layer_modifier(
         Model to adapt.
     num_outputs: integer
         Number of outputs of the new output layer.
+    flatten: boolean
+        If True, adds a nn.Flatten layer to squeeze the last dimension. Can be useful when num_outputs=1.
 
     Returns
     -------
@@ -143,6 +146,13 @@ def change_last_layer_modifier(
 
     num_features = old_layer.in_features
     new_layer = nn.Linear(num_features, num_outputs)
+
+    if flatten:
+        new_layer = nn.Sequential(
+            new_layer,
+            nn.Flatten(0, -1),
+        )
+
     setattr(submodule, layer_name, new_layer)
 
     return model
