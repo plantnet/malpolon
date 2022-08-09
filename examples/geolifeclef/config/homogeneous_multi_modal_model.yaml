@@ -15,7 +15,6 @@ model:
       pretrained: true
     modifiers:
       change_last_layer_to_identity:
-  feature_space_size: ???
   num_outputs: 100
       
 optimizer:
