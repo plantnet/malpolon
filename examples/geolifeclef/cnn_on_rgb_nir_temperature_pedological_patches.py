@@ -129,7 +129,6 @@ class ClassificationSystem(GenericPredictionSystem):
     def __init__(
         self,
         modalities_model: dict,
-        feature_space_size: int,
         num_outputs: int,
         lr: float = 1e-2,
         weight_decay: float = 0,
@@ -139,7 +138,7 @@ class ClassificationSystem(GenericPredictionSystem):
         model = HomogeneousMultiModalModel(
             ["rgb", "near_ir", "temperature", "pedological"],
             modalities_model,
-            torch.nn.Linear(feature_space_size, num_outputs),
+            torch.nn.LazyLinear(num_outputs),
         )
         loss = torch.nn.CrossEntropyLoss()
         optimizer = torch.optim.SGD(
