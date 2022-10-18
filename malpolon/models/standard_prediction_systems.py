@@ -80,6 +80,10 @@ class GenericPredictionSystem(pl.LightningModule):
     ) -> Union[Tensor, dict[str, Any]]:
         return self._step("test", batch, batch_idx)
 
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        x, y = batch
+        return self(x)
+
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return self.optimizer
 
