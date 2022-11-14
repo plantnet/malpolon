@@ -22,6 +22,23 @@ cd malpolon
 pip install -e .
 ```
 
+To check that the installation went well, use the following command
+
+```script
+python -m malpolon.check_install
+```
+
+which, if you have CUDA properly installed, should output something similar to
+
+```script
+Using PyTorch version 1.13.0
+CUDA available: True (version: 11.6)
+cuDNN available: True (version: 8302)
+Number of CUDA-compatible devices found: 1
+```
+
+
+
 ## Examples
 
 Examples using the GeoLifeCLEF 2022 dataset is provided in the `examples` folder.
