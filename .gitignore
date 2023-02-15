@@ -8,3 +8,7 @@
 !.gitignore
 
 docs/_build
+
+/examples_perso/
+/environnement_opti_ben.yml
+
