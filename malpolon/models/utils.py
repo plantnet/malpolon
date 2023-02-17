@@ -6,12 +6,12 @@ from torch import nn, optim
 from .model_builder import ModelBuilder
 
 
-def check_loss(loss: nn.modules.loss._Loss) -> nn.modules.loss._Loss:
-    if isinstance(loss, nn.modules.loss._Loss):
+def check_loss(loss: nn.Module) -> nn.Module:
+    if isinstance(loss, nn.Module):
         return loss
     else:
         raise ValueError(
-            "loss must be of type nn.modules.loss._Loss,"
+            "loss must be of type nn.Module,"
             "given type {} instead".format(type(loss))
         )
 
