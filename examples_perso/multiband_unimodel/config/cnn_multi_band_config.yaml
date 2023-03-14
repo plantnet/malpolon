@@ -1,0 +1,272 @@
+# I. Pré-requis
+###############
+###############   
+
+
+# I.1 Nota Bene:
+################
+ 
+# -> Dans ce fichier, le therme "main" fait référence à cnn_multi_band.py. 
+# -> Lorsque des fonctions, variables, lignes de commande ou autres element de ce types sont cités sans précisser le fichier .py d'origine, cela réferera toujours à des éléments dans le main. 
+
+
+# I.2 Chose obligatoire à faire dans le main
+############################################
+
+# I.2.1) Structuration des données
+
+# Par défaut, les patches doivent être ranger par variables dans des dossiers à la racine de "data.dataset_path" où chaque dossier est nommé "patches_'nom_de_la_variable'" (exemple; patches_bathymetry). A l'interieur de chaqu'un de ces dossiers, les patches doivent être nommés "'occurence_id'_'nom_de_la_variable'.'nom_extention' (exemple; 189875_bathymetry.tif)
+
+# Par défaut, seul les formats .tif et .jp2 sont pris en compte mais, il est possible de modiffier ces configurations par défaut dans "dataset.py" au niveau de "def load_patch". 
+
+# I.1.2) Gestion du prétraitement des patches par variables
+
+# Pour chaque variables que vous voullez ajouter/utiliser, vous dever la rajouter dans "class PreprocessData()" afin de réaliser le prétraitement des patches par variables. Ce prétraitement est appliqué à l'ensemble des sets (set de validation, de train et de test). POur ce faire, rajouter des éléments juste après "def __call__(self, data)"en imitant la structure suivante:
+
+# if "sentinel_rgb" in list(data.keys()) : 
+#   sentinel_rgb_data = data["sentinel_rgb"]
+#   sentinel_rgb_data = RGBDataTransformPerso()(sentinel_rgb_data)
+#   sentinel_rgb_data = transforms.Normalize(self.patch_band_mean["sentinel_rgb"], self.patch_band_sd["sentinel_rgb"])(sentinel_rgb_data)
+
+# Dans cette exemple :
+# -> "RGBDataTransformPerso()" est un sensemble de transformation utilisant torchvision prédérini dans "transforms.py". Vous pouvez vous inspirer de ces dernières et rajouter les votres dans "transforms.py" pour ensuite les utiliser dans le main. 
+# -> Vous n'êtes pas obligé de normaliser vos données (même si c'est globalement recommendé). Pour ne pas normaliser, il sufit de retirer la ligne avec "transforms.Normaliz"
+# -> Si vous souhaiter normaliser, utiliser la fonction "transforms.Normalize" dans le main comme indiquer dans l'exemple. N'intégrer pas la normalisation dans le "transforms.py" car les arguments "self.patch_band_mean" et "self.patch_band_sd" ne seront pas présent dans les variables locales.    
+
+# I.1.3) Utilisation en ligne de commande
+
+# Touts les élements configurables si dessous peuvent être modifié via la ligne de commande d'execution du main. Pour ce faire, il suffit de respecter l'arboressance des éléments configurables (partie suivante) :
+# Exemeple: python cnn_multi_band.py patch.patch_data: ["sentinel_rgb"] model.modifiers.change_first_convolutional_layer.num_input_channels: 3
+# Les éléments non spécifié resteront les de cette façon seront garderont les valeurs indiquées dans ce fichier. A noté que cela ne changera pas les valeurs dans ce fichier qui resteront les valeurs par défaut. 
+
+
+
+# II. Elements configurables   
+############################
+############################  
+
+# Configuration du nom dossier pour chaque run au niveau du dossier outputs.
+# Le dossier output est automatiquement créé au niveau du répertoire depuis lequel vous executer le main. 
+# Attention, le fait de rajouter hydra.run.dir=outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S} dans l'appel du scripte crée l'erreur "bad substitution"
+hydra:
+  run:
+    dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S_%f} # ici rajout de "_%f" pour rajouter les millisecondes 
+    
+
+# Information pour le paramettrage de l'entrainement.
+# Trainer class API -> https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html
+trainer:
+  # nombre de GPU à utuiliser 
+  # si vous voulez utiliser un GPU en particulier mettre par exemple : [1] -> utilisera le second GPU
+  gpus: 1
+  # nombre d'epque pour l'entrainement
+  max_epochs: 300
+  # nombre de fois par epoque ou sont verifié et enregistré les valeurs monitorés et les poids du réseaux (0.5 -> 2 fois par époque) 
+  val_check_interval: 0.5 # ne pas toucher, fonctionne pas sinon
+
+# Information sur la mise en place du model.
+# A noté que le changement du nombre d'outputs sur la dernière couche n'est pas à renseigner car il est défini automatiquement par le nombre de classe.  
+model:
+  # origine du model
+  # juste torchvision d'implémenter pour le moment 
+  provider_name: "torchvision"
+  # nom du model à utiliser 
+  # pour les noms possible voir https://github.com/pytorch/vision/blob/main/torchvision/models/resnet.py et https://pytorch.org/vision/stable/models.html
+  model_name: "resnet50"
+  model_kwargs:
+    # savoir si il faut récupérer une version pré-entrainé du model (voir https://pytorch.org/vision/stable/models.html)
+    pretrained: true 
+  modifiers:
+    change_first_convolutional_layer:
+      # nombre de canneaux en entrée, soit la somme des chaneaux (des bandes) de chaque variables utilisé
+      # Si auto récupera le nombre de canneaux en se basant sur les rasters issus de load_patch dans dataset.py
+      #/!\ auto ne prend pas en compte les modifications de nombre de canneaux lié à train_transform (ex: data = np.tile(data[:, :, None], 3) !
+      # Si vous le souhaiter, vous pouver indiquer manuellement le nombre de canneaux en remplacent auto par un nombre   
+      num_input_channels: auto
+      new_conv_layer_init_func:
+        # emplacement de NewConvolutionalLayerInitFuncStrategy qui configure les changments sur la premère couche 
+        _target_: init_elements.NewConvolutionalLayerInitFuncStrategy
+        # La stratégie pour étandre ou non le poid des inputs d'origines (généralement 3) aux inputs ajouté :
+        #"random_init" -> garde les poids d'entrainement pout les 3 première couches et initialise de façon ramdom le poids des couches supplémentaire réseaux. /!\ implique un num_input_channels = ou > à 3
+        # "red_pretraining" -> garde les poids d'entrainement des 3 premières couches et initialise le poids des couches supplémentaire par la moyennedes poids des 3 premières couches. /!\ implique un num_input_channels = ou > à 3
+        # "red_pretraining_mean" -> initialise le poids des couches par la moyenne des poids d'entrainement des 3 premières. Ici num_input_channels peut être inf à 3. 
+        strategy: "red_pretraining" 
+        # Permet de reduire l'importance des poids d'orrigine
+        rescaling: true
+    change_last_layer:
+      # Si auto utilisara le nombre de classe dans la collone data.csv_col_class_id
+      # Si vous le souhaiter, vous pouver indiquer manuellement le nombre de classe de sorite en remplacent auto par un nombre 
+      num_outputs: auto #177
+
+# Parametre pour l'optimiseur lato sensus (comprend l'optimiseur stricto sensus, la loss et les metrics)   
+optimizer:
+  # parametre de l'optimieur stricto sensus
+  SGD:
+    # learning rate de l'optimiseur stricto sensus 
+    lr: 1.0e-05 #0.001 #0.00001 #0.000001
+    # weight_decay de l'optimiseur stricto sensus
+    weight_decay: 0.001
+    # momentum de l'optimiseur stricto sensus
+    momentum: 0.9
+    # nesterov de l'optimiseur stricto sensus
+    nesterov: true
+  # gestion du learing rate : réduit le taux d'apprentissage lorsqu'une métrique a cessé de s'améliorer
+  scheduler:
+    # la métrique à suivre
+    metric_to_track: val_loss
+    # en mode min , lr sera réduit lorsque la quantité surveillée aura cessé de diminuer ; en mode max , il sera réduite lorsque la quantité 
+    # surveillée aura cessé d'augmenter. 
+    mode: min
+    # facteur par lequel le taux d'apprentissage sera réduit. new_lr = lr * facteur
+    factor: 0.1
+    # nombre d'époques sans amélioration après lesquelles le taux d'apprentissage sera réduit.
+    patience: 0
+    # la valeur minimale par laquelle la quantité doit changer pour être considérée comme une amélioration. Par exemple, si le seuil est de 0,01 en mode min, si la quantité contrôlée passe de 0,03 à 0,025, cela n'est pas considéré comme une amélioration.
+    threshold : 0.001
+    # nombre d'époques à attendre avant de reprendre le fonctionnement normal après que lr a été réduit.
+    cooldown : 1
+    # sur quel interval controller la metric_to_track 
+    logging_interval : epoch # epoch or step
+
+
+  # définition de la loss
+  loss:
+    # nom de la loss à utiliser
+    # par deffaut : CrossEntropyLoss, ImbalNoisedTopK, BalNoisedTopK
+    # vous pouvez rajouter de nouvelles loss dans "class ClassificationSystem(GenericPredictionSystem)" en modiffiant les éllement juste en dessous 
+    # de "model = check_model(model)" 
+    loss_type: CrossEntropyLoss 
+    # paramettre de la loss, uniquelent pour ImbalNoisedTopK et BalNoisedTopK
+    k: 10
+    # paramettre de la loss, uniquelent pour ImbalNoisedTopK et BalNoisedTopK
+    epsilon : 0.01
+    # paramettre de la loss, uniquement pour ImbalNoisedTopK
+    max_m : 0.3
+  
+# Information a fournir pour le bon chargement des données
+data:
+  # chemain du dossier conteant les dossiers des patches par variables
+  dataset_path: /home/bbourel/Data/malpolon_datasets/Fish-refined
+  # chemain du csv conteant la liste des occurecnes 
+  csv_occurence_path: /home/bbourel/Data/malpolon_datasets/Fish-refined/Fish-refined_clean_subset.csv
+  # type de séparateur utilisé par le csv conteant la liste des occurecnes 
+  csv_separator: ','
+  # nom de la collone avec les ids des occurences dans le csv conteant la liste des occurecnes
+  # /!\ chaque id doit être unique  
+  csv_col_occurence_id: id
+  # nom de la collone avec les ids des classes dans le csv conteant la liste des occurecnes
+  # /!\ ces ids doivent etres numéroté par ordre croissant en nombre INTEGRAL de 0 à +inf SANS VALEUR MANQUANTE
+  csv_col_class_id: species_classes 
+  # ??? 
+  train_batch_size: 32
+  # ???
+  inference_batch_size: 256
+  # ???
+  num_workers: 8
+ 
+# Permet de définir des informations sur les patches à utiliser pour entrainer le model.
+patch:
+  # -> patches à uliser lister par variables 
+  # -> par défaut, seul les formats .tif et .jp2 sont pris en compte
+  # -> il est possible de modiffier ces configurations par défaut dans "dataset.py" au niveau de "def load_patch" 
+  patch_data: 
+  - full_true_clean_subset
+#  - TCI_sentinel
+#  - bathymetry
+#  - bathy_95m
+#  - chlorophyll_concentration_1km
+#  - east_water_velocity_4_2km_mean_day_lite
+#  - east_water_velocity_4_2km_mean_month_lite
+#  - east_water_velocity_4_2km_mean_year_lite
+#  - meditereanean_sst
+#  - north_water_velocity_4_2km_mean_day_lite
+#  - north_water_velocity_4_2km_mean_month_lite
+#  - north_water_velocity_4_2km_mean_year_lite
+#  - occ_lat_long
+#  - salinity_4_2km_mean_day_lite
+#  - salinity_4_2km_mean_month_lite
+#  - salinity_4_2km_mean_year_lite
+#  - sea_water_potential_temperature_at_sea_floor_4_2km_mean_day
+#  - sea_water_potential_temperature_at_sea_floor_4_2km_mean_month
+#  - sea_water_potential_temperature_at_sea_floor_4_2km_mean_year
+  # -> valeur moyenne des différentes bandes de chaques patches par variables
+  # -> vous pouvez renseigner ces valeures pour des variables qui ne sont pas dans patch_data afin de les avoir 
+  # de prêtes à l'avance
+  # -> ces valeurs sont utiliser pour normaliser les données dans la partie "class PreprocessData()" via les 
+  # fonctions "transforms.Normalize()"  
+  # -> si cette fonction "transforms.Normalize()" n'est pas présente/ pas utilisée pour une des varibales, 
+  # il n'est pas néssséssaire de renseigner cette variable dans "patch.patch_band_mean"   
+  patch_band_mean: 
+    full_true_clean_subset: [49.45, 49.62, 49.48]
+    TCI_sentinel: [36.66, 47.93, 65.42]
+    sentinel_B01_03: [2314.5, 2002.3, 1763.2]
+    sentinel_B04_06: [1628, 1698.4, 1981.6]
+    sentinel_B07_08: [2110.9, 2191.5, 2061.9]
+    sentinel_B09_12: [1336.6, 1937.6, 1592.2]
+    bathymetry: [-104.60]
+    bathy_95m: [-110.7]
+    chlorophyll_concentration_1km: [0.152]
+    meditereanean_sst: [294.95]
+    east_water_velocity_4_2km_mean_day_lite: [-0.055, -0.060, -0.051] 
+    east_water_velocity_4_2km_mean_month_lite: [-0.057, -0.061, -0.052]   
+    east_water_velocity_4_2km_mean_year_lite: [-0.056, -0.060, -0.053] 
+    north_water_velocity_4_2km_mean_day_lite: [-0.056, -0.033, -0.027] 
+    north_water_velocity_4_2km_mean_month_lite: [-0.057, -0.035, -0.028] 
+    north_water_velocity_4_2km_mean_year_lite: [-0.050, -0.036, -0.031] 
+    occ_lat_long: [42.0160, 8.6259]
+    salinity_4_2km_mean_day_lite: [38.15, 38.17, 38.02] 
+    salinity_4_2km_mean_month_lite: [38.15, 38.18, 38.02] 
+    salinity_4_2km_mean_year_lite: [38.18, 38.21, 38.05] 
+    sea_water_potential_temperature_at_sea_floor_4_2km_mean_day: [14.31]
+    sea_water_potential_temperature_at_sea_floor_4_2km_mean_month: [14.32]
+    sea_water_potential_temperature_at_sea_floor_4_2km_mean_year: [14.06]
+  # -> comme patch_band_mean sauf que c'est pour la standard deviation
+  patch_band_sd: 
+    full_true_clean_subset: [28.95, 28.79, 28.81] 
+    TCI_sentinel: [35.71, 28.12, 22.82]
+    sentinel_B01_03: [358.5, 407.0, 488.7]
+    sentinel_B04_06: [631.7, 699.1, 1007.9]
+    sentinel_B07_08: [1190.0, 1336.8, 1181.9]
+    sentinel_B09_12: [433.9, 1109.0, 811.3]
+    bathymetry: [504.24]
+    bathy_95m: [169.8]
+    chlorophyll_concentration_1km: [0.360]
+    meditereanean_sst: [3.92]
+    east_water_velocity_4_2km_mean_day_lite: [0.138, 0.123, 0.106] 
+    east_water_velocity_4_2km_mean_month_lite: [0.115, 0.107, 0.092]   
+    east_water_velocity_4_2km_mean_year_lite: [0.100, 0.096, 0.085] 
+    north_water_velocity_4_2km_mean_day_lite: [0.135, 0.117, 0.099] 
+    north_water_velocity_4_2km_mean_month_lite: [0.106, 0.100, 0.085] 
+    north_water_velocity_4_2km_mean_year_lite: [0.088, 0.085, 0.075] 
+    occ_lat_long: [2.2855, 6.2313]
+    salinity_4_2km_mean_day_lite: [0.48, 0.38, 0.40] 
+    salinity_4_2km_mean_month_lite: [0.47, 0.38, 0.40] 
+    salinity_4_2km_mean_year_lite: [0.42, 0.35, 0.39]
+    sea_water_potential_temperature_at_sea_floor_4_2km_mean_day: [1.88]
+    sea_water_potential_temperature_at_sea_floor_4_2km_mean_month: [1.86]
+    sea_water_potential_temperature_at_sea_floor_4_2km_mean_year: [1.14]
+
+# Permet de définir les paramettres "ModelCheckpoint" et "EarlyStopping" de la variable "callbacks" dans "def main". Pour plus de détail sur ces paramettres, voir ModelCheckpoint et EarlyStopping sur le site https://pytorch-lightning.readthedocs.io     
+callbacks:
+  # -> mettre le nom de l'une des metrics défini dans class "ClassificationSystem(GenericPredictionSystem)" 
+  # au niveau de "metrics = {...}"
+  # -> précédé de "val_" ou de "acc_". Par exemple "val_top_10_accuracy" pour monitoré le top_10_accuracy 
+  # du set de validation
+  monitor : val_top_20_accuracy_macro
+  # -> metre "max" ou "min" (cf. https://pytorch-lightning.readthedocs.io -> ModelCheckpoint et EarlyStopping)
+  mode : max  
+  # -> indiquer le nombre d'epoque que vous souhaiter attendre multiplié par trainer.val_check_interval
+  # -> Exemple : 10 pour 5 epoques avec un val_check_interval=0.5
+  patience : 12
+  
+# visuyalisation des outputs
+visualization:
+  # A partir du fichier "metric.csv" (ce fichier est normalement situé dans un sous dossier du dossier outpout créé par malpolon) cette va tracer automatiquement des graphiques au format .png et les enregister au même endroit que le  "metric.csv"    
+  graph: True
+  # Si True, ne lancera pas d'entrainement mais une vérification du chargement des patches via la création d'image dans le dossier output/cnn_multi_band/check_dataloader
+  check_dataloader: False #True # False
+  # si True, ne lancera pas d'entrainement mais lancera cette recherche pour les patch_data selectionnées puis enregistrera le résultat dans le dossier output/cnn_multi_band/auto_lr_finder
+  auto_lr_finder: False #True # False
+
+  
+  
