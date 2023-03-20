@@ -1,6 +1,6 @@
 # Malpolon
 
-Malpolon is a framework facilitating the training of Deep Species Distribution models using various types of input covariates including biodclimatic rasters, remote sensing images, land-use rasters, etc. 
+Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including biodclimatic rasters, remote sensing images, land-use rasters, etc. 
 
 ## Installation
 
