@@ -1,19 +1,18 @@
 import os
 
 import hydra
-from omegaconf import DictConfig
 import pytorch_lightning as pl
 import torch
 import torchmetrics.functional as Fmetrics
+from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
+from transforms import NIRDataTransform, RGBDataTransform
 
 from malpolon.data.data_module import BaseDataModule
-from malpolon.models import FinetuningClassificationSystem
+from malpolon.data.datasets.geolifeclef import MicroGeoLifeCLEF2022Dataset
 from malpolon.logging import Summary
-
-from dataset import MicroGeoLifeCLEF2022Dataset
-from transforms import RGBDataTransform, NIRDataTransform
+from malpolon.models import FinetuningClassificationSystem
 
 
 class RGBNIRDataPreprocessing:
@@ -41,9 +40,11 @@ class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
         train_batch_size: int = 32,
         inference_batch_size: int = 256,
         num_workers: int = 8,
+        download: bool = True,
     ):
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
+        self.download = download
 
     @property
     def train_transform(self):
@@ -75,11 +76,12 @@ class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
         )
 
     def prepare_data(self):
+        # download, split, etc...
         MicroGeoLifeCLEF2022Dataset(
             self.dataset_path,
             subset="train",
             use_rasters=False,
-            download=True,
+            download=self.download,
         )
 
     def get_dataset(self, split, transform, **kwargs):

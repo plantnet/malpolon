@@ -1,18 +1,17 @@
 import os
 
 import hydra
-from omegaconf import DictConfig
 import pytorch_lightning as pl
 import torchmetrics.functional as Fmetrics
+from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
+from transforms import RGBDataTransform
 
 from malpolon.data.data_module import BaseDataModule
-from malpolon.models import FinetuningClassificationSystem
+from malpolon.data.datasets.geolifeclef import MicroGeoLifeCLEF2022Dataset
 from malpolon.logging import Summary
-
-from dataset import MicroGeoLifeCLEF2022Dataset
-from transforms import RGBDataTransform
+from malpolon.models import FinetuningClassificationSystem
 
 
 class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
