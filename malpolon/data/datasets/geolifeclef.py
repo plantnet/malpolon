@@ -1,7 +1,8 @@
 from __future__ import annotations
+
 from importlib import resources
 from pathlib import Path
-from typing import Callable, Optional, Union, TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,8 +10,10 @@ import pandas as pd
 import tifffile
 from matplotlib.patches import Patch
 from PIL import Image
-
 from torch.utils.data import Dataset
+from torchvision.datasets.utils import download_and_extract_archive
+
+from malpolon.data.environmental_raster import PatchExtractor
 
 from ...plot.map import plot_map
 from ..environmental_raster import PatchExtractor
@@ -18,6 +21,7 @@ from ._base import DATA_MODULE
 
 if TYPE_CHECKING:
     from collections.abc import Collection
+
     import numpy.typing as npt
 
     Patches = npt.NDArray
@@ -31,6 +35,7 @@ def load_patch(
     data: Union[str, list[str]] = "all",
     landcover_mapping: Optional[npt.NDArray] = None,
     return_arrays: bool = True,
+    subfolder_strategy: bool = True,
 ) -> dict[str, Patches]:
     """Loads the patch data associated to an observation id.
 
@@ -44,10 +49,10 @@ def load_patch(
         Specifies what data to load, possible values: 'all', 'rgb', 'near_ir', 'landcover' or 'altitude'.
     landcover_mapping : 1d array-like
         Facultative mapping of landcover codes, useful to align France and US codes.
-    return_localisation : boolean
-        If True, returns also the localisation as a tuple (latitude, longitude)
     return_arrays : boolean
         If True, returns all the patches as Numpy arrays (no PIL.Image returned).
+    subfolder_strategy : boolean
+        If True, includes subfoldering strategy in the filename path, based on observation_id.
 
     Returns
     -------
@@ -55,21 +60,23 @@ def load_patch(
         Returns a dict containing the requested patches.
     """
     observation_id = str(observation_id)
-
-    region_id = observation_id[0]
-    if region_id == "1":
-        region = "patches-fr"
-    elif region_id == "2":
-        region = "patches-us"
-    else:
-        raise ValueError(
-            "Incorrect 'observation_id' {}, can not extract region id from it".format(
-                observation_id
+    region, subfolder1, subfolder2 = "", "", ""
+    
+    if subfolder_strategy:
+        region_id = observation_id[:1]
+        if region_id == "1":
+            region = "patches-fr"
+        elif region_id == "2":
+            region = "patches-us"
+        else:
+            raise ValueError(
+                "Incorrect 'observation_id' {}, can not extract region id from it".format(
+                    observation_id
+                )
             )
-        )
 
-    subfolder1 = observation_id[-2:]
-    subfolder2 = observation_id[-4:-2]
+        subfolder1 = observation_id[-2:]
+        subfolder2 = observation_id[-4:-2]
 
     filename = Path(patches_path) / region / subfolder1 / subfolder2 / observation_id
 
@@ -569,7 +576,7 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
             self.patch_extractor = None
 
     def _check_integrity(self):
-        return (self.root / 'micro_geolifeclef_observations.csv').exists()
+        return (self.root / "micro_geolifeclef_observations.csv").exists()
 
     def download(self):
         if self._check_integrity():
@@ -594,7 +601,9 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
         observation_id = self.observation_ids[index]
 
         patches = load_patch(
-            observation_id, self.root / "patches", data=self.patch_data
+            observation_id, self.root / "patches",
+            data=self.patch_data,
+            subfolder_strategy=False,
         )
 
         # Extracting patch from rasters
