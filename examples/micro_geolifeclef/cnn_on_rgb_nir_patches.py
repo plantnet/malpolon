@@ -141,6 +141,7 @@ class ClassificationSystem(FinetuningClassificationSystem):
 
 @hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_nir_patches_config")
 def main(cfg: DictConfig) -> None:
+    # cfg.data.dataset_path = '../../../' + cfg.data.dataset_path  # Uncomment if value contains only the name of the dataset folder. Only works with a 3-folder-deep hydra job path.
     logger = pl.loggers.CSVLogger(".", name=False, version="")
     logger.log_hyperparams(cfg)
 
