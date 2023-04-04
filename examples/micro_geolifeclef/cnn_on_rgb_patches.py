@@ -9,7 +9,7 @@ from torchvision import transforms
 from transforms import RGBDataTransform
 
 from malpolon.data.data_module import BaseDataModule
-from malpolon.data.datasets.geolifeclef import MicroGeoLifeCLEF2022Dataset
+from malpolon.data.datasets.geolifeclef2022 import MicroGeoLifeCLEF2022Dataset
 from malpolon.logging import Summary
 from malpolon.models import FinetuningClassificationSystem
 

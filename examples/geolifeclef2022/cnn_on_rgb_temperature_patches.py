@@ -11,7 +11,7 @@ from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
 from malpolon.data.environmental_raster import PatchExtractor
-from malpolon.data.datasets.geolifeclef import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
+from malpolon.data.datasets.geolifeclef2022 import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
 from malpolon.models.multi_modal import HomogeneousMultiModalModel
 from malpolon.models.standard_prediction_systems import GenericPredictionSystem
 from malpolon.logging import Summary

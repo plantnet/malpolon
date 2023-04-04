@@ -8,7 +8,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
-from malpolon.data.datasets.geolifeclef import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
+from malpolon.data.datasets.geolifeclef2022 import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
 from malpolon.models.standard_prediction_systems import FinetuningClassificationSystem
 from malpolon.logging import Summary
 

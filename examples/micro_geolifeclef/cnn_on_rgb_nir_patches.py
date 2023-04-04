@@ -10,7 +10,7 @@ from torchvision import transforms
 from transforms import NIRDataTransform, RGBDataTransform
 
 from malpolon.data.data_module import BaseDataModule
-from malpolon.data.datasets.geolifeclef import MicroGeoLifeCLEF2022Dataset
+from malpolon.data.datasets.geolifeclef2022 import MicroGeoLifeCLEF2022Dataset
 from malpolon.logging import Summary
 from malpolon.models import FinetuningClassificationSystem
 
@@ -31,7 +31,8 @@ class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
     ----------
         dataset_path: Path to dataset
         train_batch_size: Size of batch for training
-        inference_batch_size: Size of batch for inference (validation, testing, prediction)
+        inference_batch_size: Size of batch for inference (validation,
+                              testing, prediction)
         num_workers: Number of workers to use for data loading
     """
     def __init__(
