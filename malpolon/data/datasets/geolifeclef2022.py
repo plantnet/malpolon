@@ -1,22 +1,34 @@
+"""This module provides Datasets and Providers for GeoLifeCLEF2022 data.
+
+This module has since been updated for GeoLifeCLEF2023
+
+Author: Benjamin Deneu <benjamin.deneu@inria.fr>
+        Titouan Lorieul <titouan.lorieul@inria.fr>
+
+License: GPLv3
+Python version: 3.8
+"""
+
 from __future__ import annotations
 
 from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional, Union
 
+import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tifffile
 from matplotlib.patches import Patch
 from PIL import Image
+from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import Dataset
 from torchvision.datasets.utils import download_and_extract_archive
 
 from malpolon.data.environmental_raster import PatchExtractor
 
 from ...plot.map import plot_map
-from ..environmental_raster import PatchExtractor
 from ._base import DATA_MODULE
 
 if TYPE_CHECKING:
@@ -37,7 +49,7 @@ def load_patch(
     return_arrays: bool = True,
     subfolder_strategy: bool = True,
 ) -> dict[str, Patches]:
-    """Loads the patch data associated to an observation id.
+    """Load the patch data associated to an observation id.
 
     Parameters
     ----------
@@ -61,7 +73,7 @@ def load_patch(
     """
     observation_id = str(observation_id)
     region, subfolder1, subfolder2 = "", "", ""
-    
+
     if subfolder_strategy:
         region_id = observation_id[:1]
         if region_id == "1":
@@ -69,11 +81,8 @@ def load_patch(
         elif region_id == "2":
             region = "patches-us"
         else:
-            raise ValueError(
-                "Incorrect 'observation_id' {}, can not extract region id from it".format(
-                    observation_id
-                )
-            )
+            raise ValueError(f"Incorrect 'observation_id' {observation_id},"
+                             f" can not extract region id from it")
 
         subfolder1 = observation_id[-2:]
         subfolder2 = observation_id[-4:-2]
@@ -121,7 +130,7 @@ def visualize_observation_patch(
     landcover_labels: Optional[Collection] = None,
     return_fig: bool = False,
 ) -> Optional[plt.Figure]:
-    """Plots patch data
+    """Plot patch data.
 
     Parameters
     ----------
@@ -150,8 +159,6 @@ def visualize_observation_patch(
         legend_elements.append(Patch(color=color, label=landcover_label))
 
     if observation_data is not None:
-        import cartopy.crs as ccrs
-
         localisation = observation_data[["latitude", "longitude"]]
         species_id = getattr(observation_data, "species_id", None)
         species_name = getattr(observation_data, "GBIF_species_name", None)
@@ -159,35 +166,36 @@ def visualize_observation_patch(
 
         fig = plt.figure(figsize=(15, 10))
 
-        gs = fig.add_gridspec(1, 2, width_ratios=[1, 2])
+        g_s = fig.add_gridspec(1, 2, width_ratios=[1, 2])
 
-        gs1 = gs[0].subgridspec(1, 1)
-        ax = fig.add_subplot(gs1[0], projection=ccrs.PlateCarree())
+        gs1 = g_s[0].subgridspec(1, 1)
+        axe = fig.add_subplot(gs1[0], projection=ccrs.PlateCarree())
         region = "fr" if localisation[1] > -6 else "us"
-        plot_map(region=region, ax=ax)
-        ax.scatter(
+        plot_map(region=region, ax=axe)
+        axe.scatter(
             localisation[1],
             localisation[0],
             marker="o",
             s=100,
             transform=ccrs.PlateCarree(),
         )
-        ax.set_title("Observation localisation")
+        axe.set_title("Observation localisation")
 
-        s = "Observation id: {}".format(observation_data.name)
-        s += "\nLocalisation: {:.3f}, {:.3f}".format(*localisation)
+        txt = f"Observation id: {observation_data.name}"
+        txt += f"\nLocalisation: {localisation[0]:.3f}, {localisation[1]:.3f}"
         if species_id:
-            s += "\nSpecies id: {}".format(species_id)
+            txt += f"\nSpecies id: {species_id}"
         if species_name:
-            s += "\nSpecies name: {}".format(species_name)
+            txt += f"\nSpecies name: {species_name}"
         if kingdom_name:
-            s += "\nKingdom: {}".format(kingdom_name)
-        pos = ax.get_position()
+            txt += f"\nKingdom: {kingdom_name}"
+        pos = axe.get_position()
         fig.text(
-            pos.x1 - pos.x0, pos.y0 - 0.2 * (pos.y1 - pos.y0), s, ha="center", va="top"
+            pos.x1 - pos.x0, pos.y0 - 0.2 * (pos.y1 - pos.y0), txt,
+            ha="center", va="top"
         )
 
-        gs2 = gs[1].subgridspec(2, 2)
+        gs2 = g_s[1].subgridspec(2, 2)
         axes = np.asarray([fig.add_subplot(gs) for gs in gs2])
     else:
         fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(13, 8))
@@ -195,52 +203,51 @@ def visualize_observation_patch(
     axes = axes.ravel()
     axes_iter = iter(axes)
 
-    ax = next(axes_iter)
-    ax.imshow(patch["rgb"])
-    ax.set_title("RGB image")
+    axe = next(axes_iter)
+    axe.imshow(patch["rgb"])
+    axe.set_title("RGB image")
 
-    ax = next(axes_iter)
-    ax.imshow(patch["near_ir"], cmap="gray")
-    ax.set_title("Near-IR image")
+    axe = next(axes_iter)
+    axe.imshow(patch["near_ir"], cmap="gray")
+    axe.set_title("Near-IR image")
 
-    ax = next(axes_iter)
+    axe = next(axes_iter)
     vmin = round(patch["altitude"].min(), -1)
     vmax = round(patch["altitude"].max(), -1) + 10
-    ax.imshow(patch["altitude"])
-    CS2 = ax.contour(
+    axe.imshow(patch["altitude"])
+    cs2 = axe.contour(
         patch["altitude"],
         levels=np.arange(vmin, vmax, step=10),
         colors="w",
     )
-    ax.clabel(CS2, inline=True, fontsize=10)
-    ax.set_aspect("equal")
-    ax.set_title("Altitude (in meters)")
+    axe.clabel(cs2, inline=True, fontsize=10)
+    axe.set_aspect("equal")
+    axe.set_title("Altitude (in meters)")
 
-    ax = next(axes_iter)
-    ax.imshow(
+    axe = next(axes_iter)
+    axe.imshow(
         patch["landcover"],
         interpolation="none",
         cmap=cmap,
         vmin=0,
         vmax=len(legend_elements),
     )
-    ax.set_title("Land cover")
+    axe.set_title("Land cover")
     visible_landcover_categories = np.unique(patch["landcover"])
     legend = [legend_elements[i] for i in visible_landcover_categories]
-    ax.legend(
+    axe.legend(
         handles=legend, handlelength=0.75, bbox_to_anchor=(1, 0.5), loc="center left"
     )
 
-    for ax in axes:
-        ax.axis("off")
+    for axe in axes:
+        axe.axis("off")
 
     if observation_data is None:
         fig.tight_layout()
 
     if return_fig:
         return fig
-    else:
-        return None
+    return None
 
 
 class GeoLifeCLEF2022Dataset(Dataset):
@@ -285,19 +292,13 @@ class GeoLifeCLEF2022Dataset(Dataset):
 
         possible_subsets = ["train", "val", "train+val", "test"]
         if subset not in possible_subsets:
-            raise ValueError(
-                "Possible values for 'subset' are: {} (given {})".format(
-                    possible_subsets, subset
-                )
-            )
+            raise ValueError(f"Possible values for 'subset' are:"
+                             f" {possible_subsets} (given {subset})")
 
         possible_regions = ["both", "fr", "us"]
         if region not in possible_regions:
-            raise ValueError(
-                "Possible values for 'region' are: {} (given {})".format(
-                    possible_regions, region
-                )
-            )
+            raise ValueError(f"Possible values for 'region' are:"
+                             f" {possible_regions} (given {region})")
 
         self.root = root
         self.subset = subset
@@ -323,7 +324,8 @@ class GeoLifeCLEF2022Dataset(Dataset):
 
         if use_rasters:
             if patch_extractor is None:
-                patch_extractor = PatchExtractor(self.root / "rasters", size=256)
+                patch_extractor = PatchExtractor(self.root / "rasters",
+                                                 size=256)
                 patch_extractor.add_all_rasters()
 
             self.patch_extractor = patch_extractor
@@ -340,12 +342,12 @@ class GeoLifeCLEF2022Dataset(Dataset):
             subset_file_suffix = "train"
 
         df_fr = pd.read_csv(
-            root / "observations" / "observations_fr_{}.csv".format(subset_file_suffix),
+            root / "observations" / f"observations_fr_{subset_file_suffix}.csv",
             sep=";",
             index_col="observation_id",
         )
         df_us = pd.read_csv(
-            root / "observations" / "observations_us_{}.csv".format(subset_file_suffix),
+            root / "observations" / f"observations_us_{subset_file_suffix}.csv",
             sep=";",
             index_col="observation_id",
         )
@@ -364,13 +366,22 @@ class GeoLifeCLEF2022Dataset(Dataset):
         return df
 
     def __len__(self) -> int:
-        """Returns the number of observations in the dataset."""
+        """Return the number of observations in the dataset."""
         return len(self.observation_ids)
 
     def __getitem__(
         self,
         index: int,
     ) -> Union[dict[str, Patches], tuple[dict[str, Patches], Targets]]:
+        """Return a dataset item.
+
+        Args:
+            index (int): dataset id.
+
+        Returns:
+            Union[dict[str, Patches], tuple[dict[str, Patches], Targets]]:
+                data and labels corresponding to the dataset id.
+        """
         latitude = self.coordinates[index][0]
         longitude = self.coordinates[index][1]
         observation_id = self.observation_ids[index]
@@ -397,13 +408,14 @@ class GeoLifeCLEF2022Dataset(Dataset):
                 target = self.target_transform(target)
 
             return patches, target
-        else:
-            return patches
+        return patches
 
 
 class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
     """Pytorch dataset handler for a subset of GeoLifeCLEF 2022 dataset.
-    It consists in a restriction to France and to the 100 most present plant species.
+
+    It consists in a restriction to France and to the 100 most present
+    plant species.
 
     Parameters
     ----------
@@ -412,7 +424,8 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
     subset : string, either "train", "val", "train+val" or "test"
         Use the given subset ("train+val" is the complete training data).
     patch_data : string or list of string
-        Specifies what type of patch data to load, possible values: 'all', 'rgb', 'near_ir', 'landcover' or 'altitude'.
+        Specifies what type of patch data to load, possible values: 'all',
+        'rgb', 'near_ir', 'landcover' or 'altitude'.
     use_rasters : boolean (optional)
         If True, extracts patches from environmental rasters.
     patch_extractor : PatchExtractor object (optional)
@@ -420,7 +433,8 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
     use_localisation : boolean
         If True, returns also the localisation as a tuple (latitude, longitude).
     transform : callable (optional)
-        A function/transform that takes a list of arrays and returns a transformed version.
+        A function/transform that takes a list of arrays and returns
+        a transformed version.
     target_transform : callable (optional)
         A function/transform that takes in the target and transforms it.
     """
@@ -463,7 +477,7 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
             subset_file_suffix = "train"
 
         df = pd.read_csv(
-            root / "observations" / "observations_fr_{}.csv".format(subset_file_suffix),
+            root / "observations" / f"observations_fr_{subset_file_suffix}.csv",
             sep=";",
             index_col="observation_id",
         )
@@ -482,8 +496,6 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
         df_species = df_species.loc[species_id]
         df = df[np.isin(df["species_id"], df_species.index)]
 
-        from sklearn.preprocessing import LabelEncoder
-
         label_encoder = LabelEncoder().fit(df_species.index)
         df["species_id"] = label_encoder.transform(df["species_id"])
         df_species.index = label_encoder.transform(df_species.index)
@@ -497,6 +509,7 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
 
 class MicroGeoLifeCLEF2022Dataset(Dataset):
     """Pytorch dataset handler for a subset of GeoLifeCLEF 2022 dataset.
+
     It consists in a restriction to France and to the 100 most present plant species.
 
     Parameters
@@ -506,7 +519,8 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
     subset : string, either "train", "val", "train+val" or "test"
         Use the given subset ("train+val" is the complete training data).
     patch_data : string or list of string
-        Specifies what type of patch data to load, possible values: 'all', 'rgb', 'near_ir', 'landcover' or 'altitude'.
+        Specifies what type of patch data to load, possible values:
+        'all', 'rgb', 'near_ir', 'landcover' or 'altitude'.
     use_rasters : boolean (optional)
         If True, extracts patches from environmental rasters.
     patch_extractor : PatchExtractor object (optional)
@@ -514,11 +528,13 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
     use_localisation : boolean
         If True, returns also the localisation as a tuple (latitude, longitude).
     transform : callable (optional)
-        A function/transform that takes a list of arrays and returns a transformed version.
+        A function/transform that takes a list of arrays and returns
+        a transformed version.
     target_transform : callable (optional)
         A function/transform that takes in the target and transforms it.
     download : boolean (optional)
-        If True, downloads the dataset from the internet and puts it in root directory. If dataset is already downloaded, it is not downloaded again.
+        If True, downloads the dataset from the internet and puts it in root
+        directory. If dataset is already downloaded, it is not downloaded again.
     """
 
     def __init__(
@@ -548,7 +564,8 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
             self.download()
 
         if not self._check_integrity():
-            raise RuntimeError("Dataset not found or corrupted. You can use download=True to download it")
+            raise RuntimeError("Dataset not found or corrupted."
+                               " You can use download=True to download it")
 
         df = pd.read_csv(
             root / "micro_geolifeclef_observations.csv",
@@ -568,7 +585,8 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
 
         if use_rasters:
             if patch_extractor is None:
-                patch_extractor = PatchExtractor(self.root / "rasters", size=256)
+                patch_extractor = PatchExtractor(self.root / "rasters",
+                                                 size=256)
                 patch_extractor.add_all_rasters()
 
             self.patch_extractor = patch_extractor
@@ -579,6 +597,7 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
         return (self.root / "micro_geolifeclef_observations.csv").exists()
 
     def download(self):
+        """Download the MicroGeolifeClef dataset."""
         if self._check_integrity():
             print("Files already downloaded and verified")
             return
@@ -592,10 +611,18 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
         )
 
     def __len__(self):
-        """Returns the number of observations in the dataset."""
+        """Return the number of observations in the dataset."""
         return len(self.observation_ids)
 
     def __getitem__(self, index):
+        """Return a MicroGeolifeClef dataset item.
+
+        Args:
+            index (int): dataset id.
+
+        Returns:
+            (tuple): data and labels.
+        """
         latitude = self.coordinates[index][0]
         longitude = self.coordinates[index][1]
         observation_id = self.observation_ids[index]
@@ -612,7 +639,8 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
             patches["environmental_patches"] = environmental_patches
 
         if self.use_localisation:
-            patches["localisation"] = np.asarray([latitude, longitude], dtype=np.float32)
+            patches["localisation"] = np.asarray([latitude, longitude],
+                                                 dtype=np.float32)
 
         if self.transform:
             patches = self.transform(patches)
