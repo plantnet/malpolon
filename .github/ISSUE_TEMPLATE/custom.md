@@ -7,4 +7,8 @@ assignees: ''
 
 ---
 
+- **Context**
 
+- **Problem**
+
+- **Solution**
