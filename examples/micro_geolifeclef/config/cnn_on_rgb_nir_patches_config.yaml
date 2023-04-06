@@ -11,3 +11,10 @@ model:
         rescaling: true
     change_last_layer:
       num_outputs: 10
+
+trainer:
+  gpus: 1
+
+data:
+  dataset_path: "../../../dataset/"  # Relative to hydra.run.dir
+  train_batch_size: 32

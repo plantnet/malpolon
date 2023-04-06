@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from malpolon.data.environmental_raster import PatchExtractor
-from malpolon.data.datasets.geolifeclef import load_patch, GeoLifeCLEF2022Dataset, visualize_observation_patch
+from malpolon.data.datasets.geolifeclef2022 import load_patch, GeoLifeCLEF2022Dataset, visualize_observation_patch
 
 
 DATA_PATH = Path("/home/tlorieul/dev/research/GeoLifeCLEF22/data")
