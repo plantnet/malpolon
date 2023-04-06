@@ -3,7 +3,7 @@ hydra:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
 trainer:
-  gpus: ???
+  gpus: 1
   max_epochs: 10
   val_check_interval: 0.5
 
@@ -23,7 +23,7 @@ optimizer:
   nesterov: true
 
 data:
-  dataset_path: ???
+  dataset_path: "../../../dataset/"  # Relative to hydra.run.dir
   train_batch_size: 32
   inference_batch_size: 256
   num_workers: 8
