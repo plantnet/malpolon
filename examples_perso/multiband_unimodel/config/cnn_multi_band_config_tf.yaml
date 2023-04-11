@@ -58,7 +58,7 @@ hydra:
 trainer:
   # nombre de GPU à utuiliser 
   # si vous voulez utiliser un GPU en particulier mettre par exemple : [1] -> utilisera le second GPU
-  accelerator: gpu
+  #accelerator: gpu
   devices: 1
   #gpus: 1
   # nombre d'epque pour l'entrainement
@@ -105,7 +105,7 @@ optimizer:
   # parametre de l'optimieur stricto sensus
   SGD:
     # learning rate de l'optimiseur stricto sensus 
-    lr: 1.0e-03 #0.001 #0.00001 #0.000001
+    lr: 1.0e-05 #0.001 #0.00001 #0.000001
     # weight_decay de l'optimiseur stricto sensus
     weight_decay: 0.001
     # momentum de l'optimiseur stricto sensus
@@ -172,24 +172,24 @@ patch:
   # -> par défaut, seul les formats .tif et .jp2 sont pris en compte
   # -> il est possible de modiffier ces configurations par défaut dans "dataset.py" au niveau de "def load_patch" 
   patch_data: 
-#  - full_true_clean_subset
-  - TCI_sentinel
-  - bathymetry
-  - bathy_95m
-  - chlorophyll_concentration_1km
-  - east_water_velocity_4_2km_mean_day_lite
-  - east_water_velocity_4_2km_mean_month_lite
+  - full_true_clean_subset
+#  - TCI_sentinel
+#  - bathymetry
+#  - bathy_95m
+#  - chlorophyll_concentration_1km
+#  - east_water_velocity_4_2km_mean_day_lite
+#  - east_water_velocity_4_2km_mean_month_lite
 #  - east_water_velocity_4_2km_mean_year_lite
-  - meditereanean_sst
-  - north_water_velocity_4_2km_mean_day_lite
-  - north_water_velocity_4_2km_mean_month_lite
+#  - meditereanean_sst
+#  - north_water_velocity_4_2km_mean_day_lite
+#  - north_water_velocity_4_2km_mean_month_lite
 #  - north_water_velocity_4_2km_mean_year_lite
-  - occ_lat_long
-  - salinity_4_2km_mean_day_lite
-  - salinity_4_2km_mean_month_lite
+#  - occ_lat_long
+#  - salinity_4_2km_mean_day_lite
+#  - salinity_4_2km_mean_month_lite
 #  - salinity_4_2km_mean_year_lite
-  - sea_water_potential_temperature_at_sea_floor_4_2km_mean_day
-  - sea_water_potential_temperature_at_sea_floor_4_2km_mean_month
+#  - sea_water_potential_temperature_at_sea_floor_4_2km_mean_day
+#  - sea_water_potential_temperature_at_sea_floor_4_2km_mean_month
 #  - sea_water_potential_temperature_at_sea_floor_4_2km_mean_year
   # -> valeur moyenne des différentes bandes de chaques patches par variables
   # -> vous pouvez renseigner ces valeures pour des variables qui ne sont pas dans patch_data afin de les avoir 
@@ -254,7 +254,7 @@ callbacks:
   # au niveau de "metrics = {...}"
   # -> précédé de "val_" ou de "acc_". Par exemple "val_top_10_accuracy" pour monitoré le top_10_accuracy 
   # du set de validation
-  monitor : val_accuracy
+  monitor : val_top_20_accuracy_macro
   # -> metre "max" ou "min" (cf. https://pytorch-lightning.readthedocs.io -> ModelCheckpoint et EarlyStopping)
   mode : max  
   # -> indiquer le nombre d'epoque que vous souhaiter attendre multiplié par trainer.val_check_interval

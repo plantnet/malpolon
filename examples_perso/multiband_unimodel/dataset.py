@@ -90,6 +90,7 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
         root,
         csv_occurence_path,
         csv_separator,
+        csv_col_class_id,
         csv_col_occurence_id,
         patch_data_ext,
         subset,
@@ -137,7 +138,7 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
         #self.coordinates = df[["latitude", "longitude"]].values
         #self.targets = df["species_id"].values
         self.coordinates = df[["SiteLat", "SiteLong"]].values                  # Ben 
-        self.targets = df["species_classes"].values                            # Ben
+        self.targets = df[csv_col_class_id].values                            # Ben
 
         if use_rasters:
             if patch_extractor is None:

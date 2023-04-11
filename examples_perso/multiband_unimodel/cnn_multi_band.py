@@ -270,10 +270,11 @@ class ClassificationSystem(GenericPredictionSystemLrScheduler):
         if num_outputs > 20 :            
             metrics["top_20_accuracy"] = torchmetrics.Accuracy(task="multiclass", num_classes=num_outputs, top_k=20).to(device = "cuda")
             metrics["top_20_accuracy_macro"] = torchmetrics.Accuracy(task="multiclass",num_classes=num_outputs, average="macro", top_k=20).to(device = "cuda")
+        '''
         if num_outputs > 30 :            
             metrics["top_30_accuracy"] = torchmetrics.Accuracy(task="multiclass", num_classes=num_outputs, top_k=30).to(device = "cuda")
             metrics["top_30_accuracy_macro"] = torchmetrics.Accuracy(task="multiclass",num_classes=num_outputs, average="macro", top_k=30).to(device = "cuda")            
-
+        '''
         super().__init__(model, loss, optimizer, scheduler, metrics)
 
 

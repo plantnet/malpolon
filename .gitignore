@@ -9,6 +9,12 @@
 
 docs/_build
 
-/examples_perso/
-/environnement_opti_ben.yml
 
+examples_perso/brouillon/
+examples_perso/geolifeclef/
+examples_perso/geolifeclef_ben/
+examples_perso/micro_geolifeclef/
+examples_perso/multiband_unimodel/outputs/
+examples_perso/multiband_unimodel/brouillon/
+
+environnement_opti_ben.yml
