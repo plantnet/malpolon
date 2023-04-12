@@ -37,8 +37,6 @@ cuDNN available: True (version: 8302)
 Number of CUDA-compatible devices found: 1
 ```
 
-
-
 ## Examples
 
 Examples using the GeoLifeCLEF 2022 dataset is provided in the `examples` folder.
