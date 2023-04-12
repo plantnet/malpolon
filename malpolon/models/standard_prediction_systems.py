@@ -25,7 +25,8 @@ class GenericPredictionSystem(pl.LightningModule):
     optimizer: torch.optim.Optimizer
         Optimization algorithm used to train the model.
     metrics: dict
-        Dictionary containing the metrics to monitor during the training and to compute at test time.
+        Dictionary containing the metrics to monitor during the training and
+        to compute at test time.
     """
 
     def __init__(
@@ -34,9 +35,15 @@ class GenericPredictionSystem(pl.LightningModule):
         loss: torch.nn.modules.loss._Loss,
         optimizer: torch.optim.Optimizer,
         metrics: Optional[dict[str, Callable]] = None,
+        save_hyperparameters: Optional[bool] = True
     ):
-        super().__init__()
+        if save_hyperparameters:
+            self.save_hyperparameters()
+        # Must be placed before the super call (or anywhere in other inheriting
+        # class of GenericPredictionSystem). Otherwise the script pauses
+        # indefinitely after returning self.optimizer. It is unclear why.
 
+        super().__init__()
         self.model = check_model(model)
         self.optimizer = check_optimizer(optimizer)
         self.loss = check_loss(loss)
