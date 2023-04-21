@@ -38,7 +38,7 @@ class GenericPredictionSystem(pl.LightningModule):
         save_hyperparameters: Optional[bool] = True
     ):
         if save_hyperparameters:
-            self.save_hyperparameters()
+            self.save_hyperparameters(ignore=['model', 'loss'])
         # Must be placed before the super call (or anywhere in other inheriting
         # class of GenericPredictionSystem). Otherwise the script pauses
         # indefinitely after returning self.optimizer. It is unclear why.
@@ -93,6 +93,45 @@ class GenericPredictionSystem(pl.LightningModule):
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return self.optimizer
+
+    ### May be moved to a new class redefining pl.Trainer
+    def _state_dict_replace_key(
+        self,
+        state_dict: str,
+        replace: Optional[list[str]] = ['.', '']
+    ):
+        replace[0] += '.' if not replace[0].endswith('.') else ''
+        for key in list(state_dict):
+            state_dict[key.replace(replace[0], replace[1])] = state_dict.pop(key)
+        return state_dict
+
+    def predict(
+        self,
+        datamodule,
+        trainer,
+    ):
+        datamodule.setup(stage="test")
+        predictions = trainer.predict(datamodule=datamodule, model=self)
+        predictions = torch.cat(predictions)
+        return predictions
+
+    def predict_point(
+        self,
+        checkpoint_path: str,
+        data: Union[Tensor, tuple[Any, Any]],
+        state_dict_replace_key: Optional[list[str, str]] = None,
+        ckpt_transform: Callable = None
+    ):
+        ckpt = torch.load(checkpoint_path)
+        ckpt['state_dict'] = self._state_dict_replace_key(ckpt['state_dict'],
+                                                          state_dict_replace_key)
+        if ckpt_transform:
+            ckpt = ckpt_transform(ckpt)
+        self.model.load_state_dict(ckpt['state_dict'])
+        self.model.eval()
+        with torch.no_grad():
+            prediction = self.model(data)
+        return prediction
 
 
 class FinetuningClassificationSystem(GenericPredictionSystem):
