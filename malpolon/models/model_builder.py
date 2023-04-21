@@ -124,8 +124,7 @@ def change_last_layer_modifier(
     num_outputs: int,
     flatten: bool = False,
 ) -> nn.Module:
-    """
-    Removes the last registered linear layer of a model and replaces it by a new dense layer with the provided number of outputs.
+    """Remove the last registered linear layer of a model and replaces it by a new dense layer with the provided number of outputs.
 
     Parameters
     ----------
