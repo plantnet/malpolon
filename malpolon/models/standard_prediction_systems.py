@@ -1,3 +1,10 @@
+"""This module provides classes wrapping pytorchlightning training modules.
+
+Author: Titouan Lorieul <titouan.lorieul@inria.fr>
+        Theo Larcher <theo.larcher@inria.fr>
+
+"""
+
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
