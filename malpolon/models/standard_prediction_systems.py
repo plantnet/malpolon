@@ -94,12 +94,50 @@ class GenericPredictionSystem(pl.LightningModule):
     def configure_optimizers(self) -> torch.optim.Optimizer:
         return self.optimizer
 
-    ### May be moved to a new class redefining pl.Trainer
     @staticmethod
     def state_dict_replace_key(
-        state_dict: str,
+        state_dict: dict,
         replace: Optional[list[str]] = ['.', '']
     ):
+        """Replace keys in a state_dict dictionnary.
+
+        A state_dict usually is an OrderedDict where the keys are the model's
+        module names. This method allows to change these names by replacing
+        a given string, or token, by another.
+
+        Parameters
+        ----------
+        state_dict : dict
+            Model state_dict
+        replace : Optional[list[str]], optional
+            Tokens to replace in the
+            state_dict module names. The first element is the token
+            to look for while the second is the replacement value.
+            By default ['.', ''].
+
+        Returns
+        -------
+        dict
+            State_dict with new keys.
+
+        Examples
+        -------
+        I have loaded a Resnet18 model through a checkpoint after a training
+        session. But the names of the model modules have been altered with a
+        prefix "model.":
+
+        >>> sd = model.state_dict()
+        >>> print(list(sd)[:2])
+        (model.conv1): Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        (model.bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+
+        To remove this prefix:
+
+        >>> sd = GenericPredictionSystem.state_dict_replace_key(sd, ['model.', ''])
+        >>> print(sd[:2])
+        (conv1): Conv2d(3, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+        (bn1): BatchNorm2d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        """
         replace[0] += '.' if not replace[0].endswith('.') else ''
         for key in list(state_dict):
             print(key)
@@ -111,6 +149,24 @@ class GenericPredictionSystem(pl.LightningModule):
         datamodule,
         trainer,
     ):
+        """Predict a model's output on the test dataset.
+
+        This method performs inference on the test dataset using only
+        pytorchlightning tools.
+
+        Parameters
+        ----------
+        datamodule : pl.LightningDataModule
+            pytorchlightning datamodule handling all train/test/val datasets.
+        trainer : pl.Trainer
+            pytorchlightning trainer in charge of running the model on train
+            and inference mode.
+
+        Returns
+        -------
+        array
+            Predicted tensor values.
+        """
         datamodule.setup(stage="test")
         predictions = trainer.predict(datamodule=datamodule, model=self)
         predictions = torch.cat(predictions)
@@ -123,6 +179,30 @@ class GenericPredictionSystem(pl.LightningModule):
         state_dict_replace_key: Optional[list[str, str]] = None,
         ckpt_transform: Callable = None
     ):
+        """Predict a model's output on 1 data point.
+
+        Performs as predict() but for a single data point and using native
+        pytorch tools.
+
+        Parameters
+        ----------
+        checkpoint_path : str
+            path to the model's checkpoint to load.
+        data : Union[Tensor, tuple[Any, Any]]
+            data point to perform inference on.
+        state_dict_replace_key : Optional[list[str, str]], optional
+            list of values used to call the static method
+            state_dict_replace_key(). Defaults to None.
+        ckpt_transform : Callable, optional
+            callable function applied to the loaded checkpoint object.
+            Use this to modify the structure of the loaded model's checkpoint
+            on the fly. Defaults to None.
+
+        Returns
+        -------
+        array
+            Predicted tensor value.
+        """
         ckpt = torch.load(checkpoint_path)
         ckpt['state_dict'] = self.state_dict_replace_key(ckpt['state_dict'],
                                                          state_dict_replace_key)
