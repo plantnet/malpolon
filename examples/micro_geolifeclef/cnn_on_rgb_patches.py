@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import os
+from typing import TYPE_CHECKING
 
 import hydra
 import pytorch_lightning as pl
@@ -12,6 +15,9 @@ from malpolon.data.data_module import BaseDataModule
 from malpolon.data.datasets.geolifeclef2022 import MicroGeoLifeCLEF2022Dataset
 from malpolon.logging import Summary
 from malpolon.models import FinetuningClassificationSystem
+
+if TYPE_CHECKING:
+    from typing import Any, Callable, Mapping, Optional, Union
 
 
 class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
@@ -107,8 +113,8 @@ class ClassificationSystem(FinetuningClassificationSystem):
 
 @hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_patches_config")
 def main(cfg: DictConfig) -> None:
-    # cfg.data.dataset_path = '../../../' + cfg.data.dataset_path  # Uncomment if value contains only the name of the dataset folder. Only works with a 3-folder-deep hydra job path.
-    logger = pl.loggers.CSVLogger(".", name=False, version="")
+    # cfg.data.dataset_pathstate_dict = state_dict.model.state_dict = '../../../' + cfg.data.dataset_path  # Uncomment if value contains only the name of the dataset folder. Only works with a 3-folder-deep hydra job path.
+    logger = pl.loggers.CSVLogger(".", name="", version="")
     logger.log_hyperparams(cfg)
 
     datamodule = MicroGeoLifeCLEF2022DataModule(**cfg.data)
@@ -125,9 +131,25 @@ def main(cfg: DictConfig) -> None:
         ),
     ]
     trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
-    trainer.fit(model, datamodule=datamodule)
 
-    trainer.validate(model, datamodule=datamodule)
+    if cfg.inference.predict:
+        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.inference.checkpoint_path, model=model.model)
+
+        # Option 1: Predict on the entire test dataset (Pytorch Lightning)
+        predictions = model_loaded.predict(datamodule, trainer)
+        print('Test dataset prediction (extract) : ', predictions[:10])
+
+        # Option 2: Predict 1 data point (Pytorch)
+        test_data = datamodule.get_test_dataset()
+        test_data_point = test_data[0][0]
+        test_data_point = test_data_point.resize_(1, *test_data_point.shape)
+        prediction = model_loaded.predict_point(cfg.inference.checkpoint_path,
+                                                test_data_point,
+                                                ['model.', ''])
+        print('Point prediction : ', prediction)
+    else:
+        trainer.fit(model, datamodule=datamodule)
+        trainer.validate(model, datamodule=datamodule)
 
 
 if __name__ == "__main__":

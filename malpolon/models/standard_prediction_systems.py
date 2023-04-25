@@ -211,8 +211,9 @@ class GenericPredictionSystem(pl.LightningModule):
             Predicted tensor value.
         """
         ckpt = torch.load(checkpoint_path)
-        ckpt['state_dict'] = self.state_dict_replace_key(ckpt['state_dict'],
-                                                         state_dict_replace_key)
+        if state_dict_replace_key:
+            ckpt['state_dict'] = self.state_dict_replace_key(ckpt['state_dict'],
+                                                             state_dict_replace_key)
         if ckpt_transform:
             ckpt = ckpt_transform(ckpt)
         self.model.load_state_dict(ckpt['state_dict'])
