@@ -38,10 +38,9 @@ Number of CUDA-compatible devices found: 1
 ```
 
 
-
 ## Examples
 
-Examples using the GeoLifeCLEF 2022 dataset is provided in the `examples` folder.
+Examples using the GeoLifeCLEF 2022 and 2023 datasets are provided in the `examples` folder.
 
 
 ## Documentation
