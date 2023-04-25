@@ -95,13 +95,14 @@ class GenericPredictionSystem(pl.LightningModule):
         return self.optimizer
 
     ### May be moved to a new class redefining pl.Trainer
-    def _state_dict_replace_key(
-        self,
+    @staticmethod
+    def state_dict_replace_key(
         state_dict: str,
         replace: Optional[list[str]] = ['.', '']
     ):
         replace[0] += '.' if not replace[0].endswith('.') else ''
         for key in list(state_dict):
+            print(key)
             state_dict[key.replace(replace[0], replace[1])] = state_dict.pop(key)
         return state_dict
 
@@ -123,8 +124,8 @@ class GenericPredictionSystem(pl.LightningModule):
         ckpt_transform: Callable = None
     ):
         ckpt = torch.load(checkpoint_path)
-        ckpt['state_dict'] = self._state_dict_replace_key(ckpt['state_dict'],
-                                                          state_dict_replace_key)
+        ckpt['state_dict'] = self.state_dict_replace_key(ckpt['state_dict'],
+                                                         state_dict_replace_key)
         if ckpt_transform:
             ckpt = ckpt_transform(ckpt)
         self.model.load_state_dict(ckpt['state_dict'])
