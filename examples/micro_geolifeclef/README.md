@@ -26,7 +26,18 @@ Similarly for the example `cnn_on_rgb_nir_patches.py`:
 ```script
 python cnn_on_rgb_nir_patches.py data.dataset_path=<DATASET_PATH> trainer.gpus=1
 ```
+### Inference
 
+Switch running mode from training to prediction by setting the config file parameter `inference.predict` to `true` and specify a path to your model checkpoint. Both training and prediciton mode are embedded in the example file.
+
+## Parametrization
+
+You can parametrize your models and your training routine through your `.yaml` config file which is split in 5 main sections :
+
+- **trainer** : contains parameters to tweak your training session via pytorchlightning Trainer class
+- **model** : defines which model you want to load, from which source, and contains models hyperparameters. You can pass any model hyperparameter listed in your provider's model builder.
+- **optimizer** : contains your optimizer's hyperparameters.
+- **data** : contains data related information such as the path to your dataset and batch size.
 
 ## Additional notes
 
