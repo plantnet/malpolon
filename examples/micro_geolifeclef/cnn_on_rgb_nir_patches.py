@@ -160,9 +160,26 @@ def main(cfg: DictConfig) -> None:
         ),
     ]
     trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
-    trainer.fit(model, datamodule=datamodule)
 
-    trainer.validate(model, datamodule=datamodule)
+    if cfg.inference.predict:
+        ckpt_file_path = cfg.inference.checkpoint_path
+        model_loaded = ClassificationSystem.load_from_checkpoint(ckpt_file_path, model=model.model)
+
+        # Option 1: Predict on the entire test dataset (Pytorch Lightning)
+        predictions = model_loaded.predict(datamodule, trainer)
+        print('Test dataset prediction (extract) : ', predictions[:10])
+
+        # Option 2: Predict 1 data point (Pytorch)
+        test_data = datamodule.get_test_dataset()
+        test_data_point = test_data[0][0]
+        test_data_point = test_data_point.resize_(1, *test_data_point.shape)
+        prediction = model_loaded.predict_point(cfg.inference.checkpoint_path,
+                                                test_data_point,
+                                                state_dict_replace_key=['model.', ''])
+        print('Point prediction : ', prediction)
+    else:
+        trainer.fit(model, datamodule=datamodule)
+        trainer.validate(model, datamodule=datamodule)
 
 
 if __name__ == "__main__":

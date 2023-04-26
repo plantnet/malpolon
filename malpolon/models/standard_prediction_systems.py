@@ -147,7 +147,6 @@ class GenericPredictionSystem(pl.LightningModule):
         """
         replace[0] += '.' if not replace[0].endswith('.') else ''
         for key in list(state_dict):
-            print(key)
             state_dict[key.replace(replace[0], replace[1])] = state_dict.pop(key)
         return state_dict
 

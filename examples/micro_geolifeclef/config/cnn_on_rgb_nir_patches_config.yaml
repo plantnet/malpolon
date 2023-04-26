@@ -1,6 +1,11 @@
 defaults:
   - cnn_on_rgb_patches_config
-  
+
+inference:
+  predict: true
+  checkpoint_path: "../2023-04-26_19-08-14/checkpoint-epoch=00-step=244-val_accuracy=0.2123.ckpt"
+
+
 model:
   modifiers:
     change_first_convolutional_layer:
