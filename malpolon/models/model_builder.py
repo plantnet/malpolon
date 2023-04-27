@@ -1,7 +1,10 @@
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
+import timm
 from torch import nn
+from torchvision import models
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Optional
@@ -23,6 +26,7 @@ class _ModelBuilder:
         modifiers: dict[str, Optional[dict[str, Any]]] = {},
     ) -> nn.Module:
         provider = self.providers[provider_name]
+        model_kwargs = {k: v for k, v in model_kwargs.items() if v is not None}
         model = provider(model_name, *model_args, **model_kwargs)
 
         for modifier_name, modifier_kwargs in modifiers.items():
@@ -42,10 +46,23 @@ class _ModelBuilder:
 def torchvision_model_provider(
     model_name: str, *model_args: Any, **model_kwargs: Any
 ) -> nn.Module:
-    from torchvision import models
 
     model = getattr(models, model_name)
     model = model(*model_args, **model_kwargs)
+    return model
+
+def timm_model_provider(
+    model_name: str, *model_args: Any, **model_kwargs: Any
+) -> nn.Module:
+
+    available_models = timm.list_models()
+    if model_name in available_models:
+        model = timm.create_model(model_name, *model_args, **model_kwargs)
+    else:
+        raise ValueError(
+            f"Model name is not listed in TIMM's library. Please choose a model"
+            f" amongst the following list: {available_models}"
+        )
     return model
 
 
@@ -124,8 +141,7 @@ def change_last_layer_modifier(
     num_outputs: int,
     flatten: bool = False,
 ) -> nn.Module:
-    """
-    Removes the last registered linear layer of a model and replaces it by a new dense layer with the provided number of outputs.
+    """Remove the last registered linear layer of a model and replaces it by a new dense layer with the provided number of outputs.
 
     Parameters
     ----------
@@ -183,6 +199,7 @@ def change_last_layer_to_identity_modifier(model: nn.Module) -> nn.Module:
 ModelBuilder = _ModelBuilder()
 
 ModelBuilder.register_provider("torchvision", torchvision_model_provider)
+ModelBuilder.register_provider("timm", timm_model_provider)
 
 ModelBuilder.register_modifier(
     "change_first_convolutional_layer",

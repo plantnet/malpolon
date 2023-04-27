@@ -1,9 +1,12 @@
 import torch
 from torchvision import models
+import timm
 
 from malpolon.models.model_builder import (
     change_first_convolutional_layer_modifier,
     change_last_layer_modifier,
+    torchvision_model_provider,
+    timm_model_provider
 )
 
 
@@ -21,7 +24,10 @@ def test_change_first_convolutional_layer():
 
     for model_name, image_size in model_names:
         model_func = getattr(models, model_name)
-        model = model_func()
+        if model_name == "inception_v3":
+            model = model_func(init_weights=False)
+        else:
+            model = model_func()
 
         change_first_convolutional_layer_modifier(model, num_input_channels)
 
@@ -29,7 +35,6 @@ def test_change_first_convolutional_layer():
             2, num_input_channels, image_size, image_size, dtype=torch.float32
         )
         model(x)
-
 
 def test_change_last_layer():
     model_names = [
@@ -45,7 +50,10 @@ def test_change_last_layer():
 
     for model_name, image_size in model_names:
         model_func = getattr(models, model_name)
-        model = model_func()
+        if model_name == "inception_v3":
+            model = model_func(init_weights=False)
+        else:
+            model = model_func()
 
         change_last_layer_modifier(model, num_outputs)
 
@@ -56,3 +64,15 @@ def test_change_last_layer():
             y = y.logits
 
         assert y.shape[-1] == num_outputs
+
+def test_torchvision_model_provider():
+    model_kwargs = {'weights': None}
+    model_name = 'resnet18'
+    model = torchvision_model_provider(model_name, **model_kwargs)
+    assert isinstance(model, models.resnet.ResNet)
+
+def test_timm_model_provider():
+    model_kwargs = {'pretrained': True}
+    model_name = 'resnet18'
+    model = timm_model_provider(model_name, **model_kwargs)
+    assert isinstance(model, timm.models.resnet.ResNet)
