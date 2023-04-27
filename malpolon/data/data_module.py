@@ -27,6 +27,11 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         # TODO check if uses GPU or not before using pin memory
         self.pin_memory = True
 
+        self.dataset_train = None
+        self.dataset_val = None
+        self.dataset_test = None
+        self.dataset_predict = None
+
     @property
     @abstractmethod
     def train_transform(self) -> Callable:
@@ -41,17 +46,23 @@ class BaseDataModule(pl.LightningDataModule, ABC):
     def get_dataset(self, split: str, transform: Callable, **kwargs: Any) -> Dataset:
         pass
 
-    def get_train_dataset(self, test: bool) -> Dataset:
+    def get_train_dataset(self) -> Dataset:
         dataset = self.get_dataset(
             split="train",
             transform=self.train_transform,
         )
         return dataset
 
-    def get_test_dataset(self, test: bool) -> Dataset:
-        split = "test" if test else "val"
+    def get_val_dataset(self) -> Dataset:
         dataset = self.get_dataset(
-            split=split,
+            split="val",
+            transform=self.test_transform,
+        )
+        return dataset
+
+    def get_test_dataset(self) -> Dataset:
+        dataset = self.get_dataset(
+            split="test",
             transform=self.test_transform,
         )
         return dataset
@@ -59,14 +70,19 @@ class BaseDataModule(pl.LightningDataModule, ABC):
     # called for every GPU/machine
     def setup(self, stage: Optional[str] = None) -> None:
         if stage in (None, "fit"):
-            self.dataset_train = self.get_train_dataset(test=False)
-            self.dataset_val = self.get_test_dataset(test=False)
+            self.dataset_train = self.get_train_dataset()
+            self.dataset_val = self.get_val_dataset()
 
         if stage == "test":
-            self.dataset_test = self.get_test_dataset(test=True)
+            self.dataset_test = self.get_test_dataset()
 
         if stage == "predict":
-            self.dataset_predict = self.get_test_dataset(test=True)
+            self.dataset_predict = self.get_test_dataset()
+
+    def prepare_data(self) -> None:
+        """Called once on CPU. Class states defined here are lost afterwards.
+        This method is intended for data downloading, tokenization,
+        permanent transformation..."""
 
     def train_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
