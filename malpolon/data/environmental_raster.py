@@ -1,11 +1,18 @@
 from __future__ import annotations
 import warnings
 from pathlib import Path
-from typing import Any, Optional, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
+from pyproj import CRS, Transformer
+
+from torch.utils.data import DataLoader
+from torchgeo.datasets import BoundingBox, GeoDataset, RasterDataset, stack_samples, unbind_samples
+from torchgeo.datasets.utils import BoundingBox
+from torchgeo.samplers import RandomBatchGeoSampler, RandomGeoSampler, Units
+from torchgeo.samplers.constants import Units
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -27,6 +34,56 @@ pedologic_raster_names = [
 
 raster_names = bioclimatic_raster_names + pedologic_raster_names
 # fmt: on
+
+
+class RasterTorchGeo(RasterDataset):
+    def __init__(self, root: str = "data", crs: Any | None = None, res: float | None = None, bands: Sequence[str] | None = None, transforms: Callable[[Dict[str, Any]], Dict[str, Any]] | None = None, cache: bool = True) -> None:
+        super().__init__(root, crs, res, bands, transforms, cache)
+
+    def coords_transform(
+        self,
+        lon: Union[int, float],
+        lat: Union[int, float],
+        input_crs: Union[str, int, CRS] = "4326",
+        output_crs: Union[str, int, CRS] = "self",
+    ) -> tuple[float, float]:
+        input_crs = self.crs if input_crs == "self" else rasterio.CRS.from_epsg(input_crs)
+        output_crs = self.crs if output_crs == "self" else rasterio.CRS.from_epsg(output_crs)
+        transformer = Transformer.from_crs(input_crs, output_crs, always_xy=True)
+        return transformer.transform(lon, lat)
+
+    def point_to_bbox(self, lon, lat, size=256, units: str = 'crs') -> BoundingBox:
+        units = {'pixel': Units.PIXELS, 'crs': Units.CRS}[units]
+        if units == Units.PIXELS:
+            size = (size * self.res, size * self.res)
+        minx = lon - size[0]/2
+        maxx = lon + size[0]/2
+        miny = lat - size[1]/2
+        maxy = lat + size[1]/2
+        return BoundingBox(minx=minx, maxx=maxx, miny=miny, maxy=maxy, mint=0, maxt=0)
+
+    def __getitem__(self, query: Union[dict, tuple, BoundingBox]) -> Dict[str, Any]:
+        """_summary_
+
+        Parameters
+        ----------
+        query : Union[dict, tuple, BoundingBox]
+            _description_
+
+        Returns
+        -------
+        Dict[str, Any]
+            _description_
+        """
+        if not isinstance(query, BoundingBox):
+            if isinstance(query, tuple):
+                query = {'lon': query[0], 'lat': query[1], 'crs': self.crs}
+            if 'crs' in query.keys() and query['crs'] != self.crs:
+                query[0], query[1] = self.coords_transform(query['lon'],
+                                                           query['lat'],
+                                                           input_crs=query['crs'])
+            query = self.point_to_bbox(query[0], query[1])
+        return super().__getitem__(query)
 
 
 class Raster(object):
