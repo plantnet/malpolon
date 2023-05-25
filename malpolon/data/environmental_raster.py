@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union, TYPE_C
 
 import matplotlib.pyplot as plt
 import numpy as np
-import rasterio
+import rasterio, pyproj
 from pyproj import CRS, Transformer
 
 from torch.utils.data import DataLoader
@@ -37,8 +37,17 @@ raster_names = bioclimatic_raster_names + pedologic_raster_names
 
 
 class RasterTorchGeo(RasterDataset):
-    def __init__(self, root: str = "data", crs: Any | None = None, res: float | None = None, bands: Sequence[str] | None = None, transforms: Callable[[Dict[str, Any]], Dict[str, Any]] | None = None, cache: bool = True) -> None:
+    def __init__(self,
+        root: str = "data",
+        crs: Any | None = None,
+        res: float | None = None,
+        bands: Sequence[str] | None = None,
+        transforms: Callable[[Dict[str, Any]], Dict[str, Any]] | None = None,
+        cache: bool = True,
+        patch_size: int = 256
+    ) -> None:
         super().__init__(root, crs, res, bands, transforms, cache)
+        self.patch_size = patch_size
 
     def coords_transform(
         self,
@@ -47,15 +56,92 @@ class RasterTorchGeo(RasterDataset):
         input_crs: Union[str, int, CRS] = "4326",
         output_crs: Union[str, int, CRS] = "self",
     ) -> tuple[float, float]:
+        """Transform coordinates from one CRS to another.
+
+        Parameters
+        ----------
+        lon : Union[int, float]
+            longitude
+        lat : Union[int, float]
+            latitude
+        input_crs : Union[str, int, CRS], optional
+            Input CRS, by default "4326"
+        output_crs : Union[str, int, CRS], optional
+            Output CRS, by default "self"
+
+        Returns
+        -------
+        tuple
+            Transformed coordinates.
+        """
         input_crs = self.crs if input_crs == "self" else rasterio.CRS.from_epsg(input_crs)
         output_crs = self.crs if output_crs == "self" else rasterio.CRS.from_epsg(output_crs)
         transformer = Transformer.from_crs(input_crs, output_crs, always_xy=True)
         return transformer.transform(lon, lat)
+    
+    def point_to_bbox(self, 
+        lon: Union[int, float], 
+        lat: Union[int, float], 
+        size: Union[tuple, int] = None, 
+        units: str = 'crs'
+    ) -> BoundingBox:
+        """Convert a geographical point to a torchgeo BoundingBox.
 
-    def point_to_bbox(self, lon, lat, size=256, units: str = 'crs') -> BoundingBox:
+        Parameters
+        ----------
+        lon : Union[int, float]
+            longitude
+        lat : Union[int, float]
+            latitude
+        size : Union[tuple, int], optional
+            Patch size, by default None. If passed as an int, the patch will be
+            square. If passed as a tuple (width, height), can be rectangular.
+        units : str, optional
+            The coordinates' unit system, must have a value in ['pixel', 'crs'].
+            The size of the bbox will adapt to the unit. If 'pixel' is
+            selected, the bbox size will be multiplied by the dataset
+            resolution. Selecting 'crs' will not modify the bbox size. In that
+            case the returned bbox will be of size:
+            (size[0], size[1]) <metric_of_the_dataset (usually meters)>.
+            Defaults to 'crs'.
+
+        Returns
+        -------
+        BoundingBox
+            Corresponding torchgeo BoundingBox.
+        """
+        rasterio.CRS.is_epsg_code(4326)
         units = {'pixel': Units.PIXELS, 'crs': Units.CRS}[units]
+        size = self.patch_size if size is None else size
+        size = (size, size) if isinstance(size, int) else size
         if units == Units.PIXELS:
-            size = (size * self.res, size * self.res)
+            size = (size[0] * self.res, size[1] * self.res)
+            
+        ### Travaux non-epsg case
+        if units == "m" and isinstance(self.crs, rasterio.CRS.from_epsg(4326)):
+            def GET_TARGET_CRS():
+                wgs84_bounds = self.crs.area_of_use.bounds  # in a pyproj CRS
+                compatible_crs = []
+                for code in LIST_ALL_EPSG_CODES:
+                    epsg = pyproj.CRS.from_epsg(code)
+                    epsg_bounds = epsg.geodetic_crs.area_of_use.bounds
+                    if (wgs84_bounds[0] >= epsg_bounds[0] and wgs84_bounds[0] <= epsg_bounds[3]
+                        and wgs84_bounds[3] >= epsg_bounds[0] and wgs84_bounds[3] <= epsg_bounds[3]
+                        and wgs84_bounds[1] >= epsg_bounds[1] and wgs84_bounds[1] <= epsg_bounds[2]
+                        and wgs84_bounds[2] >= epsg_bounds[1] and wgs84_bounds[2] <= epsg_bounds[2]):
+                        compatible_crs.append(code)
+                target_crs = compatible_crs[0]  # Can be adapted to amtch closest bbox center distance with obs
+                return target_crs
+            target_crs= GET_TARGET_CRS()
+            lon, lat = self.coords_transform(lon, lat, input_crs=self.crs, output_crs=target_crs)
+            minx = lon - size[0]/2
+            maxx = lon + size[0]/2
+            miny = lat - size[1]/2
+            maxy = lat + size[1]/2
+            minx, miny = self.coords_transform(lon, lat, input_crs=target_crs)
+            return BoundingBox(minx=minx, maxx=maxx, miny=miny, maxy=maxy, mint=0, maxt=0)
+        ###
+        
         minx = lon - size[0]/2
         maxx = lon + size[0]/2
         miny = lat - size[1]/2
@@ -63,26 +149,43 @@ class RasterTorchGeo(RasterDataset):
         return BoundingBox(minx=minx, maxx=maxx, miny=miny, maxy=maxy, mint=0, maxt=0)
 
     def __getitem__(self, query: Union[dict, tuple, BoundingBox]) -> Dict[str, Any]:
-        """_summary_
+        """Query an item from the dataset.
 
         Parameters
         ----------
         query : Union[dict, tuple, BoundingBox]
-            _description_
+            item query containing geographical coordinates. It can be of
+            different types for different use.
+            One can query a patch by providing a BoundingBox using
+            `torchgeo.datasets.BoundingBox` constructor; or by given a center
+            and a size.
+            --- BoundingBox strategy ---
+            Must follow : BoundingBox(minx, maxx, miny, maxy, mint, maxt)
+            --- Point strategy ---
+            If tuple, must follow : (lon, lat) and the CRS of the coordinates
+            will be assumed to be the dataset's.
+            If dict, must follow : {'lon': lon, 'lat': lat, ['crs': crs]} and
+            the coordinates CRS can be specified. If not, it will be assumed
+            taht it is equal to the dataset's.
+            In both these cases, a BoundingBox is generated to pursue the query.
 
         Returns
         -------
         Dict[str, Any]
-            _description_
+            dataset patch.
         """
         if not isinstance(query, BoundingBox):
             if isinstance(query, tuple):
-                query = {'lon': query[0], 'lat': query[1], 'crs': self.crs}
+                query = {'lon': query[0], 'lat': query[1], 'crs': self.crs, 'size': None}
             if 'crs' in query.keys() and query['crs'] != self.crs:
                 query[0], query[1] = self.coords_transform(query['lon'],
                                                            query['lat'],
                                                            input_crs=query['crs'])
-            query = self.point_to_bbox(query[0], query[1])
+            if 'size' not in query.keys():
+                query['size'] = None
+            if 'units' not in query.keys():
+                query['units'] = 'crs'
+            query = self.point_to_bbox(query['lon'], query['lat'], query['size'], query['units'])
         return super().__getitem__(query)
 
 
