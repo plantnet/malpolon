@@ -11,7 +11,7 @@ trainer:
   check_val_every_n_epoch: 1
 
 inference:
-  predict: true
+  predict: false
   checkpoint_path: "../2023-04-25_18-56-53/checkpoint-epoch=00-step=244-val_accuracy=0.2512.ckpt"
 
 model:

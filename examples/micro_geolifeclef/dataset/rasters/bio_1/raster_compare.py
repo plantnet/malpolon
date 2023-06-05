@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader
 from torchgeo.datasets import RasterDataset, stack_samples, unbind_samples
 from torchgeo.samplers import RandomBatchGeoSampler, RandomGeoSampler, Units
 
-from malpolon.data.environmental_raster import PatchExtractor, Raster
+from malpolon.data.environmental_raster import PatchExtractor, Raster, RasterTorchGeo
 
 with rasterio.open('bio_1_FR.tif') as f:
     raster_rasterio = f.read()
@@ -61,7 +61,9 @@ class Glc(RasterDataset):
 
         return fig
 
-dataset = Glc('./mtp')
+dataset = Glc('./')
+dataset_tg = RasterTorchGeo("./")
+patch = dataset_tg[(0.0, 45.0)]
 dataset.rgb_bands = []
 print(dataset)
 dataset.all_bands = ['bio1']
