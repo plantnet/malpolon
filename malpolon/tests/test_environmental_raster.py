@@ -6,8 +6,11 @@ import pytest
 from malpolon.data.environmental_raster import PatchExtractor
 
 
-DATA_PATH = Path("/home/lorieul/dev/research/GeoLifeCLEF22/data")
+DATA_PATH = Path("<path to GeoLifeClef data>")
 
+
+def test_patch_query_torchgeo():
+    return None
 
 def test_patch_extractor_single_variable():
     extractor = PatchExtractor(DATA_PATH / "rasters", size=8)
