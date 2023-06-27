@@ -1,26 +1,61 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterator, Optional, Tuple, Union
 
 import hydra
 import pytorch_lightning as pl
+from torchgeo.datasets import BoundingBox, GeoDataset
+from torchgeo.samplers.constants import Units
+from torchgeo.samplers import GeoSampler
 import torchmetrics.functional as Fmetrics
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
 from transforms import RGBDataTransform
 from torch.utils.data import DataLoader
+from torchgeo.samplers.utils import _to_tuple, get_random_bounding_box, tile_to_chips
 
+import torch
 from malpolon.data.data_module import BaseDataModule
 from malpolon.data.datasets.geolifeclef2022 import MicroGeoLifeCLEF2022Dataset
 from malpolon.logging import Summary
 from malpolon.models import FinetuningClassificationSystem
 from torchgeo.samplers import RandomGeoSampler, Units
 from malpolon.data.datasets.torchgeo_datasets import RasterTorchGeoDataset
+import pandas as pd
+from malpolon.data.utils import is_point_in_bbox
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Mapping, Optional, Union
+
+
+class Sentinel2GeoSampler(GeoSampler):
+    def __init__(self,
+                 dataset: GeoDataset,
+                 size: Union[Tuple[float, float], float],
+                 length: Optional[int],
+                 roi: Optional[BoundingBox] = None,
+                 units: Units = Units.PIXELS,
+    ) -> None:
+        super().__init__(dataset, roi)
+        self.size = _to_tuple(size)
+        self.coordinates = dataset.coordinates
+        self.length = 0
+        self.bounds = (dataset.bounds.minx, dataset.bounds.maxx,
+                       dataset.bounds.miny, dataset.bounds.maxy)
+
+        if units == Units.PIXELS:
+            self.size = (self.size[0] * self.res, self.size[1] * self.res)
+
+        if length is not None:
+            self.length = len(dataset.observation_ids)
+
+    def __iter__(self) -> Iterator[BoundingBox]:
+        for _ in range(len(self)):
+            coords = tuple(self.coordinates[_])
+            if is_point_in_bbox(coords, self.bounds):
+                yield self.coordinates[_]
 
 
 class Sentinel2TorchGeoDataModule(BaseDataModule):
@@ -45,7 +80,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
     ):
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
-        self.sampler = RandomGeoSampler
+        self.sampler = Sentinel2GeoSampler
         self.size = size
         self.units = units
 

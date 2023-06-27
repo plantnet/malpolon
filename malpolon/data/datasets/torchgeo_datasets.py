@@ -34,14 +34,14 @@ EUROPE_EPSG_CODE = [3035]
 
 class RasterTorchGeoDataset(RasterDataset):
     def __init__(self,
-        root: str = "data",
-        split: str = None,  # 'train', 'test', 'val', 'all'
-        crs: Any | None = None,
-        res: float | None = None,
-        bands: Sequence[str] | None = None,
-        transforms: Callable[[Dict[str, Any]], Dict[str, Any]] | None = None,
-        cache: bool = True,
-        patch_size: int = 256
+                 root: str = "data",
+                 split: str = None,  # 'train', 'test', 'val', 'all'
+                 crs: Any | None = None,
+                 res: float | None = None,
+                 bands: Sequence[str] | None = None,
+                 transforms: Callable[[Dict[str, Any]], Dict[str, Any]] | None = None,
+                 cache: bool = True,
+                 patch_size: int = 256
     ) -> None:
         super().__init__(root, crs, res, bands, transforms, cache)
         self.patch_size = patch_size
@@ -236,7 +236,7 @@ class RasterTorchGeoDataset(RasterDataset):
             --- Point strategy ---
             If tuple, must follow : (lon, lat) and the CRS of the coordinates
             will be assumed to be the dataset's.
-            If dict, must follow : {'lon': lon, 'lat': lat, ['crs': crs]} and
+            If dict, must follow : {'lon': lon, 'lat': lat, <'crs': crs>} and
             the coordinates CRS can be specified. If not, it will be assumed
             taht it is equal to the dataset's.
             In both cases, a BoundingBox is generated to pursue the query.
@@ -255,9 +255,10 @@ class RasterTorchGeoDataset(RasterDataset):
             if 'crs' in query.keys() and query['crs'] != self.crs_pyproj:
                 transformer = Transformer.from_crs(query['crs'], self.crs_pyproj, always_xy=True)
                 query['lon'], query['lat'] = transformer.transform(query['lon'], query['lat'])
-                if not is_point_in_bbox((query['lon'], query['lat']), transformer.transform_bounds(*self.crs_pyproj.area_of_use.bounds)):
-                    raise Exception("Your chosen point lands outside of your dataset CRS after projection.")
-                    
+
+            if not is_point_in_bbox((query['lon'], query['lat']), transformer.transform_bounds(*self.crs_pyproj.area_of_use.bounds)):
+                raise Exception("Your chosen point lands outside of your dataset CRS after projection.")
+
             if 'size' not in query.keys():
                 query['size'] = self.patch_size
             if 'units' not in query.keys():
@@ -269,7 +270,7 @@ class RasterTorchGeoDataset(RasterDataset):
 
         # Use Case 2
         patch = super().__getitem__(query)
-        return patch, "label"
+        return patch
 
     # NOTE: Fix me to not be rgb specific
     def plot(self, sample) -> npt.NDArray:
