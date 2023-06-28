@@ -10,12 +10,15 @@ from shapely import Polygon, Point
 
 def is_bbox_contained(bbox1: Iterable,
                       bbox2: Iterable,
-                      method: str['shapely', 'manual'] = 'shapely') -> bool:
+                      method: str['shapely', 'manual', 'torchgeo'] = 'shapely') -> bool:
     """Determine if a 2D bbox in included inside of another.
 
     Returns a boolean answering the question "Is bbox1 contained inside
-    bbox2 ?". Bounding boxes must follow the format:
-    [xmin, ymin, xmax, ymax]
+    bbox2 ?".
+    With methods 'shapely' and 'manual', bounding boxes must
+    follow the format: [xmin, ymin, xmax, ymax].
+    With method 'torchgeo', bounding boxes must be of type:
+    `torchgeo.datasets.utils.BoundingBox`.
 
     Parameters
     ----------
@@ -40,6 +43,8 @@ def is_bbox_contained(bbox1: Iterable,
         polygon2 = Polygon([(bbox2[0], bbox2[1]), (bbox2[0], bbox2[3]),
                             (bbox2[2], bbox2[3]), (bbox2[2], bbox2[1])])
         is_contained = polygon2.contains(polygon1)
+    elif method == "torchgeo":
+        is_contained = bbox1 in bbox2
     return is_contained
 
 

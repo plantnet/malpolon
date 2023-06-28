@@ -52,7 +52,7 @@ class RasterTorchGeoDataset(RasterDataset):
 
         df = self._load_observation_data(root, split)
         self.observation_ids = df.index
-        self.coordinates = df[["latitude", "longitude"]].values
+        self.coordinates = df[["longitude", "latitude"]].values
         if self.training:
             self.targets = df["species_id"].values
         else:
@@ -191,6 +191,19 @@ class RasterTorchGeoDataset(RasterDataset):
         maxy = lat + size[1]/2
         return BoundingBox(minx=minx, maxx=maxx, miny=miny, maxy=maxy, mint=0, maxt=0)
 
+    def _valid_query_point(self, query):
+        epsg4326 = pyproj.CRS.from_epsg(4326)
+        coords_4326 = query['lat'], query['lon']
+        bounds_4326 = self.bounds
+        if query['crs'] != epsg4326:
+            transformer = Transformer.from_crs(query['crs'], epsg4326)
+            coords_4326 = transformer.transform(query['lat'], query['lon'])
+        if self.crs_pyproj != epsg4326:
+            transformer = Transformer.from_crs(self.crs_pyproj, epsg4326)
+            bounds_4326 = transformer.transform_bounds(self.bounds.minx, self.bounds.miny, self.bounds.maxx, self.bounds.maxy)
+        return is_point_in_bbox(coords_4326, bounds_4326)
+            
+
     def __getitem__(self, query: Union[dict, tuple, list, set, BoundingBox]) -> Dict[str, Any]:
         """Query an item from the dataset.
         
@@ -250,14 +263,16 @@ class RasterTorchGeoDataset(RasterDataset):
             # Use case 1
             if isinstance(query, (tuple, list, set)):
                 query = {'lon': query[0], 'lat': query[1], 'crs': self.crs_pyproj, 'size': None}
+            query_lon, query_lat = query['lon'], query['lat']
+
+            if not self._valid_query_point(query):
+                raise Exception("Your chosen point lands outside of your dataset CRS after projection.")
 
             # Use Case 3
             if 'crs' in query.keys() and query['crs'] != self.crs_pyproj:
                 transformer = Transformer.from_crs(query['crs'], self.crs_pyproj, always_xy=True)
                 query['lon'], query['lat'] = transformer.transform(query['lon'], query['lat'])
 
-            if not is_point_in_bbox((query['lon'], query['lat']), transformer.transform_bounds(*self.crs_pyproj.area_of_use.bounds)):
-                raise Exception("Your chosen point lands outside of your dataset CRS after projection.")
 
             if 'size' not in query.keys():
                 query['size'] = self.patch_size
@@ -268,9 +283,12 @@ class RasterTorchGeoDataset(RasterDataset):
 
             query = self.point_to_bbox(query['lon'], query['lat'], query['size'], query['units'], query['crs'])
 
-        # Use Case 2
-        patch = super().__getitem__(query)
-        return patch
+            # Use Case 2
+            patch = super().__getitem__(query)
+            df = pd.DataFrame(self.coordinates, index=list(self.observation_ids), columns=['lon', 'lat'])
+            label = df.index[(df['lon']==query_lon) & (df['lat']==query_lat)].values[0]
+            return patch['image'], label
+        return super().__getitem__(query)
 
     # NOTE: Fix me to not be rgb specific
     def plot(self, sample) -> npt.NDArray:
