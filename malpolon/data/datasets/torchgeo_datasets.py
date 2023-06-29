@@ -1,24 +1,20 @@
 from __future__ import annotations
 
-from importlib import resources
 from pathlib import Path
-from typing import (TYPE_CHECKING, Any, Callable, Dict, Optional, Sequence,
-                    Union)
+from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterable, Iterator,
+                    Optional, Sequence, Tuple, Union)
 
 import numpy as np
+import pandas as pd
 import pyproj
 import torch
-import pandas as pd
 from matplotlib import pyplot as plt
 from pyproj import CRS, Transformer
-from torch.utils.data import DataLoader
-from torchgeo.datasets import (BoundingBox, GeoDataset, RasterDataset,
-                               stack_samples, unbind_samples)
-from torchgeo.datasets.utils import BoundingBox
-from torchgeo.samplers import RandomBatchGeoSampler, RandomGeoSampler, Units
-from torchgeo.samplers.constants import Units
+from torchgeo.datasets import (BoundingBox, GeoDataset, RasterDataset, stack_samples, unbind_samples)
 
-from malpolon.data.utils import is_bbox_contained, is_point_in_bbox
+from torchgeo.samplers import (GeoSampler, RandomGeoSampler, Units)
+
+from malpolon.data.utils import is_point_in_bbox
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -318,3 +314,65 @@ class RasterTorchGeoDataset(RasterDataset):
         ax.imshow(image)
 
         return fig
+
+
+class RasterSentinel2(RasterTorchGeoDataset):
+    filename_glob = "T*_B0*_10m.tif"
+    filename_regex = r"T31TEJ_20190801T104031_(?P<band>B0[\d])"
+    date_format = "%Y%m%dT%H%M%S"
+    is_image = True
+    separate_files = True
+    all_bands = ["B02", "B03", "B04", "B08"]
+    rgb_bands = ["B04", "B03", "B02"]
+
+    def plot(self, sample):
+        # Find the correct band index order
+        rgb_indices = []
+        for band in self.rgb_bands:
+            rgb_indices.append(self.all_bands.index(band))
+
+        # Reorder and rescale the image
+        image = sample[rgb_indices].permute(1, 2, 0)
+        image = torch.clamp(image / 10000, min=0, max=1).numpy()
+
+        # Plot the image
+        fig, ax = plt.subplots()
+        ax.imshow(image)
+
+        return fig
+
+
+class Sentinel2GeoSampler(GeoSampler):
+    def __init__(self,
+                 dataset: GeoDataset,
+                 size: Union[Tuple[float, float], float],
+                 length: Optional[int] = None,
+                 roi: Optional[BoundingBox] = None,
+                 units: Units = Units.PIXELS,
+    ) -> None:
+        super().__init__(dataset, roi)
+        self.size = size
+        self.coordinates = dataset.coordinates
+        self.length = length if length is not None else len(dataset.observation_ids)
+        self.bounds = (dataset.bounds.minx, dataset.bounds.maxx,
+                       dataset.bounds.miny, dataset.bounds.maxy)
+
+        if units == Units.PIXELS:
+            self.size = (self.size[0] * self.res, self.size[1] * self.res)
+
+    def __iter__(self) -> Iterator[BoundingBox]:
+        for _ in range(len(self)):
+            coords = tuple(self.coordinates[_])
+            #if is_point_in_bbox(coords, self.bounds):
+            yield {'lon': coords[0], 'lat': coords[1],
+                    'crs': pyproj.CRS.from_epsg(4326),
+                    'size': self.size,
+                    'units': 'crs'}
+
+    def __len__(self) -> int:
+        """Return the number of samples in a single epoch.
+
+        Returns:
+            length of the epoch
+        """
+        return self.length
