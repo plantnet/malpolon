@@ -37,14 +37,16 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         train_batch_size: int = 32,
         inference_batch_size: int = 256,
         num_workers: int = 8,
-        size: int = 256,
-        units: Units = Units.CRS
+        size: int = 200,
+        units: Units = Units.CRS,
+        crs: int = 4326,
     ):
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
         self.labels_name = labels_name
         self.size = size
         self.units = units
+        self.crs = crs
         self.sampler = Sentinel2GeoSampler
 
     def get_dataset(self, split, transform, **kwargs):
@@ -52,6 +54,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
             self.dataset_path,
             labels_name=self.labels_name,
             split='train',
+            one_hot=False,
             **kwargs
         )
         return dataset
@@ -59,18 +62,18 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
     def train_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_train,
-            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units),
+            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units, crs=self.crs),
             batch_size=self.train_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
-            shuffle=True,
+            shuffle=False,
         )
         return dataloader
 
     def val_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_val,
-            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units),
+            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units, crs=self.crs),
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
@@ -80,7 +83,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
     def test_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_test,
-            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units),
+            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units, crs=self.crs),
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,

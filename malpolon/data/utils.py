@@ -3,7 +3,8 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Iterable
+import numpy as np
+from typing import TYPE_CHECKING, Iterable, Union
 
 from shapely import Polygon, Point
 
@@ -79,6 +80,32 @@ def is_point_in_bbox(point: tuple[int],
                             (bbox2[2], bbox2[3]), (bbox2[2], bbox2[1])])
         is_contained = polygon2.contains(point)
     return is_contained
+
+
+def to_one_hot_encoding(
+    labels_predict: int | list,
+    labels_target: list,
+) -> list:
+    """Return a one-hot encoding of class-index predicted labels.
+
+    Converts a single label value or a vector of labels into a vector
+    of one-hot encoded labels. The labels order follow that of input
+    labels_target.
+
+    Parameters
+    ----------
+    labels_predict : int | list
+        Labels to convert to one-hot encoding.
+
+    Returns
+    -------
+    list
+        One-hot encoded labels.
+    """
+    n_classes = len(labels_target)
+    one_hot_labels = np.zeros(n_classes)
+    one_hot_labels[np.array(labels_predict) == labels_target] = 1
+    return one_hot_labels
 
 
 def get_files_path_recursively(path, *args, suffix=''):

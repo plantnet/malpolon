@@ -14,7 +14,7 @@ from torchgeo.datasets import (BoundingBox, GeoDataset, RasterDataset, stack_sam
 
 from torchgeo.samplers import (GeoSampler, RandomGeoSampler, Units)
 
-from malpolon.data.utils import is_point_in_bbox
+from malpolon.data.utils import is_point_in_bbox, to_one_hot_encoding
 
 if TYPE_CHECKING:
     from collections.abc import Collection
@@ -33,22 +33,25 @@ class RasterTorchGeoDataset(RasterDataset):
                  root: str = "data",
                  split: str = None,  # 'train', 'test', 'val', 'all'
                  labels_name: str = None,
+                 one_hot: bool = False,
                  crs: Any | None = None,
                  res: float | None = None,
                  bands: Sequence[str] | None = None,
                  transforms: Callable[[Dict[str, Any]], Dict[str, Any]] | None = None,
                  cache: bool = True,
                  patch_size: int = 256
-    ) -> None:
+                 ) -> None:
         super().__init__(root, crs, res, bands, transforms, cache)
         self.patch_size = patch_size
         self.crs_pyproj = CRS(self.crs.data['init'])
         self.units = self.crs_pyproj.axis_info[0].unit_name
         self.training = split != "test"
-        self.n_classes = 5
         self.labels_name = labels_name
+
+        self.one_hot = one_hot
         df = self._load_observation_data(Path(root), split)
         self.observation_ids = df.index
+        self.unique_labels = np.sort(np.unique(self.observation_ids))
         self.coordinates = df[["longitude", "latitude"]].values
         if self.training:
             self.targets = df["species_id"].values
@@ -111,14 +114,14 @@ class RasterTorchGeoDataset(RasterDataset):
         return transformer.transform(lon, lat)
 
     def point_to_bbox(self,
-        lon: Union[int, float],
-        lat: Union[int, float],
-        size: Union[tuple, int] = None,
-        units: str = 'crs',
-        crs: Union[int, str] = 'self',
-    ) -> BoundingBox:
+                      lon: Union[int, float],
+                      lat: Union[int, float],
+                      size: Union[tuple, int] = None,
+                      units: str = 'crs',
+                      crs: Union[int, str] = 'self',
+                      ) -> BoundingBox:
         """Convert a geographical point to a torchgeo BoundingBox.
-        
+
         This method converts a 2D point into a 2D torchgeo bounding box (bbox).
         If 'size' is in the CRS' unit system, the bbox is computed directly
         from the point's coordinates.
@@ -129,7 +132,7 @@ class RasterTorchGeoDataset(RasterDataset):
         constant at the begining of this file), the bbox vertices' min and max
         are computed in thise reference system, then they are projected back
         into the input CRS 'crs'.
-        
+
         By default, 'size' is set to the dataset's 'patch_size' value via None.
 
         Parameters
@@ -151,7 +154,7 @@ class RasterTorchGeoDataset(RasterDataset):
             Defaults to 'crs'.
         crs : Union[int, str]
             CRS of the point's lon/lat coordinates, by default None.
-            
+
         Returns
         -------
         BoundingBox
@@ -172,7 +175,7 @@ class RasterTorchGeoDataset(RasterDataset):
             lon_geodetic, lat_geodetic = self.coords_transform(lon, lat, input_crs=crs, output_crs=self.crs_pyproj.geodetic_crs)
             for code in ALL_NORTHERN_EPSG_CODES:
                 epsg_aou = CRS.from_epsg(code).area_of_use
-                epsg_lon_center, epsg_lat_center = (epsg_aou.west + epsg_aou.east)/2, (epsg_aou.south + epsg_aou.north)/2
+                epsg_lon_center, epsg_lat_center = (epsg_aou.west + epsg_aou.east) / 2, (epsg_aou.south + epsg_aou.north) / 2
                 center_distance = np.linalg.norm(np.array([lon_geodetic, lat_geodetic]) - np.array([epsg_lon_center, epsg_lat_center]))
                 if center_distance <= best_crs['center_distance']:
                     best_crs['code'] = code
@@ -182,14 +185,14 @@ class RasterTorchGeoDataset(RasterDataset):
             # Project lon, lat to best meter EPSG, compute bbox and project back to dataset's crs
             transformer = Transformer.from_crs(crs, best_crs, always_xy=True)
             lon_proj, lat_proj = transformer.transform(lon, lat)
-            bounds_proj = (lon_proj - size[0]/2, lon_proj + size[0]/2), (lat_proj - size[1]/2, lat_proj + size[1]/2)  # (xmin, xmax, ymin, ymax)
+            bounds_proj = (lon_proj - size[0] / 2, lon_proj + size[0] / 2), (lat_proj - size[1] / 2, lat_proj + size[1] / 2)  # (xmin, xmax, ymin, ymax)
             bounds = transformer.transform(*bounds_proj, direction="INVERSE")  # (xmin, xmax, ymin, ymax)
             size = (bounds[0][1] - bounds[0][0]), (bounds[1][1] - bounds[1][0])
 
-        minx = lon - size[0]/2
-        maxx = lon + size[0]/2
-        miny = lat - size[1]/2
-        maxy = lat + size[1]/2
+        minx = lon - size[0] / 2
+        maxx = lon + size[0] / 2
+        miny = lat - size[1] / 2
+        maxy = lat + size[1] / 2
         return BoundingBox(minx=minx, maxx=maxx, miny=miny, maxy=maxy, mint=0, maxt=0)
 
     def _valid_query_point(self, query):
@@ -203,11 +206,10 @@ class RasterTorchGeoDataset(RasterDataset):
             transformer = Transformer.from_crs(self.crs_pyproj, epsg4326)
             bounds_4326 = transformer.transform_bounds(self.bounds.minx, self.bounds.miny, self.bounds.maxx, self.bounds.maxy)
         return is_point_in_bbox(coords_4326, bounds_4326)
-            
 
     def __getitem__(self, query: Union[dict, tuple, list, set, BoundingBox]) -> Dict[str, Any]:
         """Query an item from the dataset.
-        
+
         Supports querying the dataset with coordinates in the dataset's CRS
         or in another CRS.
         The dataset is always queried with a torchgeo BoundingBox because it is
@@ -223,14 +225,14 @@ class RasterTorchGeoDataset(RasterDataset):
             query is a dict containing the following necessary keys: {'lon', 'lat'},
             and optional keys: {'crs', 'units', 'size'} which values default to those of
             the dataset's.
-            
+
         In Use case 3, if the 'crs' key is registered and it is different from
         the dataset's CRS, the coordinates of the point are projected into the
         dataset's CRS and the value of the key is overwritten by said CRS.
-        
+
         Use cases 1 and 3 give the possibility to easily query the dataset using
         only a point and a bounding box (bbox) size, using the desired input CRS.
-        
+
         The unit of measurement of the bbox can be set to ['m', 'meters', 'metres']
         even if the dataset's unit is different as the points will be projected
         in the nearest meter-based CRS (see self.point_to_bbox()). Note that
@@ -274,7 +276,6 @@ class RasterTorchGeoDataset(RasterDataset):
                 transformer = Transformer.from_crs(query['crs'], self.crs_pyproj, always_xy=True)
                 query['lon'], query['lat'] = transformer.transform(query['lon'], query['lat'])
 
-
             if 'size' not in query.keys():
                 query['size'] = self.patch_size
             if 'units' not in query.keys():
@@ -287,7 +288,8 @@ class RasterTorchGeoDataset(RasterDataset):
             # Use Case 2
             patch = super().__getitem__(query)
             df = pd.DataFrame(self.coordinates, index=list(self.observation_ids), columns=['lon', 'lat'])
-            label = df.index[(df['lon']==query_lon) & (df['lat']==query_lat)].values[0]
+            label = df.index[(df['lon'] == query_lon) & (df['lat'] == query_lat)].values[0]
+            label = to_one_hot_encoding(label, self.unique_labels) if self.one_hot else label
             return patch['image'], label
         return super().__getitem__(query)
 
@@ -317,7 +319,7 @@ class RasterTorchGeoDataset(RasterDataset):
         # Plot the image
         fig, ax = plt.subplots()
         ax.imshow(image)
-
+    
         return fig
 
 
@@ -353,26 +355,26 @@ class Sentinel2GeoSampler(GeoSampler):
                  size: Union[Tuple[float, float], float],
                  length: Optional[int] = None,
                  roi: Optional[BoundingBox] = None,
-                 units: Units = Units.PIXELS,
+                 units: Units = 'pixel',
+                 crs: str = 'crs',
     ) -> None:
         super().__init__(dataset, roi)
-        self.size = size
+        self.units = units
+        self.crs = crs
+        self.size = (size, size) if isinstance(size, (int, float)) else size
         self.coordinates = dataset.coordinates
         self.length = length if length is not None else len(dataset.observation_ids)
-        self.bounds = (dataset.bounds.minx, dataset.bounds.maxx,
-                       dataset.bounds.miny, dataset.bounds.maxy)
-
-        if units == Units.PIXELS:
-            self.size = (self.size[0] * self.res, self.size[1] * self.res)
+        # self.bounds = (dataset.bounds.minx, dataset.bounds.maxx,
+        #                dataset.bounds.miny, dataset.bounds.maxy)
 
     def __iter__(self) -> Iterator[BoundingBox]:
         for _ in range(len(self)):
             coords = tuple(self.coordinates[_])
-            #if is_point_in_bbox(coords, self.bounds):
+            # if is_point_in_bbox(coords, self.bounds):
             yield {'lon': coords[0], 'lat': coords[1],
-                    'crs': pyproj.CRS.from_epsg(4326),
-                    'size': self.size,
-                    'units': 'crs'}
+                   'crs': self.crs,
+                   'size': self.size,
+                   'units': self.units}
 
     def __len__(self) -> int:
         """Return the number of samples in a single epoch.
