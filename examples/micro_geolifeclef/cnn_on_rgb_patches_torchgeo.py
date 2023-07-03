@@ -15,6 +15,8 @@ from malpolon.data.datasets.torchgeo_datasets import (RasterSentinel2,
                                                       Sentinel2GeoSampler)
 from malpolon.logging import Summary
 from malpolon.models import FinetuningClassificationSystem
+from torchgeo.samplers import Units
+from torch.utils.data import DataLoader
 
 
 class Sentinel2TorchGeoDataModule(BaseDataModule):
@@ -31,6 +33,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
     def __init__(
         self,
         dataset_path: str,
+        labels_name: str = 'labels.csv',
         train_batch_size: int = 32,
         inference_batch_size: int = 256,
         num_workers: int = 8,
@@ -39,44 +42,89 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
     ):
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
-        self.sampler = Sentinel2GeoSampler
+        self.labels_name = labels_name
         self.size = size
         self.units = units
-
-    @property
-    def train_transform(self):
-        return transforms.Compose(
-            [
-                lambda data: RGBDataTransform()(data["rgb"]),
-                transforms.RandomRotation(degrees=45, fill=1),
-                transforms.RandomCrop(size=224),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomVerticalFlip(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-            ]
-        )
-
-    @property
-    def test_transform(self):
-        return transforms.Compose(
-            [
-                lambda data: RGBDataTransform()(data["rgb"]),
-                transforms.CenterCrop(size=224),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                ),
-            ]
-        )
+        self.sampler = Sentinel2GeoSampler
 
     def get_dataset(self, split, transform, **kwargs):
         dataset = RasterSentinel2(
             self.dataset_path,
+            labels_name=self.labels_name,
             split='train',
             **kwargs
         )
         return dataset
+
+    def train_dataloader(self) -> DataLoader:
+        dataloader = DataLoader(
+            self.dataset_train,
+            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units),
+            batch_size=self.train_batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            shuffle=True,
+        )
+        return dataloader
+
+    def val_dataloader(self) -> DataLoader:
+        dataloader = DataLoader(
+            self.dataset_val,
+            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units),
+            batch_size=self.inference_batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+        )
+        return dataloader
+
+    def test_dataloader(self) -> DataLoader:
+        dataloader = DataLoader(
+            self.dataset_test,
+            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units),
+            batch_size=self.inference_batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+        )
+        return dataloader
+
+    def predict_dataloader(self) -> DataLoader:
+        dataloader = DataLoader(
+            self.dataset_predict,
+            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units),
+            batch_size=self.inference_batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+        )
+        return dataloader
+
+    @property
+    def train_transform(self):
+        # return transforms.Compose(
+        #     [
+        #         lambda data: RGBDataTransform()(data["rgb"]),
+        #         transforms.RandomRotation(degrees=45, fill=1),
+        #         transforms.RandomCrop(size=224),
+        #         transforms.RandomHorizontalFlip(),
+        #         transforms.RandomVerticalFlip(),
+        #         transforms.Normalize(
+        #             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        #         ),
+        #     ]
+        # )
+        pass
+
+    @property
+    def test_transform(self):
+        # return transforms.Compose(
+        #     [
+        #         lambda data: RGBDataTransform()(data["rgb"]),
+        #         transforms.CenterCrop(size=224),
+        #         transforms.Normalize(
+        #             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+        #         ),
+        #     ]
+        # )
+        pass
 
 
 class ClassificationSystem(FinetuningClassificationSystem):
@@ -102,7 +150,7 @@ class ClassificationSystem(FinetuningClassificationSystem):
         )
 
 
-@hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_patches_config")
+@hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgbnir_torchgeo_config")
 def main(cfg: DictConfig) -> None:
     # cfg.data.dataset_pathstate_dict = state_dict.model.state_dict = '../../../' + cfg.data.dataset_path  # Uncomment if value contains only the name of the dataset folder. Only works with a 3-folder-deep hydra job path.
     logger = pl.loggers.CSVLogger(".", name="", version="")

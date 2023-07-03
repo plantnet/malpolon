@@ -32,6 +32,7 @@ class RasterTorchGeoDataset(RasterDataset):
     def __init__(self,
                  root: str = "data",
                  split: str = None,  # 'train', 'test', 'val', 'all'
+                 labels_name: str = None,
                  crs: Any | None = None,
                  res: float | None = None,
                  bands: Sequence[str] | None = None,
@@ -45,8 +46,8 @@ class RasterTorchGeoDataset(RasterDataset):
         self.units = self.crs_pyproj.axis_info[0].unit_name
         self.training = split != "test"
         self.n_classes = 5
-
-        df = self._load_observation_data(root, split)
+        self.labels_name = labels_name
+        df = self._load_observation_data(Path(root), split)
         self.observation_ids = df.index
         self.coordinates = df[["longitude", "latitude"]].values
         if self.training:
@@ -59,8 +60,12 @@ class RasterTorchGeoDataset(RasterDataset):
         root: Path,
         subset: str,
     ) -> pd.DataFrame:
+        if self.labels_name is None:
+            return pd.DataFrame(columns=['longitude', 'latitude', 'species_id', 'subset'])
+        labels_fp = self.labels_name if len(self.labels_name.split('.csv')) >= 2 else f'{self.labels_name}.csv'
+        labels_fp = root / labels_fp
         df = pd.read_csv(
-            root / "sentinel2_raster_torch_geo.csv",
+            labels_fp,
             sep=",",
             index_col="observation_id",
         )
