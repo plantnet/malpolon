@@ -51,12 +51,12 @@ class RasterTorchGeoDataset(RasterDataset):
         self.one_hot = one_hot
         df = self._load_observation_data(Path(root), split)
         self.observation_ids = df.index
-        self.unique_labels = np.sort(np.unique(self.observation_ids))
         self.coordinates = df[["longitude", "latitude"]].values
-        if self.training:
-            self.targets = df["species_id"].values
-        else:
-            self.targets = None
+        # if self.training:
+        #     self.targets = df["species_id"].values
+        # else:
+        #     self.targets = None
+        self.targets = df["species_id"].values
 
     def _load_observation_data(
         self,
@@ -72,10 +72,15 @@ class RasterTorchGeoDataset(RasterDataset):
             sep=",",
             index_col="observation_id",
         )
-
-        if subset not in ["train+val", "test"]:
-            ind = df.index[df["subset"] == subset]
+        self.unique_labels = np.sort(np.unique(df['species_id']))
+        try:
+            subset = [subset] if isinstance(subset, str) else subset
+            ind = df.index[df["subset"].isin(subset)]
             df = df.loc[ind]
+        except ValueError as e:
+            print('Unrecognized subset name.\n'
+                  'Please use one or several amongst: ["train", "test", "val"], as a string or list of strings.\n',
+                  {e})
 
         return df
 
@@ -287,8 +292,8 @@ class RasterTorchGeoDataset(RasterDataset):
 
             # Use Case 2
             patch = super().__getitem__(query)
-            df = pd.DataFrame(self.coordinates, index=list(self.observation_ids), columns=['lon', 'lat'])
-            label = df.index[(df['lon'] == query_lon) & (df['lat'] == query_lat)].values[0]
+            df = pd.DataFrame(self.coordinates, columns=['lon', 'lat'])
+            label = self.targets[df.index[(df['lon'] == query_lon) & (df['lat'] == query_lat)].values[0]]
             label = to_one_hot_encoding(label, self.unique_labels) if self.one_hot else label
             return patch['image'], label
         return super().__getitem__(query)

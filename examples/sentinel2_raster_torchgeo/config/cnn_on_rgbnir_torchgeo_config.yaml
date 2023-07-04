@@ -11,8 +11,8 @@ trainer:
   check_val_every_n_epoch: 1
 
 inference:
-  predict: false
-  checkpoint_path: "../<DATE_STAMP>/<CHECKPOINT_NAME>.ckpt"
+  predict: true
+  checkpoint_path: "../2023-07-04_11-10-05/checkpoint-epoch=00-step=6-val_accuracy=0.5000.ckpt"
 
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]

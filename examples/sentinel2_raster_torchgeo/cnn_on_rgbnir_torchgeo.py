@@ -53,7 +53,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         dataset = RasterSentinel2(
             self.dataset_path,
             labels_name=self.labels_name,
-            split='train',
+            split=split,
             one_hot=False,
             **kwargs
         )
@@ -73,7 +73,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
     def val_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_val,
-            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units, crs=self.crs),
+            sampler=self.sampler(self.dataset_val, size=self.size, units=self.units, crs=self.crs),
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
@@ -83,7 +83,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
     def test_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_test,
-            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units, crs=self.crs),
+            sampler=self.sampler(self.dataset_test, size=self.size, units=self.units, crs=self.crs),
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
@@ -93,7 +93,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
     def predict_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_predict,
-            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units),
+            sampler=self.sampler(self.dataset_predict, size=self.size, units=self.units),
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
@@ -104,7 +104,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
     def train_transform(self):
         # return transforms.Compose(
         #     [
-        #         lambda data: RGBDataTransform()(data["rgb"]),
+        #         lambda data: RGBDataTransform()(data["rgb"]),self.coordinates
         #         transforms.RandomRotation(degrees=45, fill=1),
         #         transforms.RandomCrop(size=224),
         #         transforms.RandomHorizontalFlip(),
@@ -183,7 +183,11 @@ def main(cfg: DictConfig) -> None:
 
         # Option 2: Predict 1 data point (Pytorch)
         test_data = datamodule.get_test_dataset()
-        test_data_point = test_data[0][0]
+        query_point = {'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
+                       'crs': datamodule.crs,
+                       'size': datamodule.size,
+                       'units': datamodule.units}
+        test_data_point = test_data[query_point][0]
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
         prediction = model_loaded.predict_point(cfg.inference.checkpoint_path,
                                                 test_data_point,
