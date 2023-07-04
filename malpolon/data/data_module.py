@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
+from malpolon.data.datasets.torchgeo_datasets import Sentinel2GeoSampler
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Optional
@@ -31,6 +32,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         self.dataset_val = None
         self.dataset_test = None
         self.dataset_predict = None
+        self.sampler = None
 
     @property
     @abstractmethod
@@ -87,6 +89,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
     def train_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_train,
+            sampler=self.sampler,
             batch_size=self.train_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
@@ -97,6 +100,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
     def val_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_val,
+            sampler=self.sampler,
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
@@ -106,6 +110,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
     def test_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_test,
+            sampler=self.sampler,
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
@@ -115,6 +120,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
     def predict_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_predict,
+            sampler=self.sampler,
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,

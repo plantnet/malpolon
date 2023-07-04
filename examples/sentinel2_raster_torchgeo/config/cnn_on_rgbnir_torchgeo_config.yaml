@@ -7,12 +7,12 @@ trainer:
   accelerator: 'gpu'
   devices: 1
   max_epochs: 1
-  #val_check_interval: 10
+  # val_check_interval: 10
   check_val_every_n_epoch: 1
 
 inference:
   predict: false
-  checkpoint_path: "../2023-04-25_18-56-53/checkpoint-epoch=00-step=244-val_accuracy=0.2512.ckpt"
+  checkpoint_path: "../<DATE_STAMP>/<CHECKPOINT_NAME>.ckpt"
 
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
@@ -24,8 +24,10 @@ model:
     output_stride:
     global_pool:
   modifiers:
+    change_first_convolutional_layer:
+     num_input_channels: 4
     change_last_layer:
-      num_outputs: 10
+      num_outputs: 5
 
 optimizer:
   lr: 1e-2
@@ -35,6 +37,9 @@ optimizer:
 
 data:
   dataset_path: "../../../dataset/"  # Relative to hydra.run.dir
-  train_batch_size: 32
-  inference_batch_size: 256
+  labels_name: "sentinel2_raster_torch_geo.csv"
+  train_batch_size: 2
+  inference_batch_size: 2
   num_workers: 8
+  units: "pixel"
+  crs: 4326
