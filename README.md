@@ -1,6 +1,6 @@
 # Malpolon
 
-Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including biodclimatic rasters, remote sensing images, land-use rasters, etc. 
+Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including biodclimatic rasters, remote sensing images, land-use rasters, etc.
 
 ## Installation
 
@@ -37,6 +37,11 @@ cuDNN available: True (version: 8302)
 Number of CUDA-compatible devices found: 1
 ```
 
+The **dev** branch is susceptible to have more up-to-date content such as newer examples and experimental features. To switch to the dev branch locally, run:
+
+```script
+git checkout dev
+```
 
 ## Examples
 
