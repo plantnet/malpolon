@@ -70,11 +70,11 @@ class GenericPredictionSystem(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
 
-        loss = self.loss(y_hat, y)
+        loss = self.loss(y_hat, y)  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float() 
         self.log(f"{split}_loss", loss, **log_kwargs)
 
         for metric_name, metric_func in self.metrics.items():
-            score = metric_func(y_hat, y)
+            score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
             self.log(f"{split}_{metric_name}", score, **log_kwargs)
 
         return loss
@@ -269,7 +269,8 @@ class FinetuningClassificationSystem(GenericPredictionSystem):
 
         if metrics is None:
             metrics = {
-                "accuracy": Fmetrics.accuracy,
+                "accuracy": {'callable': Fmetrics.accuracy,
+                             'kwargs': {}}
             }
 
         super().__init__(model, loss, optimizer, metrics)

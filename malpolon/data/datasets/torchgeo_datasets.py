@@ -33,13 +33,14 @@ class RasterTorchGeoDataset(RasterDataset):
                  root: str = "data",
                  split: str = None,  # 'train', 'test', 'val', 'all'
                  labels_name: str = None,
-                 one_hot: bool = False,
                  crs: Any | None = None,
                  res: float | None = None,
                  bands: Sequence[str] | None = None,
                  transforms: Callable[[Dict[str, Any]], Dict[str, Any]] | None = None,
                  cache: bool = True,
-                 patch_size: int = 256
+                 patch_size: int = 256,
+                 task: str = 'multiclass',  # ['binary', 'multiclass', 'multilabel']
+                 binary_positive_classes: list = []
                  ) -> None:
         super().__init__(root, crs, res, bands, transforms, cache)
         self.patch_size = patch_size
@@ -47,8 +48,9 @@ class RasterTorchGeoDataset(RasterDataset):
         self.units = self.crs_pyproj.axis_info[0].unit_name
         self.training = split != "test"
         self.labels_name = labels_name
+        self.task = task
+        self.binary_positive_classes = set(binary_positive_classes)
 
-        self.one_hot = one_hot
         df = self._load_observation_data(Path(root), split)
         self.observation_ids = df.index
         self.coordinates = df[["longitude", "latitude"]].values
@@ -212,6 +214,38 @@ class RasterTorchGeoDataset(RasterDataset):
             bounds_4326 = transformer.transform_bounds(self.bounds.minx, self.bounds.miny, self.bounds.maxx, self.bounds.maxy)
         return is_point_in_bbox(coords_4326, bounds_4326)
 
+    def _format_label_to_task(self, label):
+        """Format label(s) returned to match the task type.
+
+        Depending on the classification task (binary, multiclass or
+        multilabel), labels have to be formatted accordingly.
+        - **Binary**: label is an `int` equal to 1 if potential labels,
+        i.e. input label values, contain an elligible value (i.e. in
+        self.binary_positive_classes); 0 otherwise.
+        - **Multiclass**: label is an `int` which value can be any
+        class index (i.e. 'species_id'). If several label match a
+        coordinate set, the 1st one of the lsit is choosen.
+        - **Multilabel**: label is a list of class index, containing all
+        species_id observed to a coordinate set.
+
+        Parameters
+        ----------
+        label : np.ndarray
+            Potential labels matching a coordinate set.
+
+        Returns
+        -------
+        Union[int, list]
+            Formated label(s).
+        """
+        if self.task == 'classification_binary':
+            return [1] if set(label) & set(self.binary_positive_classes) else [0]
+        if self.task == 'classification_multiclass':
+            return label[0]
+        if self.task == 'classification_multilabel':
+            return to_one_hot_encoding(label, self.unique_labels)
+        return label
+
     def __getitem__(self, query: Union[dict, tuple, list, set, BoundingBox]) -> Dict[str, Any]:
         """Query an item from the dataset.
 
@@ -293,12 +327,12 @@ class RasterTorchGeoDataset(RasterDataset):
             # Use Case 2
             patch = super().__getitem__(query)
             df = pd.DataFrame(self.coordinates, columns=['lon', 'lat'])
-            label = self.targets[df.index[(df['lon'] == query_lon) & (df['lat'] == query_lat)].values[0]]
-            label = to_one_hot_encoding(label, self.unique_labels) if self.one_hot else label
+            label = self.targets[df.index[(df['lon'] == query_lon) & (df['lat'] == query_lat)].values]
+            label = self._format_label_to_task(label)
             return patch['image'], label
         return super().__getitem__(query)
 
-    # NOTE: Fix me to not be rgb specific
+    # NOTE: Fix me to not be rgb specifics
     def plot(self, sample) -> npt.NDArray:
         """Plot a dataset's sample and return the figure.
 
@@ -369,8 +403,6 @@ class Sentinel2GeoSampler(GeoSampler):
         self.size = (size, size) if isinstance(size, (int, float)) else size
         self.coordinates = dataset.coordinates
         self.length = length if length is not None else len(dataset.observation_ids)
-        # self.bounds = (dataset.bounds.minx, dataset.bounds.maxx,
-        #                dataset.bounds.miny, dataset.bounds.maxy)
 
     def __iter__(self) -> Iterator[BoundingBox]:
         for _ in range(len(self)):

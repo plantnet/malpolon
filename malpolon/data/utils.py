@@ -104,7 +104,8 @@ def to_one_hot_encoding(
     """
     n_classes = len(labels_target)
     one_hot_labels = np.zeros(n_classes)
-    one_hot_labels[np.array(labels_predict) == labels_target] = 1
+    for pred_lab in labels_predict:
+        one_hot_labels[labels_target == pred_lab] = 1
     return one_hot_labels
 
 

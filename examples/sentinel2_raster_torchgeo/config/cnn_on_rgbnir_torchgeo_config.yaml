@@ -11,7 +11,7 @@ trainer:
   check_val_every_n_epoch: 1
 
 inference:
-  predict: true
+  predict: false
   checkpoint_path: "../2023-07-04_11-10-05/checkpoint-epoch=00-step=6-val_accuracy=0.5000.ckpt"
 
 model:
@@ -27,13 +27,27 @@ model:
     change_first_convolutional_layer:
      num_input_channels: 4
     change_last_layer:
-      num_outputs: 5
+      num_outputs: 1
 
 optimizer:
   lr: 1e-2
   weight_decay: 0
   momentum: 0.9
   nesterov: true
+  metrics:
+    accuracy:
+      callable: 'Fmetrics.accuracy'
+      kwargs: {}
+    # mc_accuracy:
+    #   callable: 'Fmetrics.classification.multiclass_accuracy'
+    #   kwargs:
+    #     num_classes: 5
+    # ml_accuracy:
+    #   callable: 'Fmetrics.classification.multilabel_accuracy'
+    #   kwargs:
+    #     num_labels: 5
+  binary: true
+    
 
 data:
   dataset_path: "../../../dataset/"  # Relative to hydra.run.dir
@@ -43,3 +57,5 @@ data:
   num_workers: 8
   units: "pixel"
   crs: 4326
+  task: 'classification_binary'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+  binary_positive_classes: [0]

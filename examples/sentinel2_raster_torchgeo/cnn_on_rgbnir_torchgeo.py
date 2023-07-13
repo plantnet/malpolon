@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 import hydra
+import omegaconf
 import pytorch_lightning as pl
 import torchmetrics.functional as Fmetrics
 from omegaconf import DictConfig
@@ -40,6 +41,8 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         size: int = 200,
         units: Units = Units.CRS,
         crs: int = 4326,
+        task: str = 'classification_multiclass',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
+        binary_positive_classes: list = []
     ):
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
@@ -48,13 +51,16 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         self.units = units
         self.crs = crs
         self.sampler = Sentinel2GeoSampler
+        self.task = task
+        self.binary_positive_classes = binary_positive_classes
 
     def get_dataset(self, split, transform, **kwargs):
         dataset = RasterSentinel2(
             self.dataset_path,
             labels_name=self.labels_name,
             split=split,
-            one_hot=False,
+            task=self.task,
+            binary_positive_classes=self.binary_positive_classes,
             **kwargs
         )
         return dataset
@@ -138,10 +144,12 @@ class ClassificationSystem(FinetuningClassificationSystem):
         weight_decay: float,
         momentum: float,
         nesterov: bool,
+        metrics: dict,
+        binary: bool,
     ):
-        metrics = {
-            "accuracy": Fmetrics.accuracy,
-        }
+        metrics = omegaconf.OmegaConf.to_container(metrics)
+        for k, v in metrics.items():
+            metrics[k]['callable'] = eval(v['callable'])
 
         super().__init__(
             model,
@@ -150,6 +158,7 @@ class ClassificationSystem(FinetuningClassificationSystem):
             momentum,
             nesterov,
             metrics,
+            binary,
         )
 
 
@@ -167,8 +176,8 @@ def main(cfg: DictConfig) -> None:
         Summary(),
         ModelCheckpoint(
             dirpath=os.getcwd(),
-            filename="checkpoint-{epoch:02d}-{step}-{val_accuracy:.4f}",
-            monitor="val_accuracy",
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"val_{next(iter(model.metrics.keys()))}" + ":.4f}",
+            monitor=f"val_{next(iter(model.metrics.keys()))}",
             mode="max",
         ),
     ]
