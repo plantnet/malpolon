@@ -10,6 +10,7 @@ from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
 from transforms import RGBDataTransform
+from ast import literal_eval
 
 from malpolon.data.data_module import BaseDataModule
 from malpolon.data.datasets.torchgeo_datasets import (RasterSentinel2,
@@ -18,6 +19,11 @@ from malpolon.logging import Summary
 from malpolon.models import FinetuningClassificationSystem
 from torchgeo.samplers import Units
 from torch.utils.data import DataLoader
+
+
+FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.accuracy,
+                      'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
+                      'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy,}
 
 
 class Sentinel2TorchGeoDataModule(BaseDataModule):
@@ -41,8 +47,8 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         size: int = 200,
         units: Units = Units.CRS,
         crs: int = 4326,
+        binary_positive_classes: list = [],
         task: str = 'classification_multiclass',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
-        binary_positive_classes: list = []
     ):
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
@@ -140,25 +146,29 @@ class ClassificationSystem(FinetuningClassificationSystem):
     def __init__(
         self,
         model: dict,
+        task: str,
         lr: float,
         weight_decay: float,
         momentum: float,
         nesterov: bool,
         metrics: dict,
-        binary: bool,
     ):
+        task = task.split('classification_')[1]
         metrics = omegaconf.OmegaConf.to_container(metrics)
         for k, v in metrics.items():
-            metrics[k]['callable'] = eval(v['callable'])
+            if 'callable' in v:
+                metrics[k]['callable'] = eval(v['callable'])
+            else:
+                metrics[k]['callable'] = FMETRICS_CALLABLES[k]
 
         super().__init__(
             model,
+            task,
             lr,
             weight_decay,
             momentum,
             nesterov,
             metrics,
-            binary,
         )
 
 
@@ -168,9 +178,9 @@ def main(cfg: DictConfig) -> None:
     logger = pl.loggers.CSVLogger(".", name="", version="")
     logger.log_hyperparams(cfg)
 
-    datamodule = Sentinel2TorchGeoDataModule(**cfg.data)
+    datamodule = Sentinel2TorchGeoDataModule(**cfg.data, **cfg.task)
 
-    model = ClassificationSystem(cfg.model, **cfg.optimizer)
+    model = ClassificationSystem(cfg.model, **cfg.task, **cfg.optimizer)
 
     callbacks = [
         Summary(),

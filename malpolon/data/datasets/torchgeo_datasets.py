@@ -54,10 +54,6 @@ class RasterTorchGeoDataset(RasterDataset):
         df = self._load_observation_data(Path(root), split)
         self.observation_ids = df.index
         self.coordinates = df[["longitude", "latitude"]].values
-        # if self.training:
-        #     self.targets = df["species_id"].values
-        # else:
-        #     self.targets = None
         self.targets = df["species_id"].values
 
     def _load_observation_data(
@@ -239,7 +235,9 @@ class RasterTorchGeoDataset(RasterDataset):
             Formated label(s).
         """
         if self.task == 'classification_binary':
-            return [1] if set(label) & set(self.binary_positive_classes) else [0]
+            label = 1 if set(label) & set(self.binary_positive_classes) else 0
+            label = np.array([label])
+            return label
         if self.task == 'classification_multiclass':
             return label[0]
         if self.task == 'classification_multilabel':

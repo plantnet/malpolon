@@ -59,6 +59,14 @@ class GenericPredictionSystem(pl.LightningModule):
     def forward(self, x: Any) -> Any:
         return self.model(x)
 
+    def _cast_type_to_loss(self, y):
+        if isinstance(self.loss, torch.nn.CrossEntropyLoss) and len(y.shape) == 1 or\
+           isinstance(self.loss, torch.nn.NLLLoss):
+            y = y.to(torch.int64)
+        else:
+            y = y.to(torch.float32)
+        return y
+
     def _step(
         self, split: str, batch: tuple[Any, Any], batch_idx: int
     ) -> Union[Tensor, dict[str, Any]]:
@@ -70,7 +78,7 @@ class GenericPredictionSystem(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
 
-        loss = self.loss(y_hat, y)  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float() 
+        loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float() 
         self.log(f"{split}_loss", loss, **log_kwargs)
 
         for metric_name, metric_func in self.metrics.items():
@@ -241,12 +249,12 @@ class FinetuningClassificationSystem(GenericPredictionSystem):
     def __init__(
         self,
         model: Union[torch.nn.Module, Mapping],
+        task: str = 'binary',
         lr: float = 1e-2,
         weight_decay: float = 0,
         momentum: float = 0.9,
         nesterov: bool = True,
         metrics: Optional[dict[str, Callable]] = None,
-        binary: bool = False,
     ):
         self.lr = lr
         self.weight_decay = weight_decay
@@ -262,7 +270,7 @@ class FinetuningClassificationSystem(GenericPredictionSystem):
             momentum=self.momentum,
             nesterov=self.nesterov,
         )
-        if binary:
+        if 'binary' in task:
             loss = torch.nn.BCEWithLogitsLoss()
         else:
             loss = torch.nn.CrossEntropyLoss()

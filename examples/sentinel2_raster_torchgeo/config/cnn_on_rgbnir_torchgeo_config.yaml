@@ -25,9 +25,9 @@ model:
     global_pool:
   modifiers:
     change_first_convolutional_layer:
-     num_input_channels: 4
+     num_input_channels: 6
     change_last_layer:
-      num_outputs: 1
+      num_outputs: 5
 
 optimizer:
   lr: 1e-2
@@ -35,19 +35,17 @@ optimizer:
   momentum: 0.9
   nesterov: true
   metrics:
-    accuracy:
-      callable: 'Fmetrics.accuracy'
-      kwargs: {}
-    # mc_accuracy:
-    #   callable: 'Fmetrics.classification.multiclass_accuracy'
+    # binary_accuracy:
+    #   # callable: 'Fmetrics.accuracy'
+    #   kwargs: {}
+    # multiclass_accuracy:
+    #   # callable: 'Fmetrics.classification.multiclass_accuracy'
     #   kwargs:
     #     num_classes: 5
-    # ml_accuracy:
-    #   callable: 'Fmetrics.classification.multilabel_accuracy'
-    #   kwargs:
-    #     num_labels: 5
-  binary: true
-    
+    multilabel_accuracy:
+      # callable: 'Fmetrics.classification.multilabel_accuracy'
+      kwargs:
+        num_labels: 5
 
 data:
   dataset_path: "../../../dataset/"  # Relative to hydra.run.dir
@@ -56,6 +54,8 @@ data:
   inference_batch_size: 2
   num_workers: 8
   units: "pixel"
-  crs: 4326
-  task: 'classification_binary'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+  crs: 4326 
   binary_positive_classes: [0]
+
+task:
+  task: 'classification_multilabel'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
