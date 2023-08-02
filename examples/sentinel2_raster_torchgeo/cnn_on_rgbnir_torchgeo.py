@@ -1,3 +1,10 @@
+"""Main script to run training or inference on torchgeo datasets.
+
+This script runs the RasterSentinel2 dataset class by default.
+
+Author: Theo Larcher <theo.larcher@inria.fr>
+        Titouan Lorieul <titouan.lorieul@inria.fr>
+"""
 from __future__ import annotations
 
 import os
@@ -8,35 +15,23 @@ import pytorch_lightning as pl
 import torchmetrics.functional as Fmetrics
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
+from torch.utils.data import DataLoader
+from torchgeo.samplers import Units
 from torchvision import transforms
-from transforms import RGBDataTransform
-from ast import literal_eval
 
 from malpolon.data.data_module import BaseDataModule
 from malpolon.data.datasets.torchgeo_datasets import (RasterSentinel2,
                                                       Sentinel2GeoSampler)
 from malpolon.logging import Summary
 from malpolon.models import FinetuningClassificationSystem
-from torchgeo.samplers import Units
-from torch.utils.data import DataLoader
-
 
 FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.accuracy,
                       'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
-                      'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy,}
+                      'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
 
 
 class Sentinel2TorchGeoDataModule(BaseDataModule):
-    r"""
-    Data module for MicroGeoLifeCLEF 2022.
-
-    Parameters
-    ----------
-        dataset_path: Path to dataset
-        train_batch_size: Size of batch for training
-        inference_batch_size: Size of batch for inference (validation, testing, prediction)
-        num_workers: Number of workers to use for data loading
-    """
+    """Data module for Sentinel-2A dataset."""
     def __init__(
         self,
         dataset_path: str,
@@ -50,6 +45,40 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         binary_positive_classes: list = [],
         task: str = 'classification_multiclass',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
     ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        dataset_path : str
+            path to the directory containing the data
+        labels_name : str, optional
+            labels file name, by default 'labels.csv'
+        train_batch_size : int, optional
+            train batch size, by default 32
+        inference_batch_size : int, optional
+            inference batch size, by default 256
+        num_workers : int, optional
+            how many subprocesses to use for data
+            loading. ``0`` means that the data will be loaded in the
+            main process, by default 8
+        size : int, optional
+            size of the 2D extracted patches. Patches can either be
+            square (int/float value) or rectangular (tuple of int/float).
+            Defaults to a square of size 200, by default 200
+        units : Units, optional
+             The dataset's unit system, must have a value in
+             ['pixel', 'crs'], by default Units.CRS
+        crs : int, optional
+            `coordinate reference system (CRS)` to warp to
+            (defaults to the CRS of the first file found), by default 4326
+        binary_positive_classes : list, optional
+            labels' classes to consider valid in the case of binary
+            classification with multi-class labels (defaults to all 0),
+            by default []
+        task : str, optional
+            machine learning task (used to format labels accordingly),
+            by default 'classification_multiclass'
+        """
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
         self.labels_name = labels_name
@@ -67,6 +96,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
             split=split,
             task=self.task,
             binary_positive_classes=self.binary_positive_classes,
+            transforms_data=transform,
             **kwargs
         )
         return dataset
@@ -114,52 +144,79 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
 
     @property
     def train_transform(self):
-        # return transforms.Compose(
-        #     [
-        #         lambda data: RGBDataTransform()(data["rgb"]),self.coordinates
-        #         transforms.RandomRotation(degrees=45, fill=1),
-        #         transforms.RandomCrop(size=224),
-        #         transforms.RandomHorizontalFlip(),
-        #         transforms.RandomVerticalFlip(),
-        #         transforms.Normalize(
-        #             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        #         ),
-        #     ]
-        # )
-        pass
+        return transforms.Compose(
+            [
+                transforms.RandomRotation(degrees=45, fill=1),
+                transforms.RandomCrop(size=128),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomVerticalFlip(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406, 0.2], std=[0.229, 0.224, 0.225, 0.2]
+                ),
+            ]
+        )
 
     @property
     def test_transform(self):
-        # return transforms.Compose(
-        #     [
-        #         lambda data: RGBDataTransform()(data["rgb"]),
-        #         transforms.CenterCrop(size=224),
-        #         transforms.Normalize(
-        #             mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-        #         ),
-        #     ]
-        # )
-        pass
+        return transforms.Compose(
+            [
+                transforms.CenterCrop(size=128),
+                transforms.RandomVerticalFlip(),
+                transforms.Normalize(
+                    mean=[0.485, 0.456, 0.406, 0.2], std=[0.229, 0.224, 0.225, 0.2]
+                ),
+            ]
+        )
 
 
 class ClassificationSystem(FinetuningClassificationSystem):
+    """Classification task class."""
     def __init__(
         self,
         model: dict,
-        task: str,
         lr: float,
         weight_decay: float,
         momentum: float,
         nesterov: bool,
         metrics: dict,
+        task: str = 'classification_multiclass',
+        hparams_preprocess: bool = True,
     ):
-        task = task.split('classification_')[1]
-        metrics = omegaconf.OmegaConf.to_container(metrics)
-        for k, v in metrics.items():
-            if 'callable' in v:
-                metrics[k]['callable'] = eval(v['callable'])
-            else:
-                metrics[k]['callable'] = FMETRICS_CALLABLES[k]
+        """Class constructor.
+
+        Parameters
+        ----------
+        model : dict
+            _description_
+        lr : float
+            learning rate
+        weight_decay : float
+            weight decay
+        momentum : float
+            value of momentum
+        nesterov : bool
+            if True, uses Nesterov's momentum
+        metrics : dict
+            dictionnary containing the metrics to compute.
+            Keys must match metrics' names and have a subkey with each
+            metric's functional methods as value. This subkey is either
+            created from the FMETRICS_CALLABLES constant or supplied,
+            by the user directly.
+        task : str, optional
+            machine learning task (used to format labels accordingly),
+            by default 'classification_multiclass'
+        hparams_preprocess : bool, optional
+            if True performs preprocessing operations on the hyperparameters,
+            by default True
+        """
+        if hparams_preprocess:
+            task = task.split('classification_')[1]
+            metrics = omegaconf.OmegaConf.to_container(metrics)
+            for k, v in metrics.items():
+                if 'callable' in v:
+                    metrics[k]['callable'] = eval(v['callable'])
+                else:
+                    metrics[k]['callable'] = FMETRICS_CALLABLES[k]
 
         super().__init__(
             model,
@@ -174,12 +231,19 @@ class ClassificationSystem(FinetuningClassificationSystem):
 
 @hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgbnir_torchgeo_config")
 def main(cfg: DictConfig) -> None:
+    """Run main script used for either training or inference.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        hydra config dictionary created from the .yaml config file
+        associated with this script.
+    """
     # cfg.data.dataset_pathstate_dict = state_dict.model.state_dict = '../../../' + cfg.data.dataset_path  # Uncomment if value contains only the name of the dataset folder. Only works with a 3-folder-deep hydra job path.
     logger = pl.loggers.CSVLogger(".", name="", version="")
     logger.log_hyperparams(cfg)
 
     datamodule = Sentinel2TorchGeoDataModule(**cfg.data, **cfg.task)
-
     model = ClassificationSystem(cfg.model, **cfg.task, **cfg.optimizer)
 
     callbacks = [
@@ -194,7 +258,9 @@ def main(cfg: DictConfig) -> None:
     trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
 
     if cfg.inference.predict:
-        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.inference.checkpoint_path, model=model.model)
+        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.inference.checkpoint_path,
+                                                                 model=model.model,
+                                                                 hparams_preprocess=False)
 
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
         predictions = model_loaded.predict(datamodule, trainer)

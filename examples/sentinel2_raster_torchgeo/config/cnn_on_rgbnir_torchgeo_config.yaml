@@ -12,7 +12,7 @@ trainer:
 
 inference:
   predict: false
-  checkpoint_path: "../2023-07-04_11-10-05/checkpoint-epoch=00-step=6-val_accuracy=0.5000.ckpt"
+  checkpoint_path: "../2023-08-02_18-24-15/checkpoint-epoch=00-step=3-val_multiclass_accuracy=0.0000.ckpt"
 
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
@@ -25,7 +25,7 @@ model:
     global_pool:
   modifiers:
     change_first_convolutional_layer:
-     num_input_channels: 6
+     num_input_channels: 4
     change_last_layer:
       num_outputs: 5
 
@@ -38,14 +38,14 @@ optimizer:
     # binary_accuracy:
     #   # callable: 'Fmetrics.accuracy'
     #   kwargs: {}
-    # multiclass_accuracy:
-    #   # callable: 'Fmetrics.classification.multiclass_accuracy'
-    #   kwargs:
-    #     num_classes: 5
-    multilabel_accuracy:
-      # callable: 'Fmetrics.classification.multilabel_accuracy'
+    multiclass_accuracy:
+      # callable: 'Fmetrics.classification.multiclass_accuracy'
       kwargs:
-        num_labels: 5
+        num_classes: 5
+    # multilabel_accuracy:
+    #   # callable: 'Fmetrics.classification.multilabel_accuracy'
+    #   kwargs:
+    #     num_labels: 5
 
 data:
   dataset_path: "../../../dataset/"  # Relative to hydra.run.dir
@@ -55,7 +55,6 @@ data:
   num_workers: 8
   units: "pixel"
   crs: 4326 
-  binary_positive_classes: [0]
 
 task:
-  task: 'classification_multilabel'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
