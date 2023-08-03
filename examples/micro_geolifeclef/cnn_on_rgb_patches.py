@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
 
 import hydra
+import omegaconf
 import pytorch_lightning as pl
 import torchmetrics.functional as Fmetrics
 from omegaconf import DictConfig
@@ -16,8 +16,9 @@ from malpolon.data.datasets.geolifeclef2022 import MicroGeoLifeCLEF2022Dataset
 from malpolon.logging import Summary
 from malpolon.models import FinetuningClassificationSystem
 
-if TYPE_CHECKING:
-    from typing import Any, Callable, Mapping, Optional, Union
+FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.accuracy,
+                      'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
+                      'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
 
 
 class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
@@ -89,6 +90,7 @@ class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
 
 
 class ClassificationSystem(FinetuningClassificationSystem):
+    """Classification task class."""
     def __init__(
         self,
         model: dict,
@@ -96,10 +98,45 @@ class ClassificationSystem(FinetuningClassificationSystem):
         weight_decay: float,
         momentum: float,
         nesterov: bool,
+        metrics: dict,
+        task: str = 'classification_multiclass',
+        hparams_preprocess: bool = True,
     ):
-        metrics = {
-            "accuracy": Fmetrics.accuracy,
-        }
+        """Class constructor.
+
+        Parameters
+        ----------
+        model : dict
+            _description_
+        lr : float
+            learning rate
+        weight_decay : float
+            weight decay
+        momentum : float
+            value of momentum
+        nesterov : bool
+            if True, uses Nesterov's momentum
+        metrics : dict
+            dictionnary containing the metrics to compute.
+            Keys must match metrics' names and have a subkey with each
+            metric's functional methods as value. This subkey is either
+            created from the FMETRICS_CALLABLES constant or supplied,
+            by the user directly.
+        task : str, optional
+            machine learning task (used to format labels accordingly),
+            by default 'classification_multiclass'
+        hparams_preprocess : bool, optional
+            if True performs preprocessing operations on the hyperparameters,
+            by default True
+        """
+        if hparams_preprocess:
+            task = task.split('classification_')[1]
+            metrics = omegaconf.OmegaConf.to_container(metrics)
+            for k, v in metrics.items():
+                if 'callable' in v:
+                    metrics[k]['callable'] = eval(v['callable'])
+                else:
+                    metrics[k]['callable'] = FMETRICS_CALLABLES[k]
 
         super().__init__(
             model,
@@ -108,32 +145,43 @@ class ClassificationSystem(FinetuningClassificationSystem):
             momentum,
             nesterov,
             metrics,
+            task,
         )
 
 
 @hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_patches_config")
 def main(cfg: DictConfig) -> None:
+    """Run main script used for either training or inference.
+
+    Parameters
+    ----------
+    cfg : DictConfig
+        hydra config dictionary created from the .yaml config file
+        associated with this script.
+    """
     # cfg.data.dataset_pathstate_dict = state_dict.model.state_dict = '../../../' + cfg.data.dataset_path  # Uncomment if value contains only the name of the dataset folder. Only works with a 3-folder-deep hydra job path.
     logger = pl.loggers.CSVLogger(".", name="", version="")
     logger.log_hyperparams(cfg)
 
     datamodule = MicroGeoLifeCLEF2022DataModule(**cfg.data)
 
-    model = ClassificationSystem(cfg.model, **cfg.optimizer)
+    model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
     callbacks = [
         Summary(),
         ModelCheckpoint(
             dirpath=os.getcwd(),
-            filename="checkpoint-{epoch:02d}-{step}-{val_accuracy:.4f}",
-            monitor="val_accuracy",
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"val_{next(iter(model.metrics.keys()))}" + ":.4f}",
+            monitor=f"val_{next(iter(model.metrics.keys()))}",
             mode="max",
         ),
     ]
     trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
 
     if cfg.inference.predict:
-        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.inference.checkpoint_path, model=model.model)
+        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.inference.checkpoint_path,
+                                                                 model=model.model,
+                                                                 hparams_preprocess=False)
 
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
         predictions = model_loaded.predict(datamodule, trainer)

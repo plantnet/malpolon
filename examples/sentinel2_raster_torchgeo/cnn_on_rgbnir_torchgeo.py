@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import os
 from urllib.parse import urlparse
-from pathlib import Path
 
 import hydra
 import omegaconf
@@ -248,12 +247,12 @@ class ClassificationSystem(FinetuningClassificationSystem):
 
         super().__init__(
             model,
-            task,
             lr,
             weight_decay,
             momentum,
             nesterov,
             metrics,
+            task,
         )
 
 
@@ -272,7 +271,7 @@ def main(cfg: DictConfig) -> None:
     logger.log_hyperparams(cfg)
 
     datamodule = Sentinel2TorchGeoDataModule(**cfg.data, **cfg.task)
-    model = ClassificationSystem(cfg.model, **cfg.task, **cfg.optimizer)
+    model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
     callbacks = [
         Summary(),

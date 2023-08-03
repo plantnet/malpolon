@@ -249,12 +249,12 @@ class FinetuningClassificationSystem(GenericPredictionSystem):
     def __init__(
         self,
         model: Union[torch.nn.Module, Mapping],
-        task: str = 'binary',
         lr: float = 1e-2,
         weight_decay: float = 0,
         momentum: float = 0.9,
         nesterov: bool = True,
         metrics: Optional[dict[str, Callable]] = None,
+        task: str = 'binary',
     ):
         self.lr = lr
         self.weight_decay = weight_decay
