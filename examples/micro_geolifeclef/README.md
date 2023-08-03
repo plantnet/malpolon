@@ -49,7 +49,17 @@ You can parametrize your models and your training routine through your `.yaml` c
 - **data** : contains data related information such as the path to your dataset and batch size.
 
 ## Additional notes
+### Transfert learning
+Be aware that for now there are now tools provided to easily freeze or manage layers during training. Thus you may encounter errors when trying to train a model with pre-trained weights _(e.g. from ImageNet)_ on RGB-IR data as most of pre-trained models are done over 3 RGB images.
 
+To avoid such issue, either :
+- train from scratch by setting hyperparameter `model.model_kwargs.pretrained` to false
+- manually change your model and freeze strategy before `trainer.fit` (in your main script) to only train 3 bands at once
+- restrain your trainings to 3 bands and merge several trainings output features
+
+Future updates will aim at making this step easier.
+
+### Debugging
 For debugging purposes, using the `trainer.fast_dev_run=true` and `hydra.job.name=test` parameters can be handy:
 ```script
 python cnn_on_rgb_patches.py data.dataset_path=<DATASET_PATH> trainer.gpus=1 +trainer.fast_dev_run=true +hydra.job.name=test

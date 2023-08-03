@@ -47,6 +47,16 @@ Note that any of these parameters can also be passed through command line like s
 Switch running mode from training to prediction by setting the config file parameter `inference.predict` to `true` and specify a path to your model checkpoint. Both training and prediciton mode are embedded in the example file.
 
 ## Additional notes
+### Transfert learning
+Be aware that for now there are now tools provided to easily freeze or manage layers during training. Thus you may encounter errors when trying to train a model with pre-trained weights _(e.g. from ImageNet)_ on RGB-IR data as most of pre-trained models are done over 3 RGB images.
+
+To avoid such issue, either :
+- train from scratch by setting hyperparameter `model.model_kwargs.pretrained` to false
+- manually change your model and freeze strategy before `trainer.fit` (in your main script) to only train 3 bands at once
+- restrain your trainings to 3 bands and merge several trainings output features
+
+Future updates will aim at making this step easier.
+
 ### Debugging
 
 For debugging purposes, using the `trainer.fast_dev_run=true` and `hydra.job.name=test` parameters can be handy:
