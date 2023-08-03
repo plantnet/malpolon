@@ -3,16 +3,25 @@
 This example serves as a Getting Started code.
 It uses the MicroGeoLifeCLEF 2022 dataset which can be downloaded separately [here](https://lab.plantnet.org/seafile/f/b07039ce11f44072a548/?dl=1) (the code downloads it automatically if it was not downloaded before).
 It consists of a subset of 10,000 observations from the GeoLifeCLEF 2022 dataset, retaining 1,000 observations in France of the 10 species most present in the original dataset belonging to two families (_Lamiaceae_ and _Orchidaceae_):
-- _Himantoglossum hircinum_
-- _Himantoglossum robertianum_
-- _Melittis melissophyllum_
-- _Mentha suaveolens_
-- _Ophrys apifera_
-- _Orchis purpurea_
-- _Orchis mascula_
-- _Perovskia atriplicifolia_
-- _Stachys byzantina_
-- _Vitex agnus-castus_
+
+<div style="text-align: center;">
+  <h2>Lamiaceae</h2>
+</div>
+
+| Himantoglossum robertianum | Melittis melissophyllum | Orchis mascula | Perovskia atriplicifolia (Salvia yangii) | Vitex agnus-castus |
+|:-:|:-:|:-:|:-:|:-:|
+![Mentha_suaveolens](../../docs/resources/Mentha_suaveolens.jpg "Mentha suaveolens") | ![Melittis_melissophyllum](../../docs/resources/Melittis_melissophyllum.jpg "Melittis melissophyllum") | ![Stachys_byzantina](../../docs/resources/Stachys_byzantina.jpg "Stachys byzantina") | ![Perovskia_atriplicifolia](../../docs/resources/Perovskia_atriplicifolia.jpg "Perovskia atriplicifolia") | ![Vitex_agnus-castus](../../docs/resources/Vitex_agnus-castus.JPG "Vitex agnus-castus") |
+[Wikipedia: Mentha suaveolens](https://en.wikipedia.org/wiki/Mentha_suaveolens) | [Wikipedia: Melittis](https://en.wikipedia.org/wiki/Melittis) | [Wikipedia: Stachys byzantina](https://en.wikipedia.org/wiki/Stachys_byzantina) | [Wikipedia: Salvia yangii](https://en.wikipedia.org/wiki/Salvia_yangii) | [Wikipedia: Vitex agnus-castus](https://en.wikipedia.org/wiki/Vitex_agnus-castus) | 
+
+<div style="text-align: center;">
+  <h2>Orchidaceae</h2>
+</div>
+
+| Himantoglossum hircinum | Mentha suaveolens | Ophrys apifera | Orchis purpurea | Stachys byzantina |
+|:-:|:-:|:-:|:-:|:-:|
+![Himantoglossum_hircinum](../../docs/resources/Himantoglossum_hircinum.jpg "Himantoglossum hircinum") |![Himantoglossum_robertianum](../../docs/resources/Himantoglossum_robertianum.jpg "Himantoglossum robertianum") |![Orchis_mascula](../../docs/resources/Orchis_mascula.jpg "Orchis mascula") |![Ophrys_apifera](../../docs/resources/Ophrys_apifera.jpg "Ophrys apifera") |![Orchis_purpurea](../../docs/resources/Orchis_purpurea.jpg "Orchis purpurea") |
+[Wikipedia: Himantoglossum hircinum](https://en.wikipedia.org/wiki/Himantoglossum_hircinum) |[Wikipedia: Himantoglossum robertianum](https://en.wikipedia.org/wiki/Himantoglossum_robertianum) |[Wikipedia: Orchis mascula](https://en.wikipedia.org/wiki/Orchis_mascula) |[Wikipedia: Ophrys apifera](https://en.wikipedia.org/wiki/Ophrys_apifera) |[Wikipedia: Orchis purpurea](https://en.wikipedia.org/wiki/Orchis_purpurea) |
+
 
 
 ## Running the examples
