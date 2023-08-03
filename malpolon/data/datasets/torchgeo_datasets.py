@@ -6,8 +6,8 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 from __future__ import annotations
 
 from pathlib import Path
-from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator,
-                    Optional, Sequence, Tuple, Union)
+from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional,
+                    Sequence, Tuple, Union)
 
 import numpy as np
 import pandas as pd
@@ -16,7 +16,7 @@ import torch
 from matplotlib import pyplot as plt
 from matplotlib.figure import Figure
 from pyproj import CRS, Transformer
-from torchgeo.datasets import (BoundingBox, GeoDataset, RasterDataset)
+from torchgeo.datasets import BoundingBox, GeoDataset, RasterDataset
 from torchgeo.samplers import GeoSampler, Units
 
 from malpolon.data.utils import is_point_in_bbox, to_one_hot_encoding
@@ -61,7 +61,7 @@ class RasterTorchGeoDataset(RasterDataset):
         Parameters
         ----------
         root : str, optional
-            path to the directory containing the data, by default "data"
+            path to the directory containing the data and labels, by default "data"
         split : str, optional
             dataset subset desired for labels selection, by default None
         labels_name : str, optional

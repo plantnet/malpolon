@@ -50,6 +50,7 @@ optimizer:
 data:
   dataset_path: "../../../dataset/"  # Relative to hydra.run.dir
   labels_name: "sentinel2_raster_torch_geo.csv"
+  download_data_sample: True
   train_batch_size: 2
   inference_batch_size: 2
   num_workers: 8

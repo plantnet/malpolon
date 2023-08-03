@@ -8,14 +8,19 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 from __future__ import annotations
 
 import os
+from urllib.parse import urlparse
+from pathlib import Path
 
 import hydra
 import omegaconf
+import planetary_computer
+import pystac
 import pytorch_lightning as pl
 import torchmetrics.functional as Fmetrics
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.utils.data import DataLoader
+from torchgeo.datasets.utils import download_url
 from torchgeo.samplers import Units
 from torchvision import transforms
 
@@ -44,6 +49,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         crs: int = 4326,
         binary_positive_classes: list = [],
         task: str = 'classification_multiclass',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
+        download_data_sample: bool = False
     ):
         """Class constructor.
 
@@ -88,6 +94,28 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         self.sampler = Sentinel2GeoSampler
         self.task = task
         self.binary_positive_classes = binary_positive_classes
+        if download_data_sample:
+            self.download_data_sample()
+
+    def download_data_sample(self):
+        """Download 4 Sentinel-2A tiles from MPC.
+
+        This method is useful to quickly download a sample of
+        Sentinel-2A tiles via Microsoft Planetary Computer (MPC).
+        The referenced of the tile downloaded are specified by the
+        `tile_id` and `timestamp` variables. Tiles are not downloaded
+        if they already have are found locally.
+        """
+        tile_id = 'T31TEJ'
+        timestamp = '20190801T104031'
+        item_urls = [f"https://planetarycomputer.microsoft.com/api/stac/v1/collections/sentinel-2-l2a/items/S2A_MSIL2A_{timestamp}_R008_{tile_id}_20201004T190635"]
+        for item_url in item_urls:
+            item = pystac.Item.from_file(item_url)
+            signed_item = planetary_computer.sign(item)
+            for band in ["B08", "B03", "B02", "B04"]:
+                asset_href = signed_item.assets[band].href
+                filename = urlparse(asset_href).path.split("/")[-1]
+                download_url(asset_href, self.dataset_path, filename)
 
     def get_dataset(self, split, transform, **kwargs):
         dataset = RasterSentinel2(
