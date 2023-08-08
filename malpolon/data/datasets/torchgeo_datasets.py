@@ -92,8 +92,8 @@ class RasterTorchGeoDataset(RasterDataset):
         """
         super().__init__(root, crs, res, bands, None, cache)
         self.patch_size = patch_size
-        self.crs_pyproj = CRS(self.crs.data['init'])
-        self.units = self.crs_pyproj.axis_info[0].unit_name
+        self.crs_pyproj = CRS(self.crs.data['init']) if self.crs.is_epsg_code else self.crs
+        self.units = self.crs_pyproj.axis_info[0].unit_name if self.crs.is_epsg_code else self.crs.data['units']
         self.training = split != "test"
         self.task = task
         self.binary_positive_classes = set(binary_positive_classes)
@@ -207,7 +207,9 @@ class RasterTorchGeoDataset(RasterDataset):
         projected into the nearest meter-based CRS (from a list defined as
         constant at the begining of this file), the bbox vertices' min and max
         are computed in thise reference system, then they are projected back
-        into the input CRS 'crs'.
+        into the input CRS 'crs'. If the dataset's CRS doesn't match en EPSG
+        code but is instead built from a WKT, the nearest meter-based CRS
+        will always be EPSG:3035.
 
         By default, 'size' is set to the dataset's 'patch_size' value via None.
 
@@ -248,7 +250,10 @@ class RasterTorchGeoDataset(RasterDataset):
             # Find closest meter EPSG
             best_crs = {'code': '',
                         'center_distance': np.inf}
-            lon_geodetic, lat_geodetic = self.coords_transform(lon, lat, input_crs=crs, output_crs=self.crs_pyproj.geodetic_crs)
+            if self.crs_pyproj.is_epsg_code:
+                lon_geodetic, lat_geodetic = self.coords_transform(lon, lat, input_crs=crs, output_crs=self.crs_pyproj.geodetic_crs)
+            else:
+                lon_geodetic, lat_geodetic = self.coords_transform(lon, lat, input_crs=crs, output_crs=CRS(EUROPE_EPSG_CODE[0]))
             for code in ALL_NORTHERN_EPSG_CODES:
                 epsg_aou = CRS.from_epsg(code).area_of_use
                 epsg_lon_center, epsg_lat_center = (epsg_aou.west + epsg_aou.east) / 2, (epsg_aou.south + epsg_aou.north) / 2
