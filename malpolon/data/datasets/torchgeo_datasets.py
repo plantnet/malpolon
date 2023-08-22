@@ -293,11 +293,11 @@ class RasterTorchGeoDataset(RasterDataset):
             False otherwise.
         """
         epsg4326 = pyproj.CRS.from_epsg(4326)
-        coords_4326 = query['lat'], query['lon']
+        coords_4326 = query['lon'], query['lat']
         bounds_4326 = self.bounds
         if query['crs'] != epsg4326:
             transformer = Transformer.from_crs(query['crs'], epsg4326)
-            coords_4326 = transformer.transform(query['lat'], query['lon'])
+            coords_4326 = transformer.transform(query['lon'], query['lat'])
         if self.crs_pyproj != epsg4326:
             transformer = Transformer.from_crs(self.crs_pyproj, epsg4326)
             bounds_4326 = transformer.transform_bounds(self.bounds.minx, self.bounds.miny, self.bounds.maxx, self.bounds.maxy)
