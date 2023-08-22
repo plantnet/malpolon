@@ -12,7 +12,7 @@ trainer:
 
 run:
   predict: false
-  checkpoint_path: "../2023-08-02_18-24-15/checkpoint-epoch=00-step=3-val_multiclass_accuracy=0.0000.ckpt"
+  checkpoint_path: "../2023-08-02_18-24-15/checkpoint-epoch=00-step=3-val_multiclass_accuracy=0.0000.ckpt"  # Relative to hydra.run.dir
                                                                                                                                        
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
