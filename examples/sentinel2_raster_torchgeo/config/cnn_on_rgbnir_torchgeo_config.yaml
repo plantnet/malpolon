@@ -10,15 +10,15 @@ trainer:
   # val_check_interval: 10
   check_val_every_n_epoch: 1
 
-inference:
+run:
   predict: false
   checkpoint_path: "../2023-08-02_18-24-15/checkpoint-epoch=00-step=3-val_multiclass_accuracy=0.0000.ckpt"
-
+                                                                                                                                       
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
   model_name: "resnet18"
   model_kwargs:
-    pretrained: false  # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
+    pretrained: true  # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
     num_classes:
     in_chans:
     output_stride:
