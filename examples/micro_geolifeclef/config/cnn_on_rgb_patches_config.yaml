@@ -10,15 +10,15 @@ trainer:
   #val_check_interval: 10
   check_val_every_n_epoch: 1
 
-inference:
-  predict: true
-  checkpoint_path: "../2023-08-03_18-44-35/checkpoint-epoch=00-step=244-val_multiclass_accuracy=0.0570.ckpt"
+run:
+  predict: false
+  checkpoint_path: "../2023-08-03_18-44-35/checkpoint-epoch=00-step=244-val_multiclass_accuracy=0.0570.ckpt"  # Relative to hydra.run.dir
 
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
   model_name: "resnet18"
   model_kwargs:
-    pretrained: false  # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
+    pretrained: true  # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
     num_classes:
     in_chans:
     output_stride:

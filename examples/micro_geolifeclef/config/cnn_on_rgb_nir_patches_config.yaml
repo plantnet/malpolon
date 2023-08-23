@@ -1,9 +1,9 @@
 defaults:
   - cnn_on_rgb_patches_config
 
-inference:
-  predict: true
-  checkpoint_path: "../2023-08-03_18-52-45/checkpoint-epoch=00-step=244-val_multiclass_accuracy=0.0771.ckpt"
+run:
+  predict: false
+  checkpoint_path: "../2023-08-03_18-52-45/checkpoint-epoch=00-step=244-val_multiclass_accuracy=0.0771.ckpt"  # Relative to hydra.run.dir
 
 model:
   modifiers:

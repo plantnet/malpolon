@@ -178,8 +178,8 @@ def main(cfg: DictConfig) -> None:
     ]
     trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
 
-    if cfg.inference.predict:
-        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.inference.checkpoint_path,
+    if cfg.run.predict:
+        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
                                                                  model=model.model,
                                                                  hparams_preprocess=False)
 
@@ -191,12 +191,12 @@ def main(cfg: DictConfig) -> None:
         test_data = datamodule.get_test_dataset()
         test_data_point = test_data[0][0]
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
-        prediction = model_loaded.predict_point(cfg.inference.checkpoint_path,
+        prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
                                                 test_data_point,
                                                 ['model.', ''])
         print('Point prediction : ', prediction)
     else:
-        trainer.fit(model, datamodule=datamodule)
+        trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
         trainer.validate(model, datamodule=datamodule)
 
 
