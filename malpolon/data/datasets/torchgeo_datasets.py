@@ -250,7 +250,7 @@ class RasterTorchGeoDataset(RasterDataset):
             # Find closest meter EPSG
             best_crs = {'code': '',
                         'center_distance': np.inf}
-            if self.crs_pyproj.is_epsg_code:
+            if self.crs_pyproj.to_epsg() is not None:
                 lon_geodetic, lat_geodetic = self.coords_transform(lon, lat, input_crs=crs, output_crs=self.crs_pyproj.geodetic_crs)
             else:
                 lon_geodetic, lat_geodetic = self.coords_transform(lon, lat, input_crs=crs, output_crs=CRS(EUROPE_EPSG_CODE[0]))
@@ -298,9 +298,11 @@ class RasterTorchGeoDataset(RasterDataset):
         if query['crs'] != epsg4326:
             transformer = Transformer.from_crs(query['crs'], epsg4326)
             coords_4326 = transformer.transform(query['lon'], query['lat'])
+            coords_4326 = coords_4326[1], coords_4326[0]
         if self.crs_pyproj != epsg4326:
             transformer = Transformer.from_crs(self.crs_pyproj, epsg4326)
             bounds_4326 = transformer.transform_bounds(self.bounds.minx, self.bounds.miny, self.bounds.maxx, self.bounds.maxy)
+            bounds_4326 = (bounds_4326[1], bounds_4326[0], bounds_4326[3], bounds_4326[2])
         return is_point_in_bbox(coords_4326, bounds_4326)
 
     def _format_label_to_task(
