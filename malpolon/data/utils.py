@@ -102,10 +102,10 @@ def to_one_hot_encoding(
     list
         One-hot encoded labels.
     """
+    labels_predict = [labels_predict] if type(labels_predict) is int else labels_predict
     n_classes = len(labels_target)
     one_hot_labels = np.zeros(n_classes, dtype=np.float32)
-    for pred_lab in labels_predict:
-        one_hot_labels[labels_target == pred_lab] = 1
+    one_hot_labels[np.in1d(labels_target, labels_predict)] = 1
     return one_hot_labels
 
 
