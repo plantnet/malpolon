@@ -5,7 +5,7 @@ on:
 
 jobs:
     test:
-        name: Unit Test 
+        name: Build doc & deploy
         runs-on: ubuntu-latest
         strategy:
           matrix:
