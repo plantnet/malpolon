@@ -34,6 +34,11 @@ jobs:
               run: sudo apt-get install python3-sphinx
             - name: Make documentation
               run: make -C docs html
+            - name: Upload artifact
+              uses: actions/upload-pages-artifact@v2
+              with:
+               # Upload entire repository
+                path: './docs'
             - name: Deploy to GitHub Pages
               id: deployment
               uses: actions/deploy-pages@v2
