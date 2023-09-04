@@ -22,5 +22,7 @@ jobs:
               run: pip install -r ./requirements.txt
             - name: pip install -e .
               run: pip install -e .
+            - name: Install Sphynx doc
+              run: sudo apt-get install python3-sphinx
             - name: Make documentation
               run: make -C docs html
