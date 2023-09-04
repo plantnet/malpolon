@@ -26,3 +26,4 @@ jobs:
               uses: microsoft/action-python@0.7.0
               with:          
                 pytest: true
+                python-version: ${{ matrix.python-version }}
