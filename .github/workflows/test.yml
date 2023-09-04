@@ -22,3 +22,7 @@ jobs:
               run: pip install -r ./requirements.txt
             - name: pip install -e .
               run: pip install -e .
+            - name: Pytest
+              uses: microsoft/action-python@0.7.0
+              with:          
+                testing: true
