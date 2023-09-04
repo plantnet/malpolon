@@ -21,7 +21,9 @@ jobs:
             - name: pip install -r requirements.txt
               run: pip install -r ./requirements.txt
             - name: pip install -e .
-              run: pip install -e .
+              run: |
+                pip install -e .
+                pip install sphinx-rtd-theme==1.2.0
             - name: Install Sphynx doc
               run: sudo apt-get install python3-sphinx
             - name: Make documentation
