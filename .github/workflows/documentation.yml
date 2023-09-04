@@ -1,0 +1,46 @@
+name: Publish documentation
+
+on:
+  push:
+      branches:
+        - main
+jobs:
+    test:
+        name: Build doc & deploy
+        runs-on: ubuntu-latest
+        strategy:
+          matrix:
+            python-version: ["3.8"]
+        permissions:
+          pages: write      
+          id-token: write   # to verify the deployment originates from an appropriate source
+        environment:
+          name: github-pages
+          url: ${{ steps.deployment.outputs.page_url }}
+
+        steps:
+            - uses: actions/checkout@v3
+            - uses: actions/setup-python@v4
+              name: Setup python ${{ matrix.python-version }}
+              with:
+                python-version: ${{ matrix.python-version }}
+                cache: 'pip' # caching pip dependencies
+            - name: pip install -r requirements.txt
+              run: pip install -r ./requirements.txt
+            - name: pip install -e .
+              run: |
+                pip install -e .
+                pip install sphinx-rtd-theme==1.2.0
+            - name: Install Sphynx doc
+              run: sudo apt-get install python3-sphinx
+            - name: Make documentation
+              run: make -C docs html
+            - name: Upload artifact
+              uses: actions/upload-pages-artifact@v2
+              with:
+                # Upload entire repository
+                path: './docs/_build/html'
+            - name: Deploy to GitHub Pages
+              id: deployment
+              uses: actions/deploy-pages@v2
+              
