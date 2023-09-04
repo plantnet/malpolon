@@ -11,7 +11,7 @@ jobs:
           matrix:
             python-version: ["3.8"]
         permissions:
-          pages: write      # to deploy to Pages
+          pages: write      
           id-token: write   # to verify the deployment originates from an appropriate source
         environment:
           name: github-pages
