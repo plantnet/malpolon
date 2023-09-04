@@ -1,8 +1,9 @@
 name: Publish documentation
 
 on:
-    push:
-
+  push:
+      branches:
+        - main
 jobs:
     test:
         name: Build doc & deploy
