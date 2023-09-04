@@ -23,7 +23,4 @@ jobs:
             - name: pip install -e .
               run: pip install -e .
             - name: Pytest
-              uses: microsoft/action-python@0.7.0
-              with:          
-                pytest: true
-                python-version: ${{ matrix.python-version }}
+              run: python -m pytest 
