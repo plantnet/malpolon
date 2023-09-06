@@ -1,7 +1,7 @@
 from __future__ import annotations
 import warnings
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple, Union, TYPE_CHECKING
+from typing import Any, Optional, Union, TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np

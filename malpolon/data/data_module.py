@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
-from malpolon.data.datasets.torchgeo_datasets import Sentinel2GeoSampler
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Optional

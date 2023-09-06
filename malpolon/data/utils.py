@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 import re
 import numpy as np
-from typing import TYPE_CHECKING, Iterable, Union
+from typing import Iterable
 
 from shapely import Polygon, Point
 

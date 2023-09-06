@@ -6,7 +6,6 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 """
 
 import rasterio
-import rioxarray
 import numpy as np
 from rasterio.windows import Window
 from matplotlib import pyplot as plt
