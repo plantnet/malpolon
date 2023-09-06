@@ -103,7 +103,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         Sentinel-2A tiles via Microsoft Planetary Computer (MPC).
         The referenced of the tile downloaded are specified by the
         `tile_id` and `timestamp` variables. Tiles are not downloaded
-        if they already have are found locally.
+        if they already have been and are found locally.
         """
         tile_id = 'T31TEJ'
         timestamp = '20190801T104031'
@@ -238,12 +238,26 @@ class ClassificationSystem(FinetuningClassificationSystem):
         """
         if hparams_preprocess:
             task = task.split('classification_')[1]
-            metrics = omegaconf.OmegaConf.to_container(metrics)
-            for k, v in metrics.items():
-                if 'callable' in v:
-                    metrics[k]['callable'] = eval(v['callable'])
-                else:
-                    metrics[k]['callable'] = FMETRICS_CALLABLES[k]
+            try:
+                metrics = omegaconf.OmegaConf.to_container(metrics)
+                for k, v in metrics.items():
+                    if 'callable' in v:
+                        metrics[k]['callable'] = eval(v['callable'])
+                    else:
+                        metrics[k]['callable'] = FMETRICS_CALLABLES[k]
+            except ValueError as e:
+                print('\n[WARNING]: Please make sure you have registered'
+                      ' a dict-like value to your "metrics" key in your'
+                      ' config file. Defaulting metrics to None.\n')
+                print(e, '\n')
+                metrics = None
+            except KeyError as e:
+                print('\n[WARNING]: Please make sure the name of your metrics'
+                      ' registered in your config file match an entry'
+                      ' in constant FMETRICS_CALLABLES.'
+                      ' Defaulting metrics to None.\n')
+                print(e, '\n')
+                metrics = None
 
         super().__init__(
             model,
