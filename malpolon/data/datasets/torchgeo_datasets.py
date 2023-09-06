@@ -38,7 +38,8 @@ class RasterTorchGeoDataset(RasterDataset):
     can be queried by either a torchgeo BoundingBox object, a tuple of
     coordinates in the dataset's CRS or a dictionary specifying
     coordinates and the wanted CRS. Additionally one can specify the
-    desired size and units of the wanted patch.
+    desired size and units of the wanted patch even if they don't match the
+    dataset's.
 
     RasterTorchGeoDataset inherits torchgeo's RasterDataset class.
     """
@@ -123,11 +124,12 @@ class RasterTorchGeoDataset(RasterDataset):
         Parameters
         ----------
         root : Path
-            directory containing the observation (labels) file
+            directory containing the observation (labels) file, by default None.
         obs_fn : str
-            observations file name
+            observations file name, by default None.
         subsets : str
-            desired data subset amongst ["train", "test", "val"]
+            desired data subset amongst ["train", "test", "val"], by default
+            ["train", "test", "val"] (no restriction).
 
         Returns
         -------
@@ -222,6 +224,7 @@ class RasterTorchGeoDataset(RasterDataset):
         size : Union[tuple, int], optional
             Patch size, by default None. If passed as an int, the patch will be
             square. If passed as a tuple (width, height), can be rectangular.
+            By default None.
         units : str, optional
             The coordinates' unit system, must have a value in ['pixel', 'crs'].
             The size of the bbox will adapt to the unit. If 'pixel' is
@@ -231,7 +234,7 @@ class RasterTorchGeoDataset(RasterDataset):
             (size[0], size[1]) <metric_of_the_dataset (usually meters)>.
             Defaults to 'crs'.
         crs : Union[int, str]
-            CRS of the point's lon/lat coordinates, by default None.
+            CRS of the point's lon/lat coordinates, by default 'self'.
 
         Returns
         -------
