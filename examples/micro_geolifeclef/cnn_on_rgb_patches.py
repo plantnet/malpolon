@@ -131,12 +131,26 @@ class ClassificationSystem(FinetuningClassificationSystem):
         """
         if hparams_preprocess:
             task = task.split('classification_')[1]
-            metrics = omegaconf.OmegaConf.to_container(metrics)
-            for k, v in metrics.items():
-                if 'callable' in v:
-                    metrics[k]['callable'] = eval(v['callable'])
-                else:
-                    metrics[k]['callable'] = FMETRICS_CALLABLES[k]
+            try:
+                metrics = omegaconf.OmegaConf.to_container(metrics)
+                for k, v in metrics.items():
+                    if 'callable' in v:
+                        metrics[k]['callable'] = eval(v['callable'])
+                    else:
+                        metrics[k]['callable'] = FMETRICS_CALLABLES[k]
+            except ValueError as e:
+                print('\n[WARNING]: Please make sure you have registered'
+                      ' a dict-like value to your "metrics" key in your'
+                      ' config file. Defaulting metrics to None.\n')
+                print(e, '\n')
+                metrics = None
+            except KeyError as e:
+                print('\n[WARNING]: Please make sure the name of your metrics'
+                      ' registered in your config file match an entry'
+                      ' in constant FMETRICS_CALLABLES.'
+                      ' Defaulting metrics to None.\n')
+                print(e, '\n')
+                metrics = None
 
         super().__init__(
             model,
