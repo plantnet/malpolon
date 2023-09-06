@@ -79,7 +79,7 @@ def compare_rasters(
     xy_offset = (full.shape[2] // 2 - size[0] // 2, full.shape[1] // 2 - size[1] // 2) if xy_offset is None else xy_offset
     assert full_crs.to_epsg() == sample_crs.to_epsg()
     assert full_crs == sample_crs
-    # assert np.array_equal(full[0, xy_offset[0]:xy_offset[0]+size[0], xy_offset[1]:xy_offset[1]+size[1]], sample[0])
+    np.testing.assert_allclose(full[0, xy_offset[1]:xy_offset[1]+size[0], xy_offset[0]:xy_offset[0]+size[1]], sample[0])
     _, (ax1, ax2) = plt.subplots(1, 2)
     ax1.imshow(full[0], cmap='gray', vmin=np.min(sample), vmax=np.max(sample))
     rect = patches.Rectangle(xy_offset, size[0], size[1], linewidth=3, edgecolor='r', facecolor='none')
@@ -100,8 +100,8 @@ def main() -> None:
     # xy_offset = (6728, 6795)
 
     # MicroLifeClef
-    input_path = './torchgeo_mlc_test_full.tif'
-    output_path = 'torchgeo_mlc_test_sample.tif'
+    input_path = 'data/bioclimatic_rasters/bio_1_FR.tif'
+    output_path = 'data/output.tif'
     size = (400, 400)
     xy_offset = None
 
