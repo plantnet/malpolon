@@ -1,4 +1,4 @@
-torch==1.13.0
+torch==1.13.1
 torchvision==0.14.0
 pytorch_lightning==1.8.3.post1
 torchmetrics==0.10.3
