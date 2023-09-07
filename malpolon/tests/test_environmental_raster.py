@@ -5,12 +5,11 @@ import pytest
 
 from malpolon.data.environmental_raster import PatchExtractor
 
-
-DATA_PATH = Path("/home/lorieul/dev/research/GeoLifeCLEF22/data")
+DATA_PATH = Path("malpolon/tests/data/")
 
 
 def test_patch_extractor_single_variable():
-    extractor = PatchExtractor(DATA_PATH / "rasters", size=8)
+    extractor = PatchExtractor(DATA_PATH / "bioclimatic_rasters", size=8)
     extractor.append("bio_1")
 
     patch = extractor[43.61, 3.88]
@@ -107,7 +106,7 @@ def test_patch_extractor_single_variable():
 
 
 def test_patch_extractor_several_variables():
-    extractor = PatchExtractor(DATA_PATH / "rasters", size=256)
+    extractor = PatchExtractor(DATA_PATH / "bioclimatic_rasters", size=256)
     extractor.append("bio_1")
     extractor.append("bio_2")
     extractor.append("bio_3")
@@ -119,7 +118,7 @@ def test_patch_extractor_several_variables():
 
 def test_patch_extractor_out_of_rasters_bounds():
     size = 2048
-    extractor = PatchExtractor(DATA_PATH / "rasters", size=size)
+    extractor = PatchExtractor(DATA_PATH / "bioclimatic_rasters", size=size)
     extractor.append("bio_1")
 
     patch = extractor[48.480688, -4.702032]
@@ -128,7 +127,7 @@ def test_patch_extractor_out_of_rasters_bounds():
 
 
 def test_vector_extractor_single_variable():
-    extractor = PatchExtractor(DATA_PATH / "rasters", size=1)
+    extractor = PatchExtractor(DATA_PATH / "bioclimatic_rasters", size=1)
     extractor.append("bio_1")
 
     patch = extractor[43.61, 3.88]
@@ -138,7 +137,7 @@ def test_vector_extractor_single_variable():
 
 @pytest.mark.parametrize("size", (1, 256))
 def test_patch_extractor_out_of_bounds(size):
-    extractor = PatchExtractor(DATA_PATH / "rasters", size=size)
+    extractor = PatchExtractor(DATA_PATH / "bioclimatic_rasters", size=size)
     extractor.append("bio_1", out_of_bounds="ignore")
     extractor.append("bio_2", out_of_bounds="ignore")
     extractor.append("bio_3", out_of_bounds="ignore")
@@ -148,12 +147,12 @@ def test_patch_extractor_out_of_bounds(size):
     else:
         assert patch.shape == (3, size, size)
 
-    extractor = PatchExtractor(DATA_PATH / "rasters", size=size)
+    extractor = PatchExtractor(DATA_PATH / "bioclimatic_rasters", size=size)
     extractor.append("bio_1", out_of_bounds="error")
     with pytest.raises(IndexError):
         extractor[0, 0]
 
-    extractor = PatchExtractor(DATA_PATH / "rasters", size=size)
+    extractor = PatchExtractor(DATA_PATH / "bioclimatic_rasters", size=size)
     extractor.append("bio_1", out_of_bounds="warn")
     with pytest.warns(UserWarning):
         patch = extractor[0, 0]
@@ -164,7 +163,7 @@ def test_patch_extractor_out_of_bounds(size):
 
 
 def test_patch_plotting():
-    extractor = PatchExtractor(DATA_PATH / "rasters", size=256)
+    extractor = PatchExtractor(DATA_PATH / "bioclimatic_rasters", size=256)
     extractor.append("bio_1")
     extractor.append("bio_2")
     extractor.append("bio_3")

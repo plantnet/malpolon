@@ -1,10 +1,128 @@
 """This file compiles useful functions related to data and file handling."""
+from __future__ import annotations
 
 import os
 import re
+import numpy as np
+from typing import Iterable, Union
+from torchgeo.datasets import BoundingBox
+
+from shapely import Polygon, Point
 
 
-def get_files_path_recursively(path, *args, suffix=''):
+def is_bbox_contained(
+    bbox1: Union[Iterable, BoundingBox],
+    bbox2: Union[Iterable, BoundingBox],
+    method: str['shapely', 'manual', 'torchgeo'] = 'shapely'
+) -> bool:
+    """Determine if a 2D bbox in included inside of another.
+
+    Returns a boolean answering the question "Is bbox1 contained inside
+    bbox2 ?".
+    With methods 'shapely' and 'manual', bounding boxes must
+    follow the format: [xmin, ymin, xmax, ymax].
+    With method 'torchgeo', bounding boxes must be of type:
+    `torchgeo.datasets.utils.BoundingBox`.
+
+    Parameters
+    ----------
+    bbox1 : Union[Iterable, BoundingBox]
+        Bounding box n°1.
+    bbox2 : Union[Iterable, BoundingBox]
+        Bounding box n°2.
+    method : str
+        Method to use for comparison. Can take any value in
+        ['shapely', 'manual', 'torchgeo'], by default 'shapely'.
+
+    Returns
+    -------
+    boolean
+        True if bbox1 ⊂ bbox2, False otherwise.
+    """
+    if method == "manual":
+        is_contained = (bbox1[0] >= bbox2[0] and bbox1[0] <= bbox2[2]
+                        and bbox1[2] >= bbox2[0] and bbox1[2] <= bbox2[2]
+                        and bbox1[1] >= bbox2[1] and bbox1[1] <= bbox2[3]
+                        and bbox1[3] >= bbox2[1] and bbox1[3] <= bbox2[3])
+    elif method == "shapely":
+        polygon1 = Polygon([(bbox1[0], bbox1[1]), (bbox1[0], bbox1[3]),
+                            (bbox1[2], bbox1[3]), (bbox1[2], bbox1[1])])
+        polygon2 = Polygon([(bbox2[0], bbox2[1]), (bbox2[0], bbox2[3]),
+                            (bbox2[2], bbox2[3]), (bbox2[2], bbox2[1])])
+        is_contained = polygon2.contains(polygon1)
+    elif method == "torchgeo":
+        is_contained = bbox1 in bbox2
+    return is_contained
+
+
+def is_point_in_bbox(
+    point: Iterable,
+    bbox: Iterable,
+    method: str['shapely', 'manual'] = 'shapely'
+) -> bool:
+    """Determine if a 2D point in included inside of a 2D bounding box.
+
+    Returns a boolean answering the question "Is point contained inside
+    bbox ?".
+    Point must follow the format: [x, y]
+    Bounding boxe must follow the format: [xmin, ymin, xmax, ymax]
+
+    Parameters
+    ----------
+    point : Iterable
+        Point.
+    bbox : Iterable
+        Bounding box.
+    method : str
+        Method to use for comparison. Can take any value in
+        ['shapely', 'manual'], by default 'shapely'.
+
+    Returns
+    -------
+    boolean
+        True if point ⊂ bbox, False otherwise.
+    """
+    if method == "manual":
+        is_contained = (point[0] >= bbox[0] and point[0] <= bbox[2]
+                        and point[1] >= bbox[1] and point[1] <= bbox[3])
+    elif method == "shapely":
+        point = Point(point)
+        polygon2 = Polygon([(bbox[0], bbox[1]), (bbox[0], bbox[3]),
+                            (bbox[2], bbox[3]), (bbox[2], bbox[1])])
+        is_contained = polygon2.contains(point)
+    return is_contained
+
+
+def to_one_hot_encoding(
+    labels_predict: int | list,
+    labels_target: list,
+) -> list:
+    """Return a one-hot encoding of class-index predicted labels.
+
+    Converts a single label value or a vector of labels into a vector
+    of one-hot encoded labels. The labels order follow that of input
+    labels_target.
+
+    Parameters
+    ----------
+    labels_predict : int | list
+        Labels to convert to one-hot encoding.
+    labels_target : list
+        All existing labels, in the right order.
+
+    Returns
+    -------
+    list
+        One-hot encoded labels.
+    """
+    labels_predict = [labels_predict] if type(labels_predict) is int else labels_predict
+    n_classes = len(labels_target)
+    one_hot_labels = np.zeros(n_classes, dtype=np.float32)
+    one_hot_labels[np.in1d(labels_target, labels_predict)] = 1
+    return one_hot_labels
+
+
+def get_files_path_recursively(path, *args, suffix='') -> list:
     """Retrieve specific files path recursively from a directory.
 
     Retrieve the path of all files with one of the given extension names,
