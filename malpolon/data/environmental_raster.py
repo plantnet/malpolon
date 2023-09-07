@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import rasterio
 
+
 if TYPE_CHECKING:
     import numpy.typing as npt
 

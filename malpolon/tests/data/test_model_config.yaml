@@ -7,7 +7,7 @@ trainer:
   accelerator: 'gpu'
   devices: 1
   max_epochs: 1
-  #val_check_interval: 10
+  # val_check_interval: 10
   check_val_every_n_epoch: 1
 
 inference:
@@ -35,6 +35,13 @@ optimizer:
 
 data:
   dataset_path: "" # Relative to hydra.run.dir
+  # labels_name: "sentinel2_raster_torch_geo.csv"
   train_batch_size: 32
   inference_batch_size: 256
   num_workers: 8
+  download_data_sample: False
+  units: "pixel"
+  crs: 4326 
+
+task:
+  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  

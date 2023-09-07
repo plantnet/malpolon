@@ -8,4 +8,5 @@ checkMyCode.sh
 !.gitignore
 
 docs/_build
-example/micro_geolifeclef/dataset
+examples/micro_geolifeclef/dataset/patches
+examples/micro_geolifeclef/dataset/rasters
