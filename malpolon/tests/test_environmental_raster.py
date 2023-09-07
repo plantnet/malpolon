@@ -5,7 +5,7 @@ import pytest
 
 from malpolon.data.environmental_raster import PatchExtractor
 
-DATA_PATH = Path("malpolon/tests/")
+DATA_PATH = Path("malpolon/tests/data/")
 
 
 def test_patch_extractor_single_variable():
