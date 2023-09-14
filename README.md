@@ -47,16 +47,19 @@ git checkout dev
 
 Examples using the GeoLifeCLEF 2022 and 2023 datasets, as well as Sentinel-2A rasters are provided in the `examples` folder. Instructions about how to train and perform predictions with your models can be found in the README file of each example in said folder.
 
-
 ## Documentation
 
-To generate the documention, additional dependences contained in `docs/docs_requirements.txt` must be installed using
+An online code documentation is available via GitHub pages at [this link](https://plantnet.github.io/malpolon/). This documentation is updated each time new content is pushed to the `main` branch.
+
+Alternatively, you can generate the documention locally by following these steps :
+
+1. Install the additional dependences contained in `docs/docs_requirements.txt` must be installed
 
 ```script
 pip install -r docs/docs_requirements.txt
 ```
 
-The documentation can then be generated using
+2. Generated the documentation
 
 ```script
 make -C docs html
