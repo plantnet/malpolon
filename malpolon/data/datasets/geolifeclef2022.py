@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import tifffile
+from matplotlib import colormaps
 from matplotlib.patches import Patch
 from PIL import Image
 from sklearn.preprocessing import LabelEncoder
@@ -152,7 +153,7 @@ def visualize_observation_patch(
         n_labels = np.max(patch["landcover"]) + 1
         landcover_labels = np.arange(n_labels)
 
-    cmap = plt.cm.get_cmap("viridis", len(landcover_labels))
+    cmap = colormaps["viridis"].resampled(len(landcover_labels))
 
     legend_elements = []
     for landcover_label, color in zip(landcover_labels, cmap.colors):

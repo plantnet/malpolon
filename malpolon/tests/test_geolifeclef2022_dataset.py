@@ -7,18 +7,18 @@ from malpolon.data.environmental_raster import PatchExtractor
 from malpolon.data.datasets.geolifeclef2022 import load_patch, GeoLifeCLEF2022Dataset, visualize_observation_patch
 
 
-DATA_PATH = Path("/home/tlorieul/dev/research/GeoLifeCLEF22/data")
+DATA_PATH = Path("malpolon/tests/data/glc22")
 
 
 SUBSET_SIZE = {
-    "train": 1587395,
-    "val": 40080,
-    "train+val": 1627475,
-    "test": 36421,
+    "train": 1956,
+    "val": 44,
+    "train+val": 2000,
+    "test": 46,
 }
 
 
-@pytest.mark.parametrize("observation_id", (10561900, 22068100))
+@pytest.mark.parametrize("observation_id", (10561985, 10823364))
 def test_load_patch(observation_id):
     patches = load_patch(observation_id, DATA_PATH, return_arrays=True)
 
@@ -126,3 +126,5 @@ def test_dataset_load_all():
 def test_patch_plotting(observation_id):
     patch = load_patch(observation_id, DATA_PATH)
     visualize_observation_patch(patch)
+
+test_patch_plotting(10561900)
