@@ -102,7 +102,6 @@ lightning-cloud==0.5.34
 lightning-utilities==0.8.0
 lit==16.0.2
 locket==1.0.0
--e git+ssh://git@github.com/plantnet/malpolon.git@b229f48cbcbd9f843a0362810b954ee2b48f96de#egg=malpolon
 Markdown==3.4.1
 MarkupSafe==2.1.2
 matplotlib==3.6.2
@@ -198,7 +197,6 @@ Rtree==1.0.1
 scikit-learn==1.1.3
 scipy==1.9.3
 seaborn==0.12.2
-segment-anything @ git+https://github.com/facebookresearch/segment-anything.git@6fdee8f2727f4506cfbbe553e23b895e27956588
 segmentation-models-pytorch==0.3.2
 Send2Trash==1.8.0
 shapely==2.0.0
