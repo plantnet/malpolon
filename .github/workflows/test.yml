@@ -2,6 +2,7 @@ name: Python Test
 
 on:
     push:
+        - dev-ci
 
 jobs:
     test:
