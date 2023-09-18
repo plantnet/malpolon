@@ -3,6 +3,7 @@ name: Python Test
 on:
   push:
       branches:
+        - main
         - dev
         - dev-ci-doc
 
