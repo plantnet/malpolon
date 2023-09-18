@@ -1,7 +1,9 @@
 name: Python Test
 
 on:
-    push:
+  push:
+      branches:
+        - dev
         - dev-ci
 
 jobs:
