@@ -4,7 +4,7 @@ on:
   push:
       branches:
         - dev
-        - dev-ci
+        - dev-ci-doc
 
 jobs:
     test:
