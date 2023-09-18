@@ -4,20 +4,57 @@ Malpolon is a framework facilitating the training and sharing of Deep Species Di
 
 ## Installation
 
-Currently, only the development version is available.
-First make sure that the dependences listed in the `requirements.txt` file are installed.
+To install malpolon, you will first need to install **Python 3.8 or newer**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
 
-One way to do so is to use `conda`
+Before proceeding, please make sure the following packages are installed on your system:
+- Python3.8 (or newer)
+- `pip`
+- `git`
+
+
+- **1. Clone the repository**
+
+Clone the Malpolon repository using `git` in the directory of your choice:
+```script
+git clone https://github.com/plantnet/malpolon.git
+```
+
+---
+
+- **2. Create your virtual environment (using Virtualenv)** (recommended)
+
+We recommend handling your virtual environment using [`virtualenv`](https://virtualenv.pypa.io/en/stable/) (or similar) and installing the packages via `pip`.
+
+First create your virtual environment using the proper python version, and activate it _(note that in this example, the virtual environment "malpolon_env" will be installed in the current directory)_.
+
+```script
+virtualenv -p /usr/bin/python3.8 ./malpolong_env
+source ./malpolon_env/bin/activate
+```
+
+Once the env is activated, install the python packages listed in `requirements.txt`:
+```script
+pip install -r requirements.txt
+```
+
+---
+
+- **2. Create your virtual environment (using Conda)**
+
+You can also use `conda` to install your packages.
 
 ```script
 conda env create -n <name> -f environment.yml
 conda activate <name>
 ```
 
-`malpolon` can then be installed via `pip` using
+---
+
+- **3. Install Malpolon as a python package**
+
+The malpolon repository can also be installed in your virtual environment as a package. This allows you to import `malpolon` anywhere in your scripts without having to worry about file paths. It can be installed via `pip` using:
 
 ```script
-git clone https://github.com/plantnet/malpolon.git
 cd malpolon
 pip install -e .
 ```
@@ -37,6 +74,8 @@ cuDNN available: True (version: 8302)
 Number of CUDA-compatible devices found: 1
 ```
 
+---
+
 The **dev** branch is susceptible to have more up-to-date content such as newer examples and experimental features. To switch to the dev branch locally, run:
 
 ```script
@@ -47,16 +86,19 @@ git checkout dev
 
 Examples using the GeoLifeCLEF 2022 and 2023 datasets, as well as Sentinel-2A rasters are provided in the `examples` folder. Instructions about how to train and perform predictions with your models can be found in the README file of each example in said folder.
 
-
 ## Documentation
 
-To generate the documention, additional dependences contained in `docs/docs_requirements.txt` must be installed using
+An online code documentation is available via GitHub pages at [this link](https://plantnet.github.io/malpolon/). This documentation is updated each time new content is pushed to the `main` branch.
+
+Alternatively, you can generate the documention locally by following these steps :
+
+1. Install the additional dependences contained in `docs/docs_requirements.txt` must be installed
 
 ```script
 pip install -r docs/docs_requirements.txt
 ```
 
-The documentation can then be generated using
+2. Generated the documentation
 
 ```script
 make -C docs html
