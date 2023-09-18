@@ -11,6 +11,7 @@ Before proceeding, please make sure the following packages are installed on your
 - `pip`
 - `git`
 
+
 - **1. Clone the repository**
 
 Clone the Malpolon repository using `git` in the directory of your choice:
