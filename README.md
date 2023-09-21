@@ -27,7 +27,7 @@ We recommend handling your virtual environment using [`virtualenv`](https://virt
 First create your virtual environment using the proper python version, and activate it _(note that in this example, the virtual environment "malpolon_env" will be installed in the current directory)_.
 
 ```script
-virtualenv -p /usr/bin/python3.8 ./malpolong_env
+virtualenv -p /usr/bin/python3.8 ./malpolon_env
 source ./malpolon_env/bin/activate
 ```
 
