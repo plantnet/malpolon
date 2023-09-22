@@ -8,6 +8,7 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 from __future__ import annotations
 
 import os
+from typing import Tuple
 from urllib.parse import urlparse
 
 import hydra
@@ -19,6 +20,7 @@ import torchmetrics.functional as Fmetrics
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.utils.data import DataLoader
+from torchgeo.datasets import BoundingBox, GeoDataset
 from torchgeo.datasets.utils import download_url
 from torchgeo.samplers import Units
 from torchvision import transforms
@@ -32,6 +34,19 @@ from malpolon.models import FinetuningClassificationSystem
 FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.accuracy,
                       'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
                       'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
+
+
+class Sentinel2GeoSamplerExample(Sentinel2GeoSampler):
+    """Custom sampler for this Sentinel-2 example script.
+
+    Parameters
+    ----------
+    Sentinel2GeoSampler : GeoSampler
+        Custom sampler for RasterSentinel2.
+    """
+    def __init__(self, dataset: GeoDataset, size: Tuple[float, float] | float, length: int | None = None, roi: BoundingBox | None = None, units: Units = 'pixel', crs: str = 'crs') -> None:
+        super().__init__(dataset, size, length, roi, units, crs)
+        self.crs = 4326
 
 
 class Sentinel2TorchGeoDataModule(BaseDataModule):
@@ -90,7 +105,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         self.size = size
         self.units = units
         self.crs = crs
-        self.sampler = Sentinel2GeoSampler
+        self.sampler = Sentinel2GeoSamplerExample
         self.task = task
         self.binary_positive_classes = binary_positive_classes
         if download_data_sample:
@@ -310,7 +325,7 @@ def main(cfg: DictConfig) -> None:
         # Option 2: Predict 1 data point (Pytorch)
         test_data = datamodule.get_test_dataset()
         query_point = {'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
-                       'crs': datamodule.crs,
+                       'crs': 4326,
                        'size': datamodule.size,
                        'units': datamodule.units}
         test_data_point = test_data[query_point][0]
