@@ -44,9 +44,16 @@ class Sentinel2GeoSamplerExample(Sentinel2GeoSampler):
     Sentinel2GeoSampler : GeoSampler
         Custom sampler for RasterSentinel2.
     """
-    def __init__(self, dataset: GeoDataset, size: Tuple[float, float] | float, length: int | None = None, roi: BoundingBox | None = None, units: Units = 'pixel', crs: str = 'crs') -> None:
+    def __init__(self,
+                 dataset: GeoDataset,
+                 size: Tuple[float, float] | float,
+                 length: int | None = None,
+                 roi: BoundingBox | None = None,
+                 units: Units = 'pixel',
+                 crs: str = 'crs'
+    ) -> None:
         super().__init__(dataset, size, length, roi, units, crs)
-        self.crs = 4326
+        # self.crs = 4326
 
 
 class Sentinel2TorchGeoDataModule(BaseDataModule):
