@@ -6,7 +6,7 @@ flake8==6.0.0
 geopandas==0.12.1
 hydra-core==1.2.0
 ipykernel==6.18.2
-ipython==8.7.0
+ipython==8.10.0
 jupyter==1.0.0
 jupyter-server==1.23.3
 jupyterlab==3.5.0
