@@ -8,7 +8,7 @@ hydra-core==1.2.0
 ipykernel==6.18.2
 ipython==8.7.0
 jupyter==1.0.0
-jupyter-server==1.23.3
+jupyter-server==2.7.2
 jupyterlab==3.5.0
 lightning==1.9.5
 Markdown==3.4.1
