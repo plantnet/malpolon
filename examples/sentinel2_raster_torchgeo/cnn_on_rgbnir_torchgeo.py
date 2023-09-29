@@ -36,26 +36,6 @@ FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.accuracy,
                       'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
 
 
-class Sentinel2GeoSamplerExample(Sentinel2GeoSampler):
-    """Custom sampler for this Sentinel-2 example script.
-
-    Parameters
-    ----------
-    Sentinel2GeoSampler : GeoSampler
-        Custom sampler for RasterSentinel2.
-    """
-    def __init__(self,
-                 dataset: GeoDataset,
-                 size: Tuple[float, float] | float,
-                 length: int | None = None,
-                 roi: BoundingBox | None = None,
-                 units: Units = 'pixel',
-                 crs: str = 'crs'
-    ) -> None:
-        super().__init__(dataset, size, length, roi, units, crs)
-        # self.crs = 4326
-
-
 class Sentinel2TorchGeoDataModule(BaseDataModule):
     """Data module for Sentinel-2A dataset."""
     def __init__(
@@ -93,11 +73,15 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
             square (int/float value) or rectangular (tuple of int/float).
             Defaults to a square of size 200, by default 200
         units : Units, optional
-             The dataset's unit system, must have a value in
-             ['pixel', 'crs'], by default Units.CRS
+             The queries' unit system, must have a value in
+             ['pixel', 'crs', 'm', 'meter', 'metre]. This arguments the unit you want
+             your query to be performed in, even if it doesn't match
+             the dataset's unit system, by default Units.CRS
         crs : int, optional
-            `coordinate reference system (CRS)` to warp to
-            (defaults to the CRS of the first file found), by default 4326
+            The queries' `coordinate reference system (CRS)`. This
+            argument sets the CRS of the dataset's queries. The value
+            should be equal to the CRS of your observations. It takes
+            any EPSG integer code, by default 4326
         binary_positive_classes : list, optional
             labels' classes to consider valid in the case of binary
             classification with multi-class labels (defaults to all 0),
@@ -112,7 +96,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         self.size = size
         self.units = units
         self.crs = crs
-        self.sampler = Sentinel2GeoSamplerExample
+        self.sampler = Sentinel2GeoSampler
         self.task = task
         self.binary_positive_classes = binary_positive_classes
         if download_data_sample:
