@@ -183,7 +183,7 @@ class GenericPredictionSystem(pl.LightningModule):
             Predicted tensor values.
         """
         datamodule.setup(stage="test")
-        predictions = trainer.predict(datamodule=datamodule, model=self)
+        predictions = trainer.predict(dataloaders=datamodule.test_dataloader(), model=self)
         predictions = torch.cat(predictions)
         return predictions
 

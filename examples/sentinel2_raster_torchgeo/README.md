@@ -72,7 +72,7 @@ Hereafter is a detailed list of every sub parameters :
     - _num_classes_ : Number of classes for you classification task. Takes an integer as input.
     - _in\_chans_ : Number of input channels. Takes an integer as input.
     - _output\_stride_ : Output stride value for CNN models. This parameter defines how much the convolution window is shifted when performing convolution. Takes an integer as input.
-    - _global\_pool_ : Type of global pooling. Takes any value in [`avg`, `max`, `avgmax`, `catavgmax`].
+    - _global\_pool_ : Type of global pooling. Takes any string value in [`'avg'`, `'max'`, `'avgmax'`, `'catavgmax'`].
     - ...
   - **modifiers** (malpolon's modifiers you can call to modify your model's structure or behavior)
     - **change\_first\_convolutional\_layer**
@@ -97,8 +97,8 @@ Hereafter is a detailed list of every sub parameters :
     - _train\_batch\_size_ : size of train batches. Takes an integer as input.
     - _inference\_batch\_size_ : size of inference batches. Takes an integer as input.
     - _num\_workers_ : number of worker processes to use for loading the data. When you set the “number of workers” parameter to a value greater than 0, the DataLoader will load data in parallel using multiple worker processes. Takes an integer as input.
-    - _units_ : unit of the dataset. Takes a string as input.
-    - _crs_ : coordinate reference system of the dataset. Takes an integer as input.
+    - _units_ : unit system of the queries performed on the dataset. This value should be equal to the units of your observations, which can be different from you dataset's unit system. Takes any string in [`'crs'`, `'pixel'`, `'m'`, `'meter'`, `'metre'`] as input.
+    - _crs_ : coordinate reference system of the queries performed on the dataset. This value should be equal to the CRS of your observations, which can be different from your dataset's CRS. Takes an integer as input.
 - **task**
   - _task_ : deep learning task to be performed. At the moment, can taks any value in [`'classification_binary'`, `'classification_multiclass'`, `'classification_multilabel'`].  Takes a string as input.
 
