@@ -35,8 +35,10 @@ git clone https://github.com/plantnet/malpolon.git
 
 ---
 
-### 2. Create your virtual environment (using Virtualenv) (recommended)
+### 2. Create your virtual environment
 
+- **Via `virtualenv` (recommended)**
+  
 We recommend handling your virtual environment using [`virtualenv`](https://virtualenv.pypa.io/en/stable/) (or similar) and installing the packages via `pip`.
 
 First create your virtual environment using the proper python version, and activate it _(note that in this example, the virtual environment "malpolon_env" will be installed in the current directory)_.
@@ -52,10 +54,7 @@ pip install --upgrade setuptools
 pip install -r requirements.txt
 ```
 
----
-
-### 2. Create your virtual environment (using Conda)
-
+- **Via `conda`**
 You can also use `conda` to install your packages.
 
 ```script
