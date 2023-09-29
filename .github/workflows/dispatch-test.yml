@@ -1,0 +1,27 @@
+name: Python Test
+
+on: workflow_dispatch
+
+jobs:
+    test:
+        name: Unit Test 
+        runs-on: ubuntu-latest
+        strategy:
+          matrix:
+            python-version: ["3.8"]
+
+        steps:
+            - uses: actions/checkout@v3
+            - uses: actions/setup-python@v4
+              name: Setup python ${{ matrix.python-version }}
+              with:
+                python-version: ${{ matrix.python-version }}
+                cache: 'pip' # caching pip dependencies
+            - name: install cartopy system packages
+              run: sudo apt-get install libgeos-dev
+            - name: pip install -r requirements.txt
+              run: pip install -r ./requirements.txt
+            - name: pip install -e .
+              run: pip install -e .
+            - name: Pytest
+              run: python -m pytest 
