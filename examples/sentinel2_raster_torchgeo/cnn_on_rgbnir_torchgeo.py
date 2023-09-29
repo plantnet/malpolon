@@ -8,6 +8,7 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 from __future__ import annotations
 
 import os
+from typing import Tuple
 from urllib.parse import urlparse
 
 import hydra
@@ -19,6 +20,7 @@ import torchmetrics.functional as Fmetrics
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.utils.data import DataLoader
+from torchgeo.datasets import BoundingBox, GeoDataset
 from torchgeo.datasets.utils import download_url
 from torchgeo.samplers import Units
 from torchvision import transforms
@@ -71,11 +73,15 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
             square (int/float value) or rectangular (tuple of int/float).
             Defaults to a square of size 200, by default 200
         units : Units, optional
-             The dataset's unit system, must have a value in
-             ['pixel', 'crs'], by default Units.CRS
+             The queries' unit system, must have a value in
+             ['pixel', 'crs', 'm', 'meter', 'metre]. This arguments the unit you want
+             your query to be performed in, even if it doesn't match
+             the dataset's unit system, by default Units.CRS
         crs : int, optional
-            `coordinate reference system (CRS)` to warp to
-            (defaults to the CRS of the first file found), by default 4326
+            The queries' `coordinate reference system (CRS)`. This
+            argument sets the CRS of the dataset's queries. The value
+            should be equal to the CRS of your observations. It takes
+            any EPSG integer code, by default 4326
         binary_positive_classes : list, optional
             labels' classes to consider valid in the case of binary
             classification with multi-class labels (defaults to all 0),
@@ -310,7 +316,7 @@ def main(cfg: DictConfig) -> None:
         # Option 2: Predict 1 data point (Pytorch)
         test_data = datamodule.get_test_dataset()
         query_point = {'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
-                       'crs': datamodule.crs,
+                       'crs': 4326,
                        'size': datamodule.size,
                        'units': datamodule.units}
         test_data_point = test_data[query_point][0]
