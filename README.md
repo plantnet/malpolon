@@ -6,12 +6,27 @@ Malpolon is a framework facilitating the training and sharing of Deep Species Di
 
 To install malpolon, you will first need to install **Python 3.8 or newer**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
 
-Before proceeding, please make sure the following packages are installed on your system:
-- Python3.8 (or newer)
-- `pip`
-- `git`
+⚠️ **macOS** installation may be bumpy for now. More instructions will be added shortly. It is recommended to stick to Linux for the time being. ⚠️
 
-- **1. Clone the repository**
+### 0. Requirements
+
+Before proceeding, please make sure the following packages are installed on your system:
+
+- [Python3.8](https://www.python.org/downloads/) (or newer)
+- [`pip`](https://pip.pypa.io/en/stable/installation/)
+- [`git`](https://git-scm.com/downloads)
+- `libgeos-dev` (dependency of Python library `Cartopy`)
+  - On Linux (Ubuntu): `sudo apt install libgeos-dev`
+  - On MacOS: `brew install geos`
+- `cmake`
+  - On Linux (Ubuntu): `sudo apt install cmake`
+  - On MacOS: `brew install cmake`
+- `cuda` (if you intend to run your models on GPU)
+  - [`CUDA Installation guide`](https://docs.nvidia.com/cuda/index.html)
+  - [`CuDNN Installation guide`](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html)
+
+
+### 1. Clone the repository
 
 Clone the Malpolon repository using `git` in the directory of your choice:
 ```script
@@ -20,8 +35,10 @@ git clone https://github.com/plantnet/malpolon.git
 
 ---
 
-- **2. Create your virtual environment (using Virtualenv)** (recommended)
+### 2. Create your virtual environment
 
+- **Via `virtualenv` (recommended)**
+  
 We recommend handling your virtual environment using [`virtualenv`](https://virtualenv.pypa.io/en/stable/) (or similar) and installing the packages via `pip`.
 
 First create your virtual environment using the proper python version, and activate it _(note that in this example, the virtual environment "malpolon_env" will be installed in the current directory)_.
@@ -33,13 +50,11 @@ source ./malpolon_env/bin/activate
 
 Once the env is activated, install the python packages listed in `requirements.txt`:
 ```script
+pip install --upgrade setuptools
 pip install -r requirements.txt
 ```
 
----
-
-- **2. Create your virtual environment (using Conda)**
-
+- **Via `conda`**
 You can also use `conda` to install your packages.
 
 ```script
@@ -49,7 +64,7 @@ conda activate <name>
 
 ---
 
-- **3. Install Malpolon as a python package**
+### 3. Install Malpolon as a python package
 
 The malpolon repository can also be installed in your virtual environment as a package. This allows you to import `malpolon` anywhere in your scripts without having to worry about file paths. It can be installed via `pip` using:
 
