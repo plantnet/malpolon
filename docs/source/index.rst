@@ -94,15 +94,21 @@ The **dev** branch is susceptible to have more up-to-date content such as newer 
 Quick start
 ===========
 
- .. todo::
+For a quick overview of the framework, you can run the following commands::
 
-	Complete this section once framework is sufficiently advanced.
-	
+   cd examples/sentinel2_raster_torchgeo
+   python cnn_on_rgbnir_torchgeo.py trainer.accelerator=cpu run.predict=false trainer.max_epochs=5
+
+This will train a ResNet-50 CNN on a 1 tile, 4 modalities (RGB + IR) sample of the Sentinel-2A dataset for 5 epochs, using the CPU. The model will be saved in the ``outputs`` folder. To run the prediction on the test set, run::
+
+   python cnn_on_rgbnir_torchgeo.py trainer.accelerator=cpu run.predict=true checkpoint_path=../<PATH_TO_YOUR_CHECKPOINT_FILE>
 
 Examples
 ========
 
 Examples using the GeoLifeCLEF 2022 and 2023 datasets, as well as Sentinel-2A rasters are provided in the ``examples`` folder. Instructions about how to train and perform predictions with your models can be found in the README file of each example in said folder.
+
+Build your own scripts by modifying the provided examples!
 
 API documentation
 =================
