@@ -39,46 +39,46 @@ Before proceeding, please make sure the following packages are installed on your
 1. Clone the repository
 -----------------------
 
-Clone the Malpolon repository using ``git`` in the directory of your choice:
+Clone the Malpolon repository using ``git`` in the directory of your choice::
    
-   git clone https://github.com/plantnet/malpolon.git
+	git clone https://github.com/plantnet/malpolon.git
 
-1. Create your virtual environment
+2. Create your virtual environment
 ----------------------------------
 
 - **Via ``virtualenv`` (recommended)**
   
 We recommend handling your virtual environment using [``virtualenv``](https://virtualenv.pypa.io/en/stable/) (or similar) and installing the packages via ``pip``.
 
-First create your virtual environment using the proper python version, and activate it _(note that in this example, the virtual environment "malpolon_env" will be installed in the current directory)_.
+First create your virtual environment using the proper python version, and activate it _(note that in this example, the virtual environment "malpolon_env" will be installed in the current directory)_.::
 
    virtualenv -p /usr/bin/python3.8 ./malpolon_env
    source ./malpolon_env/bin/activate
 
-Once the env is activated, install the python packages listed in ``requirements.txt``:
+Once the env is activated, install the python packages listed in ``requirements.txt``::
    
    pip install --upgrade setuptools
    pip install -r requirements.txt
 
 - **Via ``conda``**
-You can also use ``conda`` to install your packages.
+You can also use ``conda`` to install your packages.::
 
    conda env create -n <name> -f environment.yml
    conda activate <name>
 
-1. Install Malpolon as a python package
+3. Install Malpolon as a python package
 ---------------------------------------
 
-The malpolon repository can also be installed in your virtual environment as a package. This allows you to import ``malpolon`` anywhere in your scripts without having to worry about file paths. It can be installed via ``pip`` using:
+The malpolon repository can also be installed in your virtual environment as a package. This allows you to import ``malpolon`` anywhere in your scripts without having to worry about file paths. It can be installed via ``pip`` using::
 
    cd malpolon
    pip install -e .
 
-To check that the installation went well, use the following command
+To check that the installation went well, use the following command::
 
    python -m malpolon.check_install
 
-which, if you have CUDA properly installed, should output something similar to
+which, if you have CUDA properly installed, should output something similar to::
 
    Using PyTorch version 1.13.0
    CUDA available: True (version: 11.6)
@@ -87,7 +87,7 @@ which, if you have CUDA properly installed, should output something similar to
 
 ----
 
-The **dev** branch is susceptible to have more up-to-date content such as newer examples and experimental features. To switch to the dev branch locally, run:
+The **dev** branch is susceptible to have more up-to-date content such as newer examples and experimental features. To switch to the dev branch locally, run::
 
    git checkout dev
 
