@@ -46,7 +46,7 @@ Clone the Malpolon repository using ``git`` in the directory of your choice::
 2. Create your virtual environment
 ----------------------------------
 
-- **Via ``virtualenv`` (recommended)**
+- **Via** ``virtualenv`` **(recommended)**
   
 We recommend handling your virtual environment using [``virtualenv``](https://virtualenv.pypa.io/en/stable/) (or similar) and installing the packages via ``pip``.
 
@@ -60,7 +60,7 @@ Once the env is activated, install the python packages listed in ``requirements.
    pip install --upgrade setuptools
    pip install -r requirements.txt
 
-- **Via ``conda``**
+- **Via** ``conda``
 You can also use ``conda`` to install your packages.::
 
    conda env create -n <name> -f environment.yml
