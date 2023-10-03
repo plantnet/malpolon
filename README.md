@@ -1,10 +1,58 @@
+<p align="center">
+  <a href="https://github.com/plantnet/malpolon/issues"><img src="https://img.shields.io/github/issues/plantnet/malpolon" alt="GitHub issues"></a>
+  <a href="https://github.com/plantnet/malpolon/pulls"><img src="https://img.shields.io/github/issues-pr/plantnet/malpolon" alt="GitHub pull requests"></a>
+  <a href="https://github.com/plantnet/malpolon/graphs/contributors"><img src="https://img.shields.io/github/contributors/plantnet/malpolon" alt="GitHub contributors"></a>
+  <a href="https://github.com/plantnet/malpolon/network/members"><img src="https://img.shields.io/github/forks/plantnet/malpolon" alt="GitHub forks"></a>
+  <a href="https://github.com/plantnet/malpolon/stargazers"><img src="https://img.shields.io/github/stars/plantnet/malpolon" alt="GitHub stars"></a>
+  <a href="https://github.com/plantnet/malpolon/watchers"><img src="https://img.shields.io/github/watchers/plantnet/malpolon" alt="GitHub watchers"></a>
+  <a href="https://github.com/plantnet/malpolon/blob/main/LICENSE"><img src="https://img.shields.io/github/license/plantnet/malpolon" alt="License"></a>
+</p>
+
+<div align="center">
+  <img src="docs/resources/Malpolon_transparent.png" alt="Project logo" width="300">
+  <p align="center">A deep learning framework to help you build your species distribution models</p>
+  <a href="https://github.com/plantnet/malpolon">View framework</a>
+  ·
+  <a href="https://github.com/plantnet/malpolon/issues/new?assignees=aerodynamic-sauce-pan&labels=bug&projects=&template=bug_report.md&title=%5BBUG%5D">Report Bug</a>
+  ·
+  <a href="https://github.com/plantnet/malpolon/issues/new?assignees=aerodynamic-sauce-pan&labels=enhancement&projects=&template=enhancement.md&title=%5BEnhancement%5D">Request Feature</a>
+  <h1></h1>
+</div>
+
 # Malpolon
 
 Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including biodclimatic rasters, remote sensing images, land-use rasters, etc.
 
+## Roadmap
+
+This roadmap outlines the planned features and milestones for the project. Please note that the roadmap is subject to change and may be updated as the project progress.
+
+- [ ] Data support
+    - [x] Images (pre-extracted patches)
+    - [x] Rasters
+    - [ ] Time series
+      - [x] Via GLC23 loaders (.csv)
+      - [ ] Via generic loader
+    - [ ] Shapefiles
+    - [ ] Fuse several data types in one training
+- [ ] Deep learning tasks
+  - [x] Binary classification
+  - [x] Multi-class classification
+  - [x] Multi-label classification
+  - [ ] Regression (abundance prediction)
+  - [ ] Ordinal
+- [ ] Training flexibility
+  - [x] Add model head/tail modifiers
+  - [ ] Allow easy (un-)freeze of layers
+  - [ ] Allow dataset intersections and unions
+- [ ] Allow data parallel training
+  - [x] Multithreading
+  - [ ] Multiprocessing
+    - Issues may arise depending on hardware
+
 ## Installation
 
-To install malpolon, you will first need to install **Python 3.8 or newer**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
+To install malpolon, you will first need to install **Python 3.8, 3.9 or 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
 
 ⚠️ **macOS** installation may be bumpy for now. More instructions will be added shortly. It is recommended to stick to Linux for the time being. ⚠️
 
@@ -12,7 +60,7 @@ To install malpolon, you will first need to install **Python 3.8 or newer**, and
 
 Before proceeding, please make sure the following packages are installed on your system:
 
-- [Python3.8](https://www.python.org/downloads/) (or newer)
+- [3.8 $\leq$ Python $\leq$ 3.10](https://www.python.org/downloads/)
 - [`pip`](https://pip.pypa.io/en/stable/installation/)
 - [`git`](https://git-scm.com/downloads)
 - `libgeos-dev` (dependency of Python library `Cartopy`)
@@ -97,6 +145,16 @@ The **dev** branch is susceptible to have more up-to-date content such as newer 
 git checkout dev
 ```
 
+## Librairies
+Here is an overview of the main Python librairies used in this project.
+
+* [![PyTorch](https://img.shields.io/badge/PyTorch-%23ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/) - To handle deep learning loops and dataloaders
+* [![PyTorch Lightning](https://img.shields.io/badge/PyTorch%20Lightning-%23792EE5.svg?logo=lightning&logoColor=white)](https://pytorch.org/) - Deep learning framework which simplifies the usage of PyTorch elements
+* [![Numpy](https://img.shields.io/badge/Numpy-%234D77CF.svg?logo=numpy&logoColor=white)](https://numpy.org/) - For common computational operations
+* [![Torchgeo](https://img.shields.io/badge/Torchgeo-%23EE4C2C.svg?logo=torchgeo&logoColor=white)](https://torchgeo.readthedocs.io/en/stable/) - To handle data rasters
+* [![Matplotlib](https://img.shields.io/badge/Matplotlib-%2311557C.svg?logo=matplotlib&logoColor=white)](https://matplotlib.org/) - For displaying purposes
+* [![Hydra](https://img.shields.io/badge/Hydra-%23729DB1.svg?logo=hydra&logoColor=white)](https://matplotlib.org/) - To handle models' hyperparameters
+
 ## Examples
 
 Examples using the GeoLifeCLEF 2022 and 2023 datasets, as well as Sentinel-2A rasters are provided in the `examples` folder. Instructions about how to train and perform predictions with your models can be found in the README file of each example in said folder.
@@ -120,3 +178,6 @@ make -C docs html
 ```
 
 The result can be found in `docs/_build/html`.
+
+## Licensing
+This framework is ditributed under the [MIT license](https://opensource.org/license/mit/), as is the Pl@ntNet project. See LICENSE.md for more information.
