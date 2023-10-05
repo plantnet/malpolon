@@ -41,6 +41,10 @@ This roadmap outlines the planned features and milestones for the project. Pleas
   - [x] Multi-label classification
   - [ ] Regression (abundance prediction)
   - [ ] Ordinal
+- [ ] Supported models
+  - [x] CNN
+  - [ ] LSTM
+  - [ ] Transformers
 - [ ] Training flexibility
   - [x] Add model head/tail modifiers
   - [ ] Allow easy (un-)freeze of layers
@@ -149,11 +153,11 @@ git checkout dev
 Here is an overview of the main Python librairies used in this project.
 
 * [![PyTorch](https://img.shields.io/badge/PyTorch-%23ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/) - To handle deep learning loops and dataloaders
-* [![PyTorch Lightning](https://img.shields.io/badge/PyTorch%20Lightning-%23792EE5.svg?logo=lightning&logoColor=white)](https://pytorch.org/) - Deep learning framework which simplifies the usage of PyTorch elements
+* [![PyTorch Lightning](https://img.shields.io/badge/PyTorch%20Lightning-%23792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/docs/pytorch/stable/) - Deep learning framework which simplifies the usage of PyTorch elements
 * [![Numpy](https://img.shields.io/badge/Numpy-%234D77CF.svg?logo=numpy&logoColor=white)](https://numpy.org/) - For common computational operations
 * [![Torchgeo](https://img.shields.io/badge/Torchgeo-%23EE4C2C.svg?logo=torchgeo&logoColor=white)](https://torchgeo.readthedocs.io/en/stable/) - To handle data rasters
 * [![Matplotlib](https://img.shields.io/badge/Matplotlib-%2311557C.svg?logo=matplotlib&logoColor=white)](https://matplotlib.org/) - For displaying purposes
-* [![Hydra](https://img.shields.io/badge/Hydra-%23729DB1.svg?logo=hydra&logoColor=white)](https://matplotlib.org/) - To handle models' hyperparameters
+* [![Hydra](https://img.shields.io/badge/Hydra-%23729DB1.svg?logo=hydra&logoColor=white)](https://hydra.cc/docs/intro/) - To handle models' hyperparameters
 
 ## Examples
 
