@@ -20,7 +20,7 @@ odc-stac==0.3.3
 omegaconf==2.2.3
 opencv-python==4.7.0.72
 pandas==1.5.2
-Pillow==9.5.0
+Pillow==10.0.1
 planetary-computer==0.4.9
 pydocstyle==6.3.0
 pyflakes==3.0.1
