@@ -64,7 +64,7 @@ To install malpolon, you will first need to install **Python 3.8, 3.9 or 3.10**,
 
 Before proceeding, please make sure the following packages are installed on your system:
 
-- [3.8 $\leq$ Python $\leq$ 3.10](https://www.python.org/downloads/)
+- [3.8 ≥ Python ≥ 3.10](https://www.python.org/downloads/)
 - [`pip`](https://pip.pypa.io/en/stable/installation/)
 - [`git`](https://git-scm.com/downloads)
 - `libgeos-dev` (dependency of Python library `Cartopy`)
@@ -150,7 +150,7 @@ git checkout dev
 ```
 
 ## Librairies
-Here is an overview of the main Python librairies used in this project.
+Here is an overview of the main Python librairies used in this project. 
 
 * [![PyTorch](https://img.shields.io/badge/PyTorch-%23ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/) - To handle deep learning loops and dataloaders
 * [![PyTorch Lightning](https://img.shields.io/badge/PyTorch%20Lightning-%23792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/docs/pytorch/stable/) - Deep learning framework which simplifies the usage of PyTorch elements
