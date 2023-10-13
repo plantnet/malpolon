@@ -55,7 +55,7 @@ class Summary(Callback):
         logger = self.logger
 
         if split == "Train":
-            dataset = data_loader.dataset.datasets
+            dataset = data_loader.dataset
         else:
             dataset = data_loader.dataset
 
@@ -106,7 +106,7 @@ class Summary(Callback):
         self._log_data_loading_summary(trainer.train_dataloader, "Train")
 
         logger.info("\n## Validation data")
-        self._log_data_loading_summary(trainer.val_dataloaders[0], "Validation")
+        self._log_data_loading_summary(trainer.val_dataloaders, "Validation")
 
         logger.info("\n# Strategy information")
         logger.info(trainer.strategy)
