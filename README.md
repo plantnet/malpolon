@@ -21,7 +21,19 @@
 
 # Malpolon
 
-Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including biodclimatic rasters, remote sensing images, land-use rasters, etc.
+Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including bioclimatic rasters, remote sensing images, land-use rasters, etc...
+
+## Acknowledgments
+
+This work is made possible through public financing by the [European Commission](https://commission.europa.eu/index_en) on european projects [MAMBO](https://www.mambo-project.eu/) and [GUARDEN](https://guarden.org/).
+
+<div align="center">
+  <a href="[default.asp](https://www.mambo-project.eu/)"><img src="docs/resources/mambo_logo.png" alt="MAMBO_logo" style="width: 200px;  margin-top: 15px; margin-right: 50px;"></a>
+  <a href="[default.asp](https://guarden.org/)"><img src="docs/resources/guarden_logo.png" alt="GUARDEN_logo" style="width: 230px; height: auto; margin-right: 50px;"></a>
+</div>
+<div align="center">
+  <a href="[default.asp](https://commission.europa.eu/index_en)"><img src="docs/resources/logo-ec--en.svg" alt="europ_commission_logo" style="width: 300px;  margin-top: 20px;"></a>
+</div>
 
 ## Roadmap
 
