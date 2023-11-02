@@ -77,7 +77,7 @@ This roadmap outlines the planned features and milestones for the project. Pleas
 
 To install malpolon, you will first need to install **Python 3.8, 3.9 or 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
 
-⚠️ **macOS** installation may be bumpy for now. More instructions will be added shortly. It is recommended to stick to Linux for the time being. ⚠️
+⚠️ **macOS** installation does not yet include instructions on how to properly set up GPU usage for GPU-enabled mac. For training purposes we recommend sticking to Linux for the time being. ⚠️
 
 ### 0. Requirements
 
@@ -96,6 +96,7 @@ Before proceeding, please make sure the following packages are installed on your
   - [`CUDA Installation guide`](https://docs.nvidia.com/cuda/index.html)
   - [`CuDNN Installation guide`](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html)
 
+The following instructions show installation commands for Python 3.10, but can be adapted for any of the compatible Python versions metionned above by simply changing the version number.
 
 ### 1. Clone the repository
 
@@ -108,21 +109,21 @@ git clone https://github.com/plantnet/malpolon.git
 
 ### 2. Create your virtual environment
 
-- **Via `virtualenv` (recommended)**
+- **Via `virtualenv`**
   
 We recommend handling your virtual environment using [`virtualenv`](https://virtualenv.pypa.io/en/stable/) (or similar) and installing the packages via `pip`.
 
 First create your virtual environment using the proper python version, and activate it _(note that in this example, the virtual environment "malpolon_env" will be installed in the current directory)_.
 
 ```script
-virtualenv -p /usr/bin/python3.8 ./malpolon_env
+virtualenv -p /usr/bin/python3.10 ./malpolon_env
 source ./malpolon_env/bin/activate
 ```
 
-Once the env is activated, install the python packages listed in `requirements.txt`:
+Once the env is activated, install the python packages listed in `requirements_python3.10.txt`:
 ```script
 pip install --upgrade setuptools
-pip install -r requirements.txt
+pip install -r requirements_python3.10.txt
 ```
 
 - **Via `conda`**
