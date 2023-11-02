@@ -18,6 +18,8 @@ jobs:
         steps:
             - uses: actions/checkout@v3
             - uses: actions/setup-python@v4
+              with:
+                cache-dependency-path: '**/requirements_python3.10.txt'
               name: Setup python ${{ matrix.python-version }}
               with:
                 python-version: ${{ matrix.python-version }}
