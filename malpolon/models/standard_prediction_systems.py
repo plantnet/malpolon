@@ -277,7 +277,7 @@ class FinetuningClassificationSystem(GenericPredictionSystem):
 
         if metrics is None:
             metrics = {
-                "accuracy": {'callable': Fmetrics.accuracy,
+                "accuracy": {'callable': Fmetrics.binary_accuracy,
                              'kwargs': {}}
             }
 
