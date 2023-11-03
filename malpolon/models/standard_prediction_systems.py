@@ -82,7 +82,10 @@ class GenericPredictionSystem(pl.LightningModule):
         self.log(f"{split}_loss", loss, **log_kwargs)
 
         for metric_name, metric_func in self.metrics.items():
-            score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
+            if isinstance(metric_func, dict):
+                score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
+            else:
+                score = metric_func(y_hat, y)
             self.log(f"{split}_{metric_name}", score, **log_kwargs)
 
         return loss

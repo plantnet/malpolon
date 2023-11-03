@@ -149,11 +149,11 @@ class ClassificationSystem(GenericPredictionSystem):
             nesterov=nesterov,
         )
         metrics = {
-            "accuracy": Fmetrics.classification.multiclass_accuracy,
-            "top_30_accuracy": lambda y_hat, y: Fmetrics.classification.multiclass_accuracy(y_hat, y, top_k=30),
+            "accuracy": lambda y_hat, y: Fmetrics.classification.multiclass_accuracy(y_hat, y, num_classes=100),
+            "top_30_accuracy": lambda y_hat, y: Fmetrics.classification.multiclass_accuracy(y_hat, y, num_classes=100, top_k=30),
         }
 
-        super().__init__(model, loss, optimizer, metrics, task='multiclass')
+        super().__init__(model, loss, optimizer, metrics)
 
 
 @hydra.main(version_base="1.1", config_path="config", config_name="homogeneous_multi_modal_model")
