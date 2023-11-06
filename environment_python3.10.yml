@@ -1,0 +1,11 @@
+name: malpolon_3.10
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  - python==3.10.12
+  - cmake==3.26.3
+  - pip==23.2.1
+  - pip:
+    - -r requirements_python3.10.txt
+prefix: ~/envs/malpolon

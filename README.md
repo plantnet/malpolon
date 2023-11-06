@@ -116,8 +116,8 @@ We recommend handling your virtual environment using [`virtualenv`](https://virt
 First create your virtual environment using the proper python version, and activate it _(note that in this example, the virtual environment "malpolon_env" will be installed in the current directory)_.
 
 ```script
-virtualenv -p /usr/bin/python3.10 ./malpolon_env
-source ./malpolon_env/bin/activate
+virtualenv -p /usr/bin/python3.10 ./malpolon_3.10
+source ./malpolon_3.10/bin/activate
 ```
 
 Once the env is activated, install the python packages listed in `requirements_python3.10.txt`:
@@ -131,8 +131,8 @@ pip install -r requirements_python3.10.txt
 You can also use `conda` to install your packages.
 
 ```script
-conda env create -n <name> -f environment.yml
-conda activate <name>
+conda env create -f environment_python3.10.yml
+conda activate malpolon_3.10
 ```
 
 ---
