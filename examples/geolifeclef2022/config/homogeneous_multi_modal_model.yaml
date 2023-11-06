@@ -3,7 +3,9 @@ hydra:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
 trainer:
-  gpus: ???
+  # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
+  accelerator: 'gpu'
+  devices: 1
   max_epochs: 10
   val_check_interval: 0.2
 

@@ -395,7 +395,7 @@ class RasterTorchGeoDataset(RasterDataset):
             will be assumed to be the dataset's.
             If dict, must follow : {'lon': lon, 'lat': lat, <'crs': crs>} and
             the coordinates CRS can be specified. If not, it will be assumed
-            taht it is equal to the dataset's.
+            that it is equal to the dataset's.
             In both cases, a BoundingBox is generated to pursue the query.
 
         Returns
