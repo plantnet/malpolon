@@ -31,7 +31,7 @@ from malpolon.data.datasets.torchgeo_datasets import (RasterSentinel2,
 from malpolon.logging import Summary
 from malpolon.models import FinetuningClassificationSystem
 
-FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.accuracy,
+FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.classification.binary_accuracy,
                       'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
                       'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
 

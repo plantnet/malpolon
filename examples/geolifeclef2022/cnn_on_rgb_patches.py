@@ -93,8 +93,8 @@ class ClassificationSystem(FinetuningClassificationSystem):
         nesterov: bool,
     ):
         metrics = {
-            "accuracy": Fmetrics.accuracy,
-            "top_30_accuracy": lambda y_hat, y: Fmetrics.accuracy(y_hat, y, top_k=30),
+            "accuracy": lambda y_hat, y: Fmetrics.classification.multiclass_accuracy(y_hat, y, num_classes=100),
+            "top_30_accuracy": lambda y_hat, y: Fmetrics.classification.multiclass_accuracy(y_hat, y, num_classes=100, top_k=30),
         }
 
         super().__init__(
@@ -104,6 +104,7 @@ class ClassificationSystem(FinetuningClassificationSystem):
             momentum,
             nesterov,
             metrics,
+            task='multiclass',
         )
 
 

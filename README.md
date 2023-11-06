@@ -21,7 +21,26 @@
 
 # Malpolon
 
-Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including biodclimatic rasters, remote sensing images, land-use rasters, etc.
+Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including bioclimatic rasters, remote sensing images, land-use rasters, etc...
+
+## Acknowledgments
+
+This work is made possible through public financing by the [European Commission](https://commission.europa.eu/index_en) on european projects [MAMBO](https://www.mambo-project.eu/) and [GUARDEN](https://guarden.org/).
+
+<div align="center">
+  <a href="https://www.mambo-project.eu/"><img src="docs/resources/mambo_logo.png" alt="MAMBO_logo" style="width: 200px;  margin-top: 15px; margin-right: 50px;"></a>
+  <a href="https://guarden.org/"><img src="docs/resources/guarden_logo.png" alt="GUARDEN_logo" style="width: 230px; height: auto; margin-right: 50px;"></a>
+</div>
+<div align="center">
+  <a href="https://commission.europa.eu/index_en"><img src="docs/resources/logo-ec--en.svg" alt="europ_commission_logo" style="width: 300px;  margin-top: 20px; margin-bottom: 15px;"></a>
+</div>
+
+This work is currently under development and maintained by the [Pl@ntNet](https://plantnet.org/) team within the [INRIA](https://www.inria.fr/en) research institute.
+
+<div align="center">
+  <a href="https://www.inria.fr/en"><img src="docs/resources/inria.png" alt="MAMBO_logo" style="width: 150px;  margin-top: 15px; margin-right: 50px;"></a>
+  <a href="https://plantnet.org/"><img src="docs/resources/plantnet_logo.png" alt="GUARDEN_logo" style="width: 250px; height: auto; margin-right: 50px;"></a>
+</div>
 
 ## Roadmap
 
@@ -58,7 +77,7 @@ This roadmap outlines the planned features and milestones for the project. Pleas
 
 To install malpolon, you will first need to install **Python 3.8, 3.9 or 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
 
-⚠️ **macOS** installation may be bumpy for now. More instructions will be added shortly. It is recommended to stick to Linux for the time being. ⚠️
+⚠️ **macOS** installation does not yet include instructions on how to properly set up GPU usage for GPU-enabled mac. For training purposes we recommend sticking to Linux for the time being. ⚠️
 
 ### 0. Requirements
 
@@ -77,6 +96,7 @@ Before proceeding, please make sure the following packages are installed on your
   - [`CUDA Installation guide`](https://docs.nvidia.com/cuda/index.html)
   - [`CuDNN Installation guide`](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html)
 
+The following instructions show installation commands for Python 3.10, but can be adapted for any of the compatible Python versions metionned above by simply changing the version number.
 
 ### 1. Clone the repository
 
@@ -89,21 +109,21 @@ git clone https://github.com/plantnet/malpolon.git
 
 ### 2. Create your virtual environment
 
-- **Via `virtualenv` (recommended)**
+- **Via `virtualenv`**
   
 We recommend handling your virtual environment using [`virtualenv`](https://virtualenv.pypa.io/en/stable/) (or similar) and installing the packages via `pip`.
 
 First create your virtual environment using the proper python version, and activate it _(note that in this example, the virtual environment "malpolon_env" will be installed in the current directory)_.
 
 ```script
-virtualenv -p /usr/bin/python3.8 ./malpolon_env
+virtualenv -p /usr/bin/python3.10 ./malpolon_env
 source ./malpolon_env/bin/activate
 ```
 
-Once the env is activated, install the python packages listed in `requirements.txt`:
+Once the env is activated, install the python packages listed in `requirements_python3.10.txt`:
 ```script
 pip install --upgrade setuptools
-pip install -r requirements.txt
+pip install -r requirements_python3.10.txt
 ```
 
 - **Via `conda`**

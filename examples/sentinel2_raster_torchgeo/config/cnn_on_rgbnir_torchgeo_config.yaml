@@ -12,7 +12,7 @@ trainer:
 
 run:
   predict: false
-  checkpoint_path: ""  # Relative to hydra.run.dir
+  checkpoint_path:  # Relative to hydra.run.dir
                                                                                                                                        
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
