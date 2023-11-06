@@ -408,7 +408,7 @@ class RasterPatchProvider(PatchProvider):
             # iterate through all the layers
             for i in range(src.count):
                 # replace the NoData values with np.nan
-                self.data = self.data.astype(np.float)
+                self.data = self.data.astype(float)
                 self.data[i] = np.where(self.data[i] == self.nodata_value[i],
                                         np.nan,
                                         self.data[i])
@@ -789,7 +789,7 @@ class TimeSeriesProvider():
                 k_provider = 0 if k_provider.shape[0] == 0 else k_provider[-1][0]
 
                 eos_start_ind = np.where(ts_ == self.eos_replace_value[i])[0]
-                eos_start_ind = eos_start_ind[0] if eos_start_ind != [] else ts_.shape[0] - 1
+                eos_start_ind = eos_start_ind[0] if len(eos_start_ind) > 0 else ts_.shape[0] - 1
                 # display the layer on the corresponding subplot
                 axs[i].plot(range(eos_start_ind), ts_[:eos_start_ind],
                             '-.', c='blue', marker='+')

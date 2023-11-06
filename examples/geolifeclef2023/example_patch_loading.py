@@ -13,7 +13,7 @@ from malpolon.data.datasets.geolifeclef2023 import PatchesDataset, PatchesDatase
 
 def main():
     """Run GLC23 patch example script."""
-    data_path = 'geolifeclef2023/dataset/sample_data/'  # root path of the data
+    data_path = 'dataset/sample_data/'  # root path of the data
 
     # configure providers
     p_rgb = JpegPatchProvider(data_path + 'SatelliteImages/',

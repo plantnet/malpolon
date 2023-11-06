@@ -13,7 +13,7 @@ from malpolon.data.datasets.geolifeclef2023 import TimeSeriesDataset
 
 def main():
     """Run GLC23 time series example script."""
-    data_path = '/home/tlarcher/Documents/Pl@ntNet/git/GLC/data/sample_data/'  # root path of the data
+    data_path = 'dataset/sample_data/'  # root path of the data
     # configure providers
     ts_red = CSVTimeSeriesProvider(data_path + 'SatelliteTimeSeries/time_series_red.csv')
     ts_multi = MultipleCSVTimeSeriesProvider(data_path + 'SatelliteTimeSeries/',

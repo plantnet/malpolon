@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 import torch
 from torch import nn
 from pytorch_lightning.strategies import SingleDeviceStrategy, StrategyRegistry
-from pytorch_lightning.utilities.apply_func import move_data_to_device
+from pytorch_lightning.utilities import move_data_to_device
 
 from .utils import check_model
 
