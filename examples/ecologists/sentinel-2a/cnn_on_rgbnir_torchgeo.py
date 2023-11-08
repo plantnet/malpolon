@@ -8,7 +8,6 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 from __future__ import annotations
 
 import os
-from typing import Tuple
 from urllib.parse import urlparse
 
 import hydra
@@ -20,7 +19,6 @@ import torchmetrics.functional as Fmetrics
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.utils.data import DataLoader
-from torchgeo.datasets import BoundingBox, GeoDataset
 from torchgeo.datasets.utils import download_url
 from torchgeo.samplers import Units
 from torchvision import transforms
