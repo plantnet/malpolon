@@ -67,6 +67,9 @@ Key-value pairs from **run** are passed as input arguments of your PyTorchLightn
 
 Hereafter is a detailed list of every sub parameters :
 
+<details>
+  <summary><i><u>Click here to expand sub parameters</u></i></summary>
+
 - **trainer**
   - _accelerator_ : Selects the type of hardware you want your example to run from. Either `'gpu'` or `'cpu'`.
   - _devices_ : Defines how many accelerator devices you want to use for parallelization. Takes an integer as input.
@@ -109,6 +112,8 @@ Hereafter is a detailed list of every sub parameters :
     - _num\_workers_ : number of worker processes to use for loading the data. When you set the “number of workers” parameter to a value greater than 0, the DataLoader will load data in parallel using multiple worker processes. Takes an integer as input.
 - **task**
   - _task_ : deep learning task to be performed. At the moment, can taks any value in [`'classification_binary'`, `'classification_multiclass'`, `'classification_multilabel'`].  Takes a string as input.
+
+</details>
 
 Note that any of these parameters can also be passed through command line like shown in the previous section and overrule those of the config file.
 

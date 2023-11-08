@@ -358,14 +358,6 @@ class GeoLifeCLEF2022Dataset(Dataset):
             print("Aborting download")
             return
 
-        # download_and_extract_archive(
-        #     "https://lab.plantnet.org/seafile/f/b07039ce11f44072a548/?dl=1",
-        #     self.root,
-        #     filename="micro_geolifeclef.zip",
-        #     md5="ff27b08b624c91b1989306afe97f2c6d",
-        #     remove_finished=True,
-        # )
-
     def _check_integrity(self):
         return (self.root / "geolifeclef-2022-lifeclef-2022-fgvc9").exists()
 
