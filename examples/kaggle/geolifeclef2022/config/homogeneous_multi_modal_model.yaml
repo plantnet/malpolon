@@ -10,13 +10,14 @@ trainer:
   val_check_interval: 0.2
 
 model:
-  provider_name: "torchvision"
-  model_name: "resnet50"
-  model_kwargs:
-    pretrained: true
-  modifiers:
-    change_last_layer:
-      num_outputs: 100
+  modalities_model:
+    provider_name: "torchvision"
+    model_name: "resnet50"
+    model_kwargs:
+      pretrained: true
+    modifiers:
+      change_last_layer_to_identity:
+  num_outputs: 100
       
 optimizer:
   lr: 1e-2
@@ -25,7 +26,7 @@ optimizer:
   nesterov: true
 
 data:
-  dataset_path: ???
+  dataset_path: "../../dataset/"
   minigeolifeclef: true
   train_batch_size: 32
   inference_batch_size: 256

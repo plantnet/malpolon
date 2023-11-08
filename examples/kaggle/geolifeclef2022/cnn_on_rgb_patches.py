@@ -78,6 +78,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
             patch_data=["rgb"],
             use_rasters=False,
             transform=transform,
+            download=True,
             **kwargs
         )
         return dataset

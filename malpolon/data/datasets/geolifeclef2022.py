@@ -11,6 +11,8 @@ Python version: 3.8
 
 from __future__ import annotations
 
+import os
+import subprocess
 from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Optional, Union
@@ -25,7 +27,8 @@ from matplotlib.patches import Patch
 from PIL import Image
 from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import Dataset
-from torchvision.datasets.utils import download_and_extract_archive
+from torchvision.datasets.utils import (download_and_extract_archive,
+                                        extract_archive)
 
 from malpolon.data.environmental_raster import PatchExtractor
 
@@ -288,6 +291,7 @@ class GeoLifeCLEF2022Dataset(Dataset):
         use_localisation: bool = False,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
+        download: bool = False,
     ):
         root = Path(root)
 
@@ -311,6 +315,9 @@ class GeoLifeCLEF2022Dataset(Dataset):
         self.training = subset != "test"
         self.n_classes = 17037
 
+        if download:
+            self.download()
+
         df = self._load_observation_data(root, region, subset)
 
         self.observation_ids = df.index
@@ -330,6 +337,37 @@ class GeoLifeCLEF2022Dataset(Dataset):
                 patch_extractor.add_all_rasters()
 
             self.patch_extractor = patch_extractor
+
+    def download(self):
+        """Download the GeolifeClef2023 dataset."""
+        if self._check_integrity():
+            print("Files already downloaded and verified")
+            return
+
+        try:
+            import kaggle
+        except OSError as error:
+            raise OSError("Have you properly set up your Kaggle API token ? For more information, please refer to section 'Authentication' of the kaggle documentation : https://www.kaggle.com/docs/api"+msg) from error
+
+        answer = input("You are about to download the GeoLifeClef2022 dataset which weighs ~62 GB. Do you want to continue ? [y/n]")
+        if answer.lower() in ["y", "yes"]:
+            subprocess.call(f"kaggle competitions download -c geolifeclef-2022-lifeclef-2022-fgvc9 -p {self.root}", shell=True)
+            print(f"Extracting geolifeclef-2022-lifeclef-2022-fgvc9 to {self.root}")
+            extract_archive(os.path.join(self.root, "geolifeclef-2022-lifeclef-2022-fgvc9.zip"), os.path.join(self.root, "geolifeclef-2022-lifeclef-2022-fgvc9/"))
+        else:
+            print("Aborting download")
+            return
+
+        # download_and_extract_archive(
+        #     "https://lab.plantnet.org/seafile/f/b07039ce11f44072a548/?dl=1",
+        #     self.root,
+        #     filename="micro_geolifeclef.zip",
+        #     md5="ff27b08b624c91b1989306afe97f2c6d",
+        #     remove_finished=True,
+        # )
+
+    def _check_integrity(self):
+        return (self.root / "geolifeclef-2022-lifeclef-2022-fgvc9").exists()
 
     def _load_observation_data(
         self,
