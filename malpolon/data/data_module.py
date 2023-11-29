@@ -1,13 +1,19 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
 
 from abc import ABC, abstractmethod
+from pathlib import Path
+from typing import TYPE_CHECKING
 
+import numpy as np
+import pandas as pd
 import pytorch_lightning as pl
+import torch
+from torch import Tensor
 from torch.utils.data import DataLoader
 
 if TYPE_CHECKING:
-    from typing import Any, Callable, Optional
+    from typing import Any, Callable, Optional, Union
+
     from torch.utils.data import Dataset
 
 
@@ -125,3 +131,43 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             pin_memory=self.pin_memory,
         )
         return dataloader
+
+    def predict_logits_to_class(self, predictions: Union[np.ndarray, Tensor]) -> Tensor:
+        device = torch.device("cpu")
+        activation = torch.nn.Softmax(dim=1)
+        probas = activation(predictions)
+        probas, indices = torch.sort(probas, descending=True)
+        probas, indices = probas.to(device), indices.to(device)
+        predictions = self.get_test_dataset().unique_labels[indices]
+        return predictions, probas
+
+    def export_predict_csv(self,
+                           predictions,
+                           probas=None,
+                           single_point_query: dict = None,
+                           out_name: str = "predictions",
+                           return_csv: bool = False,
+                           **kwargs: Any) -> Any:
+        out_name = out_name + ".csv" if not out_name.endswith(".csv") else out_name
+        fp = Path('./') / Path(out_name)
+        if single_point_query:
+            df = pd.DataFrame({'observation_id': [single_point_query['observation_id'] if 'observation_id' in single_point_query else None],
+                               'lon': [single_point_query['lon']],
+                               'lat': [single_point_query['lat']],
+                               'crs': [single_point_query['crs']],
+                               'target_species_id': [single_point_query['species_id'] if 'species_id' in single_point_query else None],
+                               'predictions': predictions[:, 0],
+                               'probas': probas[:, 0]})
+        else:
+            test_ds = self.get_test_dataset()
+            df = pd.DataFrame({'observation_id': test_ds.observation_ids,
+                               'lon': test_ds.coordinates[:, 0],
+                               'lat': test_ds.coordinates[:, 1],
+                               'target_species_id': test_ds.targets,
+                               'predictions': predictions[:, 0],
+                               'probas': [None] * len(predictions)})
+        if probas is not None:
+            df['probas'] = probas[:, 0]
+        df.to_csv(fp, index=False, sep=',', **kwargs)
+        if return_csv:
+            return df
