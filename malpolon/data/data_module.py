@@ -253,8 +253,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             _description_
         """
         device = torch.device("cpu")
-        activation = activation_fn()
-        probas = activation(predictions)
+        probas = activation_fn(predictions)
         probas, indices = torch.sort(probas, descending=True)
         probas, indices = probas.to(device), indices.to(device)
         predictions = self.get_test_dataset().unique_labels[indices]
