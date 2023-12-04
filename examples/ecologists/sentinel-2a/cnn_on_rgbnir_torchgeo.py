@@ -328,7 +328,7 @@ def main(cfg: DictConfig) -> None:
                                                 ['model.', ''])
         preds, probas = datamodule.predict_logits_to_class(prediction)
         datamodule.export_predict_csv(preds, probas, single_point_query=query_point, out_name='prediction_point', return_csv=True)
-        print('Point prediction : ', prediction)
+        print('Point prediction : ', prediction.shape, prediction)
     else:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
         trainer.validate(model, datamodule=datamodule)

@@ -2,6 +2,8 @@ observation_id,latitude,longitude,species_id,GBIF_species_id,GBIF_species_name,G
 1000,43.519427,3.796463,2,2927230,Stachys byzantina,Stachys,Lamiaceae,Plantae,p,10kmE373N287,test
 1001,43.520398,3.896501,0,2927190,Mentha suaveolens,Mentha,Lamiaceae,Plantae,8381,10kmE401N254,test
 1002,43.520398,3.896501,2,2927230,Stachys byzantina,Stachys,Lamiaceae,Plantae,p,10kmE373N287,test
+1012,43.520398,3.896501,4,2927230,Stachys byzantina,Stachys,Lamiaceae,Plantae,p,10kmE373N287,test
+1013,43.520398,3.896501,1,2927230,Stachys byzantina,Stachys,Lamiaceae,Plantae,p,10kmE373N287,test
 1003,43.526398,3.866501,0,2927190,Mentha suaveolens,Mentha,Lamiaceae,Plantae,8380,10kmE401N254,train
 1004,43.661663,3.788910,1,2792998,Ophrys apifera,Ophrys,Orchidaceae,Plantae,8166,10kmE369N234,train
 1005,43.6113,3.8707,2,2927230,Stachys byzantina,Stachys,Lamiaceae,Plantae,5142,10kmE369N234,train
