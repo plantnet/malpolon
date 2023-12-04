@@ -160,6 +160,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            shuffle=False,
         )
         return dataloader
 
@@ -170,6 +171,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
+            shuffle=False,
         )
         return dataloader
 
@@ -309,6 +311,8 @@ def main(cfg: DictConfig) -> None:
 
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
         predictions = model_loaded.predict(datamodule, trainer)
+        preds, probas = datamodule.predict_logits_to_class(predictions)
+        datamodule.export_predict_csv(preds, probas, out_name='predictions_test_dataset', return_csv=True)
         print('Test dataset prediction (extract) : ', predictions[:10])
 
         # Option 2: Predict 1 data point (Pytorch)
@@ -322,7 +326,9 @@ def main(cfg: DictConfig) -> None:
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
                                                 test_data_point,
                                                 ['model.', ''])
-        print('Point prediction : ', prediction)
+        preds, probas = datamodule.predict_logits_to_class(prediction)
+        datamodule.export_predict_csv(preds, probas, single_point_query=query_point, out_name='prediction_point', return_csv=True)
+        print('Point prediction : ', prediction.shape, prediction)
     else:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
         trainer.validate(model, datamodule=datamodule)

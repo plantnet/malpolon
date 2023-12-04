@@ -6,6 +6,7 @@ Author: Titouan Lorieul <titouan.lorieul@inria.fr>
 """
 
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import pytorch_lightning as pl
@@ -16,6 +17,7 @@ from .utils import check_loss, check_model, check_optimizer
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Mapping, Optional, Union
+
     from torch import Tensor
 
 
@@ -158,8 +160,8 @@ class GenericPredictionSystem(pl.LightningModule):
         """
         replace[0] += '.' if not replace[0].endswith('.') else ''
         for key in list(state_dict):
-            print(key)
             state_dict[key.replace(replace[0], replace[1])] = state_dict.pop(key)
+        print(f'Inference state_dict: replaced {len(state_dict)} keys from "{replace[0]}" to "{replace[1]}"')
         return state_dict
 
     def predict(
@@ -221,6 +223,10 @@ class GenericPredictionSystem(pl.LightningModule):
         array
             Predicted tensor value.
         """
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.model.to(device)
+        data = data.to(device)
+
         ckpt = torch.load(checkpoint_path)
         if state_dict_replace_key:
             ckpt['state_dict'] = self.state_dict_replace_key(ckpt['state_dict'],

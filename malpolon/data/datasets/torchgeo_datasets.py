@@ -345,6 +345,11 @@ class RasterTorchGeoDataset(RasterDataset):
             return to_one_hot_encoding(label, self.unique_labels)
         return label
 
+    def get_label(self, df, query_lon, query_lat, obs_id=None):
+        if obs_id is None:
+            return self.targets[df.index[(df['lon'] == query_lon) & (df['lat'] == query_lat)].values]
+        return self.targets[df.index[df['observation_id'] == obs_id].values]
+
     def __getitem__(
         self,
         query: Union[dict, tuple, list, set, BoundingBox]
@@ -423,13 +428,18 @@ class RasterTorchGeoDataset(RasterDataset):
                 query['units'] = 'pixel'
             if 'crs' not in query.keys() or query['crs'] != self.crs_pyproj:
                 query['crs'] = self.crs_pyproj
+            if 'obs_id' not in query.keys():
+                query['obs_id'] = None
 
+            query_obs_id = query['obs_id']
             query = self.point_to_bbox(query['lon'], query['lat'], query['size'], query['units'], query['crs'])
 
             # Use Case 2
             patch = super().__getitem__(query)
             df = pd.DataFrame(self.coordinates, columns=['lon', 'lat'])
-            label = self.targets[df.index[(df['lon'] == query_lon) & (df['lat'] == query_lat)].values]
+            df['observation_id'] = self.observation_ids
+
+            label = self.get_label(df, query_lon, query_lat, query_obs_id)
             label = self._format_label_to_task(label)
             sample = patch['image']
             if self.transforms_data is not None:
@@ -520,6 +530,7 @@ class Sentinel2GeoSampler(GeoSampler):
         self.size = (size, size) if isinstance(size, (int, float)) else size
         self.coordinates = dataset.coordinates
         self.length = length if length is not None else len(dataset.observation_ids)
+        self.observation_ids = dataset.observation_ids.values
 
     def __iter__(self) -> Iterator[BoundingBox]:
         """Yield a dict to iterate over a RasterTorchGeoDataset dataset.
@@ -531,10 +542,12 @@ class Sentinel2GeoSampler(GeoSampler):
         """
         for _ in range(len(self)):
             coords = tuple(self.coordinates[_])
+            obs_id = self.observation_ids[_]
             yield {'lon': coords[0], 'lat': coords[1],
                    'crs': self.crs,
                    'size': self.size,
-                   'units': self.units}
+                   'units': self.units,
+                   'obs_id': obs_id}
 
     def __len__(self) -> int:
         """Return the number of samples in a single epoch.
