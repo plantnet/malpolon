@@ -25,7 +25,7 @@ Malpolon is a framework facilitating the training and sharing of Deep Species Di
 
 If you're not a deep learning or PyTorch expert but nonetheless want to use visual deep learning models on satellite and/or bioclimatic rasters to predict the presence of species on a given area, this framework is for you.
 
-## Usage
+## 🧭 Usage
 
 Malpolon is destined to be used by various user profiles, some more experimented than others. To this end, we provide several examples of usage of the framework, organized by use case or _scenarios_. These examples can be found in the `examples` folder of the repository, each with a README file for more details on how to use the scripts.
 
