@@ -318,7 +318,9 @@ class GeoLifeCLEF2022Dataset(Dataset):
         if download:
             self.download()
 
-        df = self._load_observation_data(root, region, subset)
+        df = self._load_observation_data(self.root,
+                                         self.region,
+                                         self.subset)
 
         self.observation_ids = df.index
         self.coordinates = df[["latitude", "longitude"]].values
@@ -354,12 +356,14 @@ class GeoLifeCLEF2022Dataset(Dataset):
             subprocess.call(f"kaggle competitions download -c geolifeclef-2022-lifeclef-2022-fgvc9 -p {self.root}", shell=True)
             print(f"Extracting geolifeclef-2022-lifeclef-2022-fgvc9 to {self.root}")
             extract_archive(os.path.join(self.root, "geolifeclef-2022-lifeclef-2022-fgvc9.zip"), os.path.join(self.root, "geolifeclef-2022-lifeclef-2022-fgvc9/"))
+            if self.root.parts[-1] != "geolifeclef-2022-lifeclef-2022-fgvc9":
+                self.root = self.root / "geolifeclef-2022-lifeclef-2022-fgvc9"
         else:
             print("Aborting download")
             return
 
     def _check_integrity(self):
-        return (self.root / "geolifeclef-2022-lifeclef-2022-fgvc9").exists()
+        return (self.root / "observations/observations_fr_train.csv").exists()
 
     def _load_observation_data(
         self,
