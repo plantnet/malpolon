@@ -9,9 +9,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import omegaconf
 import pytorch_lightning as pl
 import torch
 import torchmetrics.functional as Fmetrics
+
+from malpolon.data.utils import FMETRICS_CALLABLES
 
 from .utils import check_loss, check_model, check_optimizer
 
@@ -240,21 +243,8 @@ class GenericPredictionSystem(pl.LightningModule):
         return prediction
 
 
-class FinetuningClassificationSystem(GenericPredictionSystem):
-    r"""
-    Basic finetuning classification system.
-
-    Parameters
-    ----------
-        model: model to use
-        lr: learning rate
-        weight_decay: weight decay value
-        momentum: value of momentum
-        nesterov: if True, uses Nesterov's momentum
-        metrics: dictionnary containing the metrics to compute
-        binary: if True, uses binary classification loss instead of multi-class one
-    """
-
+class ClassificationSystem(GenericPredictionSystem):
+    """Classification task class."""
     def __init__(
         self,
         model: Union[torch.nn.Module, Mapping],
@@ -263,8 +253,60 @@ class FinetuningClassificationSystem(GenericPredictionSystem):
         momentum: float = 0.9,
         nesterov: bool = True,
         metrics: Optional[dict[str, Callable]] = None,
-        task: str = 'binary',
+        task: str = 'classification_binary',
+        hparams_preprocess: bool = True,
     ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        model : dict
+            model to use
+        lr : float
+            learning rate
+        weight_decay : float
+            weight decay
+        momentum : float
+            value of momentum
+        nesterov : bool
+            if True, uses Nesterov's momentum
+        metrics : dict
+            dictionnary containing the metrics to compute.
+            Keys must match metrics' names and have a subkey with each
+            metric's functional methods as value. This subkey is either
+            created from the FMETRICS_CALLABLES constant or supplied,
+            by the user directly.
+        task : str, optional
+            machine learning task (used to format labels accordingly),
+            by default 'classification_multiclass'
+        hparams_preprocess : bool, optional
+            if True performs preprocessing operations on the hyperparameters,
+            by default True
+        """
+
+        if hparams_preprocess:
+            task = task.split('classification_')[1]
+            try:
+                metrics = omegaconf.OmegaConf.to_container(metrics)
+                for k, v in metrics.items():
+                    if 'callable' in v:
+                        metrics[k]['callable'] = eval(v['callable'])
+                    else:
+                        metrics[k]['callable'] = FMETRICS_CALLABLES[k]
+            except ValueError as e:
+                print('\n[WARNING]: Please make sure you have registered'
+                      ' a dict-like value to your "metrics" key in your'
+                      ' config file. Defaulting metrics to None.\n')
+                print(e, '\n')
+                metrics = None
+            except KeyError as e:
+                print('\n[WARNING]: Please make sure the name of your metrics'
+                      ' registered in your config file match an entry'
+                      ' in constant FMETRICS_CALLABLES.'
+                      ' Defaulting metrics to None.\n')
+                print(e, '\n')
+                metrics = None
+
         self.lr = lr
         self.weight_decay = weight_decay
         self.momentum = momentum
@@ -286,7 +328,7 @@ class FinetuningClassificationSystem(GenericPredictionSystem):
 
         if metrics is None:
             metrics = {
-                "accuracy": {'callable': Fmetrics.binary_accuracy,
+                "accuracy": {'callable': Fmetrics.classification.binary_accuracy,
                              'kwargs': {}}
             }
 

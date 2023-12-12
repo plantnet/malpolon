@@ -2,18 +2,18 @@ import os
 from pathlib import Path
 
 import hydra
-from omegaconf import DictConfig
 import pytorch_lightning as pl
+from cnn_on_rgb_patches import ClassificationSystem
+from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
+from transforms import TemperatureDataTransform
 
 from malpolon.data.data_module import BaseDataModule
+from malpolon.data.datasets.geolifeclef2022 import (GeoLifeCLEF2022Dataset,
+                                                    MiniGeoLifeCLEF2022Dataset)
 from malpolon.data.environmental_raster import PatchExtractor
-from malpolon.data.datasets.geolifeclef2022 import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
 from malpolon.logging import Summary
-
-from cnn_on_rgb_patches import ClassificationSystem
-from transforms import TemperatureDataTransform
 
 
 class GeoLifeCLEF2022DataModule(BaseDataModule):
@@ -97,14 +97,14 @@ def main(cfg: DictConfig) -> None:
 
     datamodule = GeoLifeCLEF2022DataModule(**cfg.data)
 
-    model = ClassificationSystem(cfg.model, **cfg.optimizer)
+    model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
     callbacks = [
         Summary(),
         ModelCheckpoint(
             dirpath=os.getcwd(),
-            filename="checkpoint-{epoch:02d}-{step}-{val_top_30_accuracy:.4f}",
-            monitor="val_top_30_accuracy",
+            filename="checkpoint-{epoch:02d}-{step}-{top_30_multiclass_accuracy:.4f}",
+            monitor="top_30_multiclass_accuracy",
             mode="max",
         ),
     ]

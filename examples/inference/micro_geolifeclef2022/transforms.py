@@ -7,7 +7,6 @@ Author: Titouan Lorieul <titouan.lorieul@inria.fr>
         Theo Larcher <theo.larcher@inria.fr>
 """
 import numpy as np
-
 import torch
 from torchvision import transforms
 
@@ -98,6 +97,14 @@ class RasterDataTransform:
         if self.resize:
             data = transforms.functional.resize(data, self.resize)
         return data
+
+
+class RGBNIRDataPreprocessing:
+    def __call__(self, data):
+        rgb, nir = data["rgb"], data["near_ir"]
+        rgb = RGBDataTransform()(rgb)
+        nir = NIRDataTransform()(nir)[[0]]
+        return torch.concat((rgb, nir))
 
 
 class TemperatureDataTransform(RasterDataTransform):

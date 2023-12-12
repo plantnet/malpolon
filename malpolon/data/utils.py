@@ -3,11 +3,16 @@ from __future__ import annotations
 
 import os
 import re
-import numpy as np
 from typing import Iterable, Union
+
+import numpy as np
+import torchmetrics.functional as Fmetrics
+from shapely import Point, Polygon
 from torchgeo.datasets import BoundingBox
 
-from shapely import Polygon, Point
+FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.classification.binary_accuracy,
+                      'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
+                      'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
 
 
 def is_bbox_contained(

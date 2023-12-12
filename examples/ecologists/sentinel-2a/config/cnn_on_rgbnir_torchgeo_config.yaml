@@ -11,8 +11,8 @@ trainer:
   check_val_every_n_epoch: 1
 
 run:
-  predict: true
-  checkpoint_path: ???  # Relative to hydra.run.dir
+  predict: false
+  checkpoint_path:   # Relative to hydra.run.dir
                                                                                                                                        
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]

@@ -7,7 +7,6 @@ trainer:
   accelerator: 'gpu'
   devices: 1
   max_epochs: 1
-  #val_check_interval: 10
   check_val_every_n_epoch: 1
 
 run:
@@ -33,17 +32,9 @@ optimizer:
   momentum: 0.9
   nesterov: true
   metrics:
-    # binary_accuracy:
-    #   # callable: 'Fmetrics.accuracy'
-    #   kwargs: {}
     multiclass_accuracy:
-      # callable: 'Fmetrics.classification.multiclass_accuracy'
       kwargs:
         num_classes: 10
-    # multilabel_accuracy:
-    #   # callable: 'Fmetrics.classification.multilabel_accuracy'
-    #   kwargs:
-    #     num_labels: 5
 
 data:
   dataset_path: "../../../dataset/"  # Relative to hydra.run.dir

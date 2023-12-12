@@ -353,6 +353,8 @@ class GeoLifeCLEF2022Dataset(Dataset):
 
         answer = input("You are about to download the GeoLifeClef2022 dataset which weighs ~62 GB. Do you want to continue ? [y/n]")
         if answer.lower() in ["y", "yes"]:
+            if 'geolifeclef-2022-lifeclef-2022-fgvc9' in self.root.parts:
+                self.root = self.root.parent
             subprocess.call(f"kaggle competitions download -c geolifeclef-2022-lifeclef-2022-fgvc9 -p {self.root}", shell=True)
             print(f"Extracting geolifeclef-2022-lifeclef-2022-fgvc9 to {self.root}")
             extract_archive(os.path.join(self.root, "geolifeclef-2022-lifeclef-2022-fgvc9.zip"), os.path.join(self.root, "geolifeclef-2022-lifeclef-2022-fgvc9/"))
@@ -485,6 +487,7 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
         use_localisation: bool = False,
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
+        download: bool = False,
     ):
         super().__init__(
             root,
@@ -496,6 +499,7 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
             use_localisation=use_localisation,
             transform=transform,
             target_transform=target_transform,
+            download=download,
         )
 
         self.n_classes = 100

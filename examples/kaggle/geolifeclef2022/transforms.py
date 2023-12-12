@@ -1,5 +1,4 @@
 import numpy as np
-
 import torch
 from torchvision import transforms
 
@@ -72,3 +71,12 @@ class Normalization(transforms.Normalize):
             mean=[0.485, 0.456, 0.406] * num_modalities,
             std=[0.229, 0.224, 0.225] * num_modalities,
         )
+
+class PreprocessRGBTemperatureData:
+    def __call__(self, data):
+        rgb_data, temp_data = data["rgb"], data["environmental_patches"]
+
+        rgb_data = RGBDataTransform()(rgb_data)
+        temp_data = TemperatureDataTransform()(temp_data)
+
+        return torch.concat((rgb_data, temp_data))

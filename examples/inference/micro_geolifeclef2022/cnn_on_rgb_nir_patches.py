@@ -3,32 +3,19 @@ from __future__ import annotations
 import os
 
 import hydra
-import omegaconf
 import pytorch_lightning as pl
 import torch
-import torchmetrics.functional as Fmetrics
-import warnings
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
-from transforms import NIRDataTransform, RGBDataTransform
+from transforms import RGBNIRDataPreprocessing
 
 from malpolon.data.data_module import BaseDataModule
 from malpolon.data.datasets.geolifeclef2022 import MicroGeoLifeCLEF2022Dataset
 from malpolon.logging import Summary
-from malpolon.models import FinetuningClassificationSystem
-
-FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.classification.binary_accuracy,
-                      'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
-                      'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
-
-
-class RGBNIRDataPreprocessing:
-    def __call__(self, data):
-        rgb, nir = data["rgb"], data["near_ir"]
-        rgb = RGBDataTransform()(rgb)
-        nir = NIRDataTransform()(nir)[[0]]
-        return torch.concat((rgb, nir))
+from malpolon.models import ClassificationSystem
+from malpolon.models.model_builder import \
+    change_first_convolutional_layer_modifier
 
 
 class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
@@ -85,7 +72,6 @@ class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
         )
 
     def prepare_data(self):
-        # download, split, etc...
         MicroGeoLifeCLEF2022Dataset(
             self.dataset_path,
             subset="train",
@@ -123,79 +109,6 @@ class NewConvolutionalLayerInitFuncStrategy:
             if hasattr(new_layer, "bias"):
                 new_layer.bias = old_layer.bias
 
-class ClassificationSystem(FinetuningClassificationSystem):
-    """Classification task class."""
-    def __init__(
-        self,
-        model: dict,
-        lr: float,
-        weight_decay: float,
-        momentum: float,
-        nesterov: bool,
-        metrics: dict,
-        task: str = 'classification_multiclass',
-        hparams_preprocess: bool = True,
-    ):
-        """Class constructor.
-
-        Parameters
-        ----------
-        model : dict
-            _description_
-        lr : float
-            learning rate
-        weight_decay : float
-            weight decay
-        momentum : float
-            value of momentum
-        nesterov : bool
-            if True, uses Nesterov's momentum
-        metrics : dict
-            dictionnary containing the metrics to compute.
-            Keys must match metrics' names and have a subkey with each
-            metric's functional methods as value. This subkey is either
-            created from the FMETRICS_CALLABLES constant or supplied,
-            by the user directly.
-        task : str, optional
-            machine learning task (used to format labels accordingly),
-            by default 'classification_multiclass'
-        hparams_preprocess : bool, optional
-            if True performs preprocessing operations on the hyperparameters,
-            by default True
-        """
-        if hparams_preprocess:
-            task = task.split('classification_')[1]
-            try:
-                metrics = omegaconf.OmegaConf.to_container(metrics)
-                for k, v in metrics.items():
-                    if 'callable' in v:
-                        metrics[k]['callable'] = eval(v['callable'])
-                    else:
-                        metrics[k]['callable'] = FMETRICS_CALLABLES[k]
-            except ValueError as e:
-                print('\n[WARNING]: Please make sure you have registered'
-                      ' a dict-like value to your "metrics" key in your'
-                      ' config file. Defaulting metrics to None.\n')
-                print(e, '\n')
-                metrics = None
-            except KeyError as e:
-                print('\n[WARNING]: Please make sure the name of your metrics'
-                      ' registered in your config file match an entry'
-                      ' in constant FMETRICS_CALLABLES.'
-                      ' Defaulting metrics to None.\n')
-                print(e, '\n')
-                metrics = None
-
-        super().__init__(
-            model,
-            lr,
-            weight_decay,
-            momentum,
-            nesterov,
-            metrics,
-            task,
-        )
-
 
 @hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgb_nir_patches_config")
 def main(cfg: DictConfig) -> None:
@@ -215,6 +128,12 @@ def main(cfg: DictConfig) -> None:
 
     cfg_model = hydra.utils.instantiate(cfg.model)
     model = ClassificationSystem(cfg_model, **cfg.optimizer, **cfg.task)
+    change_first_convolutional_layer_modifier(model,
+                                              num_input_channels=4,
+                                              new_conv_layer_init_func=NewConvolutionalLayerInitFuncStrategy(
+                                                  strategy='red_pretraining',
+                                                  rescaling=True
+                                              ))
 
     callbacks = [
         Summary(),

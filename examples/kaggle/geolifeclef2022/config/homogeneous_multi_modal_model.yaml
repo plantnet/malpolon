@@ -24,10 +24,22 @@ optimizer:
   weight_decay: 0
   momentum: 0.9
   nesterov: true
+  metrics:
+    multiclass_accuracy:
+      kwargs:
+        num_classes: 100
+    top_30_accuracy:  # Top-30 accuracy 
+      callable: "Fmetrics.classification.multiclass_accuracy"
+      kwargs:
+        top_k: 30
+        num_classes: 100
 
 data:
-  dataset_path: "../../dataset/"
+  dataset_path: "../../../dataset/geolifeclef-2022-lifeclef-2022-fgvc9"
   minigeolifeclef: true
   train_batch_size: 32
   inference_batch_size: 256
   num_workers: 8
+
+task:
+  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  

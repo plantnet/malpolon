@@ -2,31 +2,20 @@ import os
 from pathlib import Path
 
 import hydra
-from omegaconf import DictConfig
 import pytorch_lightning as pl
 import torch
-import torchmetrics.functional as Fmetrics
+from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
+from transforms import PreprocessRGBTemperatureData
 
 from malpolon.data.data_module import BaseDataModule
+from malpolon.data.datasets.geolifeclef2022 import (GeoLifeCLEF2022Dataset,
+                                                    MiniGeoLifeCLEF2022Dataset)
 from malpolon.data.environmental_raster import PatchExtractor
-from malpolon.data.datasets.geolifeclef2022 import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
-from malpolon.models.multi_modal import HomogeneousMultiModalModel
-from malpolon.models.standard_prediction_systems import GenericPredictionSystem
 from malpolon.logging import Summary
-
-from transforms import RGBDataTransform, TemperatureDataTransform
-
-
-class PreprocessRGBTemperatureData:
-    def __call__(self, data):
-        rgb_data, temp_data = data["rgb"], data["environmental_patches"]
-
-        rgb_data = RGBDataTransform()(rgb_data)
-        temp_data = TemperatureDataTransform()(temp_data)
-
-        return torch.concat((rgb_data, temp_data))
+from malpolon.models.multi_modal import HomogeneousMultiModalModel
+from malpolon.models.standard_prediction_systems import ClassificationSystem
 
 
 class GeoLifeCLEF2022DataModule(BaseDataModule):
@@ -113,35 +102,21 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
         return dataset
 
 
-class ClassificationSystem(GenericPredictionSystem):
+class CustomClassificationSystem(ClassificationSystem):
     def __init__(
         self,
-        modalities_model: dict,
+        modalities_model: DictConfig,
         num_outputs: int,
-        lr: float = 1e-2,
-        weight_decay: float = 0,
-        momentum: float = 0.9,
-        nesterov: bool = True,
+        cfg_optimizer: DictConfig,
+        cfg_task: DictConfig,
     ):
         model = HomogeneousMultiModalModel(
             ["rgb", "temperature"],
             modalities_model,
             torch.nn.LazyLinear(num_outputs),
         )
-        loss = torch.nn.CrossEntropyLoss()
-        optimizer = torch.optim.SGD(
-            model.parameters(),
-            lr=lr,
-            weight_decay=weight_decay,
-            momentum=momentum,
-            nesterov=nesterov,
-        )
-        metrics = {
-            "accuracy": lambda y_hat, y: Fmetrics.classification.multiclass_accuracy(y_hat, y, num_classes=100),
-            "top_30_accuracy": lambda y_hat, y: Fmetrics.classification.multiclass_accuracy(y_hat, y, num_classes=100, top_k=30),
-        }
 
-        super().__init__(model, loss, optimizer, metrics)
+        super().__init__(model, **cfg_optimizer, **cfg_task)
 
 
 @hydra.main(version_base="1.1", config_path="config", config_name="homogeneous_multi_modal_model")
@@ -151,14 +126,14 @@ def main(cfg: DictConfig) -> None:
 
     datamodule = GeoLifeCLEF2022DataModule(**cfg.data)
 
-    model = ClassificationSystem(**cfg.model, **cfg.optimizer)
+    model = CustomClassificationSystem(**cfg.model, cfg_optimizer=cfg.optimizer, cfg_task=cfg.task)
 
     callbacks = [
         Summary(),
         ModelCheckpoint(
             dirpath=os.getcwd(),
-            filename="checkpoint-{epoch:02d}-{step}-{val_top_30_accuracy:.4f}",
-            monitor="val_top_30_accuracy",
+            filename="checkpoint-{epoch:02d}-{step}-{val_top_30_multiclass_accuracy:.4f}",
+            monitor="val_top_30_multiclass_accuracy",
             mode="max",
         ),
     ]

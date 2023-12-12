@@ -1,18 +1,18 @@
 import os
 
 import hydra
-from omegaconf import DictConfig
 import pytorch_lightning as pl
 import torchmetrics.functional as Fmetrics
+from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms
+from transforms import RGBDataTransform
 
 from malpolon.data.data_module import BaseDataModule
-from malpolon.data.datasets.geolifeclef2022 import GeoLifeCLEF2022Dataset, MiniGeoLifeCLEF2022Dataset
-from malpolon.models.standard_prediction_systems import FinetuningClassificationSystem
+from malpolon.data.datasets.geolifeclef2022 import (GeoLifeCLEF2022Dataset,
+                                                    MiniGeoLifeCLEF2022Dataset)
 from malpolon.logging import Summary
-
-from transforms import RGBDataTransform
+from malpolon.models.standard_prediction_systems import ClassificationSystem
 
 
 class GeoLifeCLEF2022DataModule(BaseDataModule):
@@ -34,10 +34,12 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
         train_batch_size: int = 32,
         inference_batch_size: int = 256,
         num_workers: int = 8,
+        download: bool = False,
     ):
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
         self.minigeolifeclef = minigeolifeclef
+        self.download = download
 
     @property
     def train_transform(self):
@@ -78,35 +80,10 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
             patch_data=["rgb"],
             use_rasters=False,
             transform=transform,
-            download=True,
+            download=self.download,
             **kwargs
         )
         return dataset
-
-
-class ClassificationSystem(FinetuningClassificationSystem):
-    def __init__(
-        self,
-        model: dict,
-        lr: float,
-        weight_decay: float,
-        momentum: float,
-        nesterov: bool,
-    ):
-        metrics = {
-            "accuracy": lambda y_hat, y: Fmetrics.classification.multiclass_accuracy(y_hat, y, num_classes=100),
-            "top_30_accuracy": lambda y_hat, y: Fmetrics.classification.multiclass_accuracy(y_hat, y, num_classes=100, top_k=30),
-        }
-
-        super().__init__(
-            model,
-            lr,
-            weight_decay,
-            momentum,
-            nesterov,
-            metrics,
-            task='multiclass',
-        )
 
 
 @hydra.main(version_base="1.1", config_path="config", config_name="mono_modal_3_channels_model")
@@ -116,14 +93,14 @@ def main(cfg: DictConfig) -> None:
 
     datamodule = GeoLifeCLEF2022DataModule(**cfg.data)
 
-    model = ClassificationSystem(cfg.model, **cfg.optimizer)
+    model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
     callbacks = [
         Summary(),
         ModelCheckpoint(
             dirpath=os.getcwd(),
-            filename="checkpoint-{epoch:02d}-{step}-{val_top_30_accuracy:.4f}",
-            monitor="val_top_30_accuracy",
+            filename="checkpoint-{epoch:02d}-{step}-{val_top_30_multiclass_accuracy:.4f}",
+            monitor="val_top_30_multiclass_accuracy",
             mode="max",
         ),
     ]
