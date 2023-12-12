@@ -1,13 +1,10 @@
+import timm
 import torch
 from torchvision import models
-import timm
 
 from malpolon.models.model_builder import (
-    change_first_convolutional_layer_modifier,
-    change_last_layer_modifier,
-    torchvision_model_provider,
-    timm_model_provider
-)
+    change_first_convolutional_layer_modifier, change_last_layer_modifier,
+    timm_model_provider, torchvision_model_provider)
 
 
 def test_change_first_convolutional_layer():
@@ -35,6 +32,8 @@ def test_change_first_convolutional_layer():
             2, num_input_channels, image_size, image_size, dtype=torch.float32
         )
         model(x)
+        
+test_change_first_convolutional_layer()
 
 def test_change_last_layer():
     model_names = [
@@ -65,11 +64,13 @@ def test_change_last_layer():
 
         assert y.shape[-1] == num_outputs
 
+
 def test_torchvision_model_provider():
     model_kwargs = {'weights': None}
     model_name = 'resnet18'
     model = torchvision_model_provider(model_name, **model_kwargs)
     assert isinstance(model, models.resnet.ResNet)
+
 
 def test_timm_model_provider():
     model_kwargs = {'pretrained': True}
