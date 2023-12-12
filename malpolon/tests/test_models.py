@@ -32,8 +32,6 @@ def test_change_first_convolutional_layer():
             2, num_input_channels, image_size, image_size, dtype=torch.float32
         )
         model(x)
-        
-test_change_first_convolutional_layer()
 
 def test_change_last_layer():
     model_names = [
