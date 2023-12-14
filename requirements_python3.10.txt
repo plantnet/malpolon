@@ -39,10 +39,8 @@ Sphinx==5.3.0
 stack-data==0.6.2
 tensorboard==2.14.1
 tifffile==2022.10.10
-timm==0.9.2
-torch==2.1.0
+timm==0.9.12
 torchgeo==0.5.0
 torchmetrics==1.2.0
-torchvision==0.16.0
 tqdm==4.66.1
 yarl==1.9.2

@@ -10,3 +10,11 @@ checkMyCode.sh
 docs/_build
 examples/micro_geolifeclef/dataset/patches
 examples/micro_geolifeclef/dataset/rasters
+
+### Example Data
+*.tif
+
+
+
+### Build Data
+build/
