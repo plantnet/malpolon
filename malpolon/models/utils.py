@@ -1,11 +1,56 @@
 """This file compiles useful functions related to models."""
 
 from __future__ import annotations
+
 from typing import Mapping, Union
 
+import torchmetrics.functional as Fmetrics
+from omegaconf import OmegaConf
 from torch import nn, optim
 
 from .model_builder import ModelBuilder
+
+FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.classification.binary_accuracy,
+                      'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
+                      'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
+
+
+def check_metric(metrics: OmegaConf) -> bool:
+    """_summary_
+
+    Parameters
+    ----------
+    metric_name : str
+        _description_
+    metric_type : str, optional
+        _description_, by default 'classification'
+
+    Returns
+    -------
+    bool
+        _description_
+    """
+    try:
+        metrics = OmegaConf.to_container(metrics)
+        for k, v in metrics.items():
+            if 'callable' in v:
+                metrics[k]['callable'] = eval(v['callable'])
+            else:
+                metrics[k]['callable'] = FMETRICS_CALLABLES[k]
+    except ValueError as e:
+        print('\n[WARNING]: Please make sure you have registered'
+              ' a dict-like value to your "metrics" key in your'
+              ' config file. Defaulting metrics to None.\n')
+        print(e, '\n')
+        metrics = None
+    except KeyError as e:
+        print('\n[WARNING]: Please make sure the name of your metrics'
+              ' registered in your config file match an entry'
+              ' in constant FMETRICS_CALLABLES.'
+              ' Defaulting metrics to None.\n')
+        print(e, '\n')
+        metrics = None
+    return metrics
 
 
 def check_loss(loss: nn.modules.loss._Loss) -> nn.modules.loss._Loss:

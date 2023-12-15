@@ -9,12 +9,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-import omegaconf
 import pytorch_lightning as pl
 import torch
 import torchmetrics.functional as Fmetrics
 
-from malpolon.data.utils import FMETRICS_CALLABLES
+from malpolon.models.utils import check_metric
 
 from .utils import check_loss, check_model, check_optimizer
 
@@ -274,8 +273,8 @@ class ClassificationSystem(GenericPredictionSystem):
             dictionnary containing the metrics to compute.
             Keys must match metrics' names and have a subkey with each
             metric's functional methods as value. This subkey is either
-            created from the FMETRICS_CALLABLES constant or supplied,
-            by the user directly.
+            created from the `malpolon.models.utils.FMETRICS_CALLABLES`
+            constant or supplied, by the user directly.
         task : str, optional
             machine learning task (used to format labels accordingly),
             by default 'classification_multiclass'
@@ -286,26 +285,7 @@ class ClassificationSystem(GenericPredictionSystem):
 
         if hparams_preprocess:
             task = task.split('classification_')[1]
-            try:
-                metrics = omegaconf.OmegaConf.to_container(metrics)
-                for k, v in metrics.items():
-                    if 'callable' in v:
-                        metrics[k]['callable'] = eval(v['callable'])
-                    else:
-                        metrics[k]['callable'] = FMETRICS_CALLABLES[k]
-            except ValueError as e:
-                print('\n[WARNING]: Please make sure you have registered'
-                      ' a dict-like value to your "metrics" key in your'
-                      ' config file. Defaulting metrics to None.\n')
-                print(e, '\n')
-                metrics = None
-            except KeyError as e:
-                print('\n[WARNING]: Please make sure the name of your metrics'
-                      ' registered in your config file match an entry'
-                      ' in constant FMETRICS_CALLABLES.'
-                      ' Defaulting metrics to None.\n')
-                print(e, '\n')
-                metrics = None
+            metrics = check_metric(metrics)
 
         self.lr = lr
         self.weight_decay = weight_decay
