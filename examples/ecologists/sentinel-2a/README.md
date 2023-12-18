@@ -191,7 +191,6 @@ Note that any of these parameters can also be passed through command line like s
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Additional notes
 ### Transfer learning
 
 - **Resuming training (same model)**
@@ -225,6 +224,7 @@ Future updates will aim at making this step easier.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## Additional notes
 ### Debugging
 
 For debugging purposes, using the `trainer.fast_dev_run=true` and `hydra.job.name=test` parameters can be handy:
