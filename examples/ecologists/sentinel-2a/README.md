@@ -1,3 +1,5 @@
+<a name="readme-top"></a>
+
 # Sentinel-2 Raster (using torchgeo) example
 
 This `torchgeo` based example performs multi-class species prediction using a CNN model on Sentinel-2A raster data and geolocated plant observations.
@@ -6,7 +8,6 @@ Sentinel-2A satellite data is hosted and available on [Microsoft Planetary Compu
 By default, sample data is downloaded from MPC, consisting of 1 tile, 4 bands (RGB-IR).
 
 ## Data
-
 ### Sample data
 
 The sample data used in this example consists of:
@@ -20,8 +21,6 @@ The sample data used in this example consists of:
      <figcaption>Sentinel-2A tile <code>T31TEJ</code> at 01/08/2019 (dd/mm/yy)</figcaption>
   </figure>
 </div>
-
-  
 
 - **Observations**: a CSV file containing a list of geolocated plant observations from the [Pl@ntNet](https://plantnet.org/) database. The CSV file contains the following columns:
   - `observation_id`: unique identifier of the observation
@@ -41,6 +40,8 @@ Species include:
 | Source |[Wikipedia: Himantoglossum hircinum](https://en.wikipedia.org/wiki/Himantoglossum_hircinum) | [Wikipedia: Mentha suaveolens](https://en.wikipedia.org/wiki/Mentha_suaveolens) | [Wikipedia: Ophrys apifera](https://en.wikipedia.org/wiki/Ophrys_apifera) | [Wikipedia: Orchis purpurea](https://en.wikipedia.org/wiki/Orchis_purpurea) | [Wikipedia: Stachys byzantina](https://en.wikipedia.org/wiki/Stachys_byzantina) | 
 | Author | [Jörg Hempel](https://commons.wikimedia.org/wiki/User:LC-de) <br> (24/05/2014) | [Broly0](https://commons.wikimedia.org/wiki/User:Smithh05) <br> (12/05/2009) |  [Orchi](https://commons.wikimedia.org/wiki/User:Orchi) <br> (15/06/2005) | [Francesco Scelsa](https://commons.wikimedia.org/w/index.php?title=User:Francesco_Scelsa&action=edit&redlink=1) <br> (10/05/2020) | [Jean-Pol GRANDMONT](https://commons.wikimedia.org/wiki/User:Jean-Pol_GRANDMONT) <br> (09/06/2010) |
 | License | CC BY-SA 3.0 de | CC0 | CC BY-SA 3.0 | CC BY-SA 4.0 | CC BY-SA 3.0 |
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Data loading and adding more data
 
@@ -74,6 +75,8 @@ The observations are loaded from the `<path_to_example>/dataset/observations.csv
 
 To extend your dataset, simply add more observations to the CSV file.
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ## Usage
 
 Examples are **ready-to-use scripts** that can be executed by a simple Python command. Every data, model and training parameters are specified in a `.yaml` configuration file located in the `config/` directory.
@@ -94,9 +97,13 @@ python cnn_on_rgbnir_torchgeo.py data.dataset_path=<DATASET_PATH> trainer.gpus=1
 
 Config parameters provided in this example are listed in the [Parameters](#parameters) section.
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ### Prediction
 
 Switch running mode from training to prediction by setting the config file parameter `run.predict` to `true` and specify a path to your model checkpoint. Both training and prediction mode are embedded in the example file.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Parameters
 
@@ -151,8 +158,8 @@ Hereafter is a detailed list of every sub parameters :
   - _nesterov_ : If `true`, adopts nesterov momentum; if `false`, adopts PyTorch's default strategy. Boolean parameter.
   - **metrics**
     - **_\<metric name\>_** : The name of your metric. Can either be a custom name or one of the keys listed in `malpolon.models.utils.FMETRICS_CALLABLES`. In the latter case, the _callable_ argument is not required.
-      - _callable (optional)_ : Name of the TorchMetrics functional metric to call. Find all functional metrics on the TorchMetrics documentation page such as [here](https://torchmetrics.readthedocs.io/en/stable/classification/accuracy.html#functional-interface) in the "functional Interface" section. Learn more about functional metrics [here](https://lightning.ai/docs/torchmetrics/stable/pages/quickstart.html#functional-metrics). Takes a string as input.
-      - _kwargs_ : any key-value arguments compatible with the selected metric sur as `num_classes` or `threshold`. See [TorchMetrics documentation](https://lightning.ai/docs/torchmetrics/stable/all-metrics.html) for the complete list of kwargs to your metric.
+      - _callable (optional)_ : Name of the TorchMetrics functional metric to call _(e.g.: `'torchmetrics.functional.classification.multiclass_accuracy'`)_. Find all functional metrics on the TorchMetrics documentation page such as [here](https://torchmetrics.readthedocs.io/en/stable/classification/accuracy.html#functional-interface) in the "functional Interface" section. Learn more about functional metrics [here](https://lightning.ai/docs/torchmetrics/stable/pages/quickstart.html#functional-metrics). Takes a string as input.
+      - _kwargs_ : any key-value arguments compatible with the selected metric such as `num_classes` or `threshold`. See [TorchMetrics documentation](https://lightning.ai/docs/torchmetrics/stable/all-metrics.html) for the complete list of kwargs to your metric.
   - **data**
     - _dataset\_path_ : path to the dataset. At the moment, patches and rasters should be directly put in this directory. Takes a string as input.
     - _labels\_name_ : name of the file containing the labels which should be located in the same directory as the data. Takes a string as input.
@@ -161,30 +168,66 @@ Hereafter is a detailed list of every sub parameters :
     - _inference\_batch\_size_ : size of inference batches. Takes an integer as input.
     - _num\_workers_ : number of worker processes to use for loading the data. When you set the “number of workers” parameter to a value greater than 0, the DataLoader will load data in parallel using multiple worker processes. Takes an integer as input.
     - _units_ : unit system of the queries performed on the dataset. This value should be equal to the units of your observations, which can be different from you dataset's unit system. Takes any string in [`'crs'`, `'pixel'`, `'m'`, `'meter'`, `'metre'`] as input.
-    - _crs_ : coordinate reference system of the queries performed on the dataset. This value should be equal to the CRS of ### Inference
+    - _crs_ : coordinate reference system of the queries performed on the dataset. This value should be equal to the CRS of your observations, which can be different from your dataset's CRS. Takes an integer as input.
+- **task**
+  - _task_ : deep learning task to be performed. At the moment, can take any value in [`'classification_binary'`, `'classification_multiclass'`, `'classification_multilabel'`].  Takes a string as input.
 
-Switch running mode from training to prediction by setting the config file parameter `run.predict` to `true` and specify a path to your model checkpoint. Both training and prediction mode are embedded in the example file.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+### Inference
+
+This example is configured to run in training mode by default but if you want to re-use it for prediction, follow these steps:
+
+- Change config file parameter `run.predict` to `true` 
+- Specify a path to your model checkpoint in parameter `run.checkpoint_path`
 
 Note that any of these parameters can also be passed through command line like shown in the previous section and overrule those of the config file.
 
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ## Additional notes
 ### Transfer learning
-Be aware that for now there are no tools provided to easily freeze or manage layers during training. Thus you may encounter errors when trying to train a model with pre-trained weights _(e.g. from ImageNet)_ on RGB-IR data as most of pre-trained models are done over 3 RGB images.
 
-To avoid such issue, either :
-- train from scratch by setting hyperparameter `model.model_kwargs.pretrained` to false
-- manually change your model and freeze strategy before `trainer.fit` (in your main script) to only train 3 bands at once
-- restrain your trainings to 3 bands and merge several trainings output features
+- **Resuming training (same model)**
+
+To resume a training or perform transfer learning with the same model without changing its channels, update your configuration file checkpoint path, and run your script in training mode:
+
+```yaml
+run:
+  predict: false
+  checkpoint_path: <PATH_TO_CHECKPOINT>
+```
+
+A new output folder will be generated.
+
+- **Transfer with model modifications**
+
+Be aware that for now there are no tools provided to easily freeze or manage intermediate layers during training. Thus you may encounter challenges when trying to train a model with pre-trained weights _(e.g. from ImageNet)_ on RGB-IR (and more) data as most of the pre-trained models are done over 3-channels RGB images.
+
+However, Malpolon provides methods to modify your **first** and **last** model layers. These methods are located in `malpolon.models.model_builder.py`:
+
+- `change_first_convolutional_layer_modifier()`
+- `change_last_layer_modifier()`
+- `change_last_layer_to_identity_modifier()`
+
+Furthermore to perform transfer learning in this context you can :
+- Train from scratch by setting config hyperparameter `model.model_kwargs.pretrained` to false
+- Manually change your model and use a freeze strategy before `trainer.fit` (in your main script) to only train 3 bands at once
+- Restrain your trainings to 3 bands and merge several trainings output features
 
 Future updates will aim at making this step easier.
 
-Otherwise, to simply resume a training or perform transfer learning on 3-channels models, simply update the path to your model checkpoint in your configuration file, and run your script in training mode. A new output folder will be generated.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Debugging
 
 For debugging purposes, using the `trainer.fast_dev_run=true` and `hydra.job.name=test` parameters can be handy:
-```script
+
+```bash
 python cnn_on_rgb_patches.py data.dataset_path=<DATASET_PATH> trainer.gpus=1 +trainer.fast_dev_run=true +hydra.job.name=test
 ```
 
-Be careful when using any path argument like `data.dataset_path`, since each `.yaml` file contains a `hydra.run.dir` argument set with a default value of `outputs/<hydra job name>/<date>` (with `<hydra job name>` itself defaulting to the name of the file executed), the current working directory will be changed to said path once the config file is read and loaded. Therefore any other path argument should be written relatively to that `hydra.run.dir` path.
+Be careful when using any path argument like `data.dataset_path`, hydra will automatically change the current working directory to the path specified in `hydra.run.dir` which is by default `outputs/<hydra job name>/<date>` (where `<hydra job name>` equals the name of your example file).
+Consequently, any path related argument you should be writtent relatively to `hydra.run.dir` (e.g. `data.dataset_path: ../../../dataset`).
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
