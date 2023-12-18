@@ -109,19 +109,20 @@ Switch running mode from training to prediction by setting the config file param
 
 All hyperparameters are specified in `.yaml` configuration files located in a `config/` directory, which are read and transformed into a dictionaries by the [**Hydra**](https://hydra.cc/docs/intro/) library.
 
-You can parametrize your models and your training routine through your `.yaml` config file which is split in 5 main sections :
+You can parametrize your models and your training routine through your `.yaml` config file which is split in main sections :
 
-- **trainer** : contains parameters to tweak your training session via pytorchlightning Trainer class
-- **run** : contains parameters related to prediction and transfer learning
-- **model** : defines which model you want to load, from which source, and contains models hyperparameters. You can pass any model hyperparameter listed in your provider's model builder.
-- **optimizer** : contains your optimizer's and metrics hyperparameters.
-- **data** : contains data related information such as the path to your dataset and batch size.
-- **task** : defines the type of deep learning task chosen for your experiment (currently only supporting any of `['classification_binary', 'classification_multiclass', 'classification_multilabel']`)
-
-Key-value pairs from **data** and **task** are passed as input arguments of your data module _(e.g. `Sentinel2TorchGeoDataModule`)_.\
-Key-value pairs from **model**, **optimizer** and **task** are passed as input arguments of your prediction system _(e.g. `ClassificationSystem`)_.\
-Key-value pairs from **trainer** are passed as input arguments of your pytorchlightning trainer.\
-Key-value pairs from **run** are passed as input arguments of your PyTorchLightning checkpoint loading method.
+- **trainer** : parameters to tweak your training session via pytorchlightning Trainer class\
+  This section is passed on to your PyTorchLightning trainer.
+- **run** : parameters related to prediction and transfer learning\
+  This section is passed on to your PyTorchLightning checkpoint loading method.
+- **model** : defines which model you want to load, from which source, and contains models hyperparameters. You can pass any model hyperparameter listed in your provider's model builder.\
+  This section is passed on to your prediction system _(e.g. `ClassificationSystem`)_.
+- **optimizer** : your optimizer and metrics hyperparameters.\
+  This section is passed on to your prediction system _(e.g. `ClassificationSystem`)_.
+- **task** : defines the type of deep learning task chosen for your experiment (currently only supporting any of `['classification_binary', 'classification_multiclass', 'classification_multilabel']`)\
+  This section is passed on to your prediction system _(e.g. `ClassificationSystem`)_.
+- **data** : data related information such as the path to your dataset and batch size.\
+  This section is passed on to your data module _(e.g. `Sentinel2TorchGeoDataModule`)_.
 
 Hereafter is a detailed list of every sub parameters :
 
