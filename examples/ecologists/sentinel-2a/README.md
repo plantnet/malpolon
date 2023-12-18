@@ -152,6 +152,7 @@ Hereafter is a detailed list of every sub parameters :
       - _num\_input\_channels_ : Number of input channels you would like your model to take instead of its default value. Takes an integer as input.
     - **change_last_layer**
       - _num\_outputs_ : Number of output channels you would like your model to have instead of its default value. Takes an integer as input.
+
 - **optimizer**
   - _lr_ : learning rate. Takes a float as input.
   - _weight\_decay_ : model's weight decay. Takes a float as input.
@@ -161,17 +162,20 @@ Hereafter is a detailed list of every sub parameters :
     - **_\<metric name\>_** : The name of your metric. Can either be a custom name or one of the keys listed in `malpolon.models.utils.FMETRICS_CALLABLES`. In the latter case, the _callable_ argument is not required.
       - _callable (optional)_ : Name of the TorchMetrics functional metric to call _(e.g.: `'torchmetrics.functional.classification.multiclass_accuracy'`)_. Find all functional metrics on the TorchMetrics documentation page such as [here](https://torchmetrics.readthedocs.io/en/stable/classification/accuracy.html#functional-interface) in the "functional Interface" section. Learn more about functional metrics [here](https://lightning.ai/docs/torchmetrics/stable/pages/quickstart.html#functional-metrics). Takes a string as input.
       - _kwargs_ : any key-value arguments compatible with the selected metric such as `num_classes` or `threshold`. See [TorchMetrics documentation](https://lightning.ai/docs/torchmetrics/stable/all-metrics.html) for the complete list of kwargs to your metric.
-  - **data**
-    - _dataset\_path_ : path to the dataset. At the moment, patches and rasters should be directly put in this directory. Takes a string as input.
-    - _labels\_name_ : name of the file containing the labels which should be located in the same directory as the data. Takes a string as input.
-    - _download\_data\_sample_ : If `true`, a small sample of the example's dataset will be downloaded (if not already on your machine); if `false`, will not. Boolean parameter.
-    - _train\_batch\_size_ : size of train batches. Takes an integer as input.
-    - _inference\_batch\_size_ : size of inference batches. Takes an integer as input.
-    - _num\_workers_ : number of worker processes to use for loading the data. When you set the “number of workers” parameter to a value greater than 0, the DataLoader will load data in parallel using multiple worker processes. Takes an integer as input.
-    - _units_ : unit system of the queries performed on the dataset. This value should be equal to the units of your observations, which can be different from you dataset's unit system. Takes any string in [`'crs'`, `'pixel'`, `'m'`, `'meter'`, `'metre'`] as input.
-    - _crs_ : coordinate reference system of the queries performed on the dataset. This value should be equal to the CRS of your observations, which can be different from your dataset's CRS. Takes an integer as input.
+
 - **task**
   - _task_ : deep learning task to be performed. At the moment, can take any value in [`'classification_binary'`, `'classification_multiclass'`, `'classification_multilabel'`].  Takes a string as input.
+
+- **data**
+  - _dataset\_path_ : path to the dataset. At the moment, patches and rasters should be directly put in this directory. Takes a string as input.
+  - _labels\_name_ : name of the file containing the labels which should be located in the same directory as the data. Takes a string as input.
+  - _download\_data\_sample_ : If `true`, a small sample of the example's dataset will be downloaded (if not already on your machine); if `false`, will not. Boolean parameter.
+  - _train\_batch\_size_ : size of train batches. Takes an integer as input.
+  - _inference\_batch\_size_ : size of inference batches. Takes an integer as input.
+  - _num\_workers_ : number of worker processes to use for loading the data. When you set the “number of workers” parameter to a value greater than 0, the DataLoader will load data in parallel using multiple worker processes. Takes an integer as input.
+  - _units_ : unit system of the queries performed on the dataset. This value should be equal to the units of your observations, which can be different from you dataset's unit system. Takes any string in [`'crs'`, `'pixel'`, `'m'`, `'meter'`, `'metre'`] as input.
+  - _crs_ : coordinate reference system of the queries performed on the dataset. This value should be equal to the CRS of your observations, which can be different from your dataset's CRS. Takes an integer as input.
+
 </details>
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
