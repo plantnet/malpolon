@@ -19,6 +19,14 @@ It consists of:
     Resolution: 1 meter per pixel
     Source: NAIP for US and IGN for France
 
+<div align="center">
+  <figure>
+      <img src="../../../docs/resources/mlc_10000660_nir.png" alt="mlc_10000660_nir_preview" width="300"></a>
+      <br/>
+     <figcaption>IGN Near Infra-Red patch (id 10000660)</figcaption>
+  </figure>
+</div>
+
 - **Environmental rasters**: pre-extracted patches of high-resolution rasters centered at each observation and full low-resolution rasters
   - Land cover data: patches centered at each observation
     - _Format_: 256x256 TIFF files with Deflate compression
@@ -36,6 +44,16 @@ It consists of:
     - _Format_: GeoTIFF files with LZW compression
     - _Resolution_: 250 meters per pixel
     - _Source_: SoilGrids for US and France
+
+
+<div align="center">
+  <figure>
+      <img src="../../../docs/resources/mlc_10000660_altitude.png" alt="mlc_10000660_nir_preview" width="200" style="margin: 10px"></a>
+      <img src="../../../docs/resources/mlc_10000660_landcover.png" alt="mlc_10000660_nir_preview" width="200" style="margin: 10px"></a>
+      <br/>
+     <figcaption>STRMGL1 Altitude (left) and Cesbio Land cover (right) patches (id 10000660)</figcaption>
+  </figure>
+</div>
 
 - **Observations**
 
