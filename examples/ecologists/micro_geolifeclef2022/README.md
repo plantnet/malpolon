@@ -21,7 +21,7 @@ It consists of:
 
 <div align="center">
   <figure>
-      <img src="../../../docs/resources/mlc_10000660_nir.png" alt="mlc_10000660_nir_preview" width="300"></a>
+      <img src="../../../docs/resources/mlc_10000660_nir.jpg" alt="mlc_10000660_nir_preview" width="250"></a>
       <br/>
      <figcaption>IGN Near Infra-Red patch (id 10000660)</figcaption>
   </figure>

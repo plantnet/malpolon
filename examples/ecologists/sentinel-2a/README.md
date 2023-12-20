@@ -16,7 +16,7 @@ The sample data used in this example consists of:
 <div align="center">
   <figure>
     <a href="https://planetarycomputer.microsoft.com/explore?c=4.0129%2C43.6370&z=10.30&v=2&d=sentinel-2-l2a&m=cql%3A17367ba270405507e8f9aa7772327681&r=Natural+color&s=false%3A%3A100%3A%3Atrue&sr=desc&ae=0">
-      <img src="../../../docs/resources/S2A_MSIL2A_20190801T104031_R008_T31TEJ_20201004T190635_preview.png" alt="Sentinel2A_T31TEJ_preview" width="300"></a>
+      <img src="../../../docs/resources/S2A_MSIL2A_20190801T104031_R008_T31TEJ_20201004T190635_preview.jpg" alt="Sentinel2A_T31TEJ_preview" width="300"></a>
       <br/>
      <figcaption>Sentinel-2A tile <code>T31TEJ</code> at 01/08/2019 (dd/mm/yy)</figcaption>
   </figure>

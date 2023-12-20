@@ -1,7 +1,7 @@
 # GeoLifeCLEF 2023
 
 <div align="center">
-  <a href="https://www.kaggle.com/competitions/geolifeclef-2023-lifeclef-2023-x-fgvc10?rvi=1"><img src="../../../docs/resources/GLC2023_thumbnail.png" alt="glc23_thumbnail" style="width: 200px;  margin-top: 15px; margin-right: 50px;"></a>
+  <a href="https://www.kaggle.com/competitions/geolifeclef-2023-lifeclef-2023-x-fgvc10?rvi=1"><img src="../../../docs/resources/GLC2023_thumbnail.jpg" alt="glc23_thumbnail" style="width: 200px;  margin-top: 15px; margin-right: 50px;"></a>
 </div>
 
 This repository is related to the GeoLifeCLEF challenge.
