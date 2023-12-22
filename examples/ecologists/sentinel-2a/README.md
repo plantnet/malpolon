@@ -1,13 +1,14 @@
 <a name="readme-top"></a>
 
-# Sentinel-2 Raster (using torchgeo) example
+# Sentinel-2A raster example (training)
 
-This `torchgeo` based example performs multi-class species prediction using a CNN model on Sentinel-2A raster data and geolocated plant observations.
+This `torchgeo` based example performs multi-class species training/prediction using a CNN model on Sentinel-2A raster data and geolocated plant observations.
 
 Sentinel-2A satellite data is hosted and available on [Microsoft Planetary Computer](https://planetarycomputer.microsoft.com/dataset/sentinel-2-l2a) (MPC).\
 By default, sample data is downloaded from MPC, consisting of 1 tile, 4 bands (RGB-IR).
 
 ## Data
+
 ### Sample data
 
 The sample data used in this example consists of:
@@ -101,17 +102,22 @@ Config parameters provided in this example are listed in the [Parameters](#param
 
 ### Prediction
 
-Switch running mode from training to prediction by setting the config file parameter `run.predict` to `true` and specify a path to your model checkpoint. Both training and prediction mode are embedded in the example file.
+This example is configured to run in training mode by default but if you want to re-use it for prediction, follow these steps:
+
+- Change config file parameter `run.predict` to `true` 
+- Specify a path to your model checkpoint in parameter `run.checkpoint_path`
+
+Note that any of these parameters can also be passed through command line like shown in the previous section and overrule those of the config file.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Parameters
 
-All hyperparameters are specified in `.yaml` configuration files located in a `config/` directory, which are read and transformed into a dictionaries by the [**Hydra**](https://hydra.cc/docs/intro/) library.
+All hyperparameters are specified in a `.yaml` configuration file located in a `config/` directory, which is read and transformed into a dictionary by the [**Hydra**](https://hydra.cc/docs/intro/) library.
 
 You can parametrize your models and your training routine through your `.yaml` config file which is split in main sections :
 
-- **trainer** : parameters to tweak your training session via pytorchlightning Trainer class\
+- **trainer** : parameters to tweak your training session via PyTorchLightning Trainer class\
   This section is passed on to your PyTorchLightning trainer.
 - **run** : parameters related to prediction and transfer learning\
   This section is passed on to your PyTorchLightning checkpoint loading method.
@@ -121,7 +127,7 @@ You can parametrize your models and your training routine through your `.yaml` c
   This section is passed on to your prediction system _(e.g. `ClassificationSystem`)_.
 - **task** : defines the type of deep learning task chosen for your experiment (currently only supporting any of `['classification_binary', 'classification_multiclass', 'classification_multilabel']`)\
   This section is passed on to your prediction system _(e.g. `ClassificationSystem`)_.
-- **data** : data related information such as the path to your dataset and batch size.\
+- **data** : data related information such as the path to your dataset or batch size.\
   This section is passed on to your data module _(e.g. `Sentinel2TorchGeoDataModule`)_.
 
 Hereafter is a detailed list of every sub parameters :
@@ -130,64 +136,55 @@ Hereafter is a detailed list of every sub parameters :
   <summary><i><u>Click here to expand sub parameters</u></i></summary>
 
 - **trainer**
-  - _accelerator_ : Selects the type of hardware you want your example to run from. Either `'gpu'` or `'cpu'`.
-  - _devices_ : Defines how many accelerator devices you want to use for parallelization. Takes an integer as input.
-  - _max_epochs_ : The maximum number of training epochs. Takes an integer as input.
-  - _check_val_every_n_epoch_ : Defines the interval of epochs on which validation should be performed throughout training. Takes an integer as input.
+  - **accelerator** _(str)_ : Selects the type of hardware you want your example to run on. Either `'gpu'` or `'cpu'`.
+  - **devices** _(int)_ : Defines how many accelerator devices you want to use for parallelization.
+  - **max_epochs** _(int)_ : The maximum number of training epochs.
+  - **check_val_every_n_epoch** _(int)_ : Defines the interval of epochs on which validation should be performed throughout training.
 - **run**
-  - _predict_ : If set to `true`, runs your example in inference mode; if set to `false`, runs your example in training mode. Boolean parameter.
-  - _checkpoint\_path_ : Path to the PyTorch checkpoint you wish to load weights from either for inference mode, for resuming training or perform transfer learning. Takes a string as input.
+  - **predict** _(bool)_ : If set to `true`, runs your example in inference mode; if set to `false`, runs your example in training mode.
+  - **checkpoint\_path** _(str)_ : Path to the PyTorch checkpoint you wish to load weights from either for inference mode, for resuming training or perform transfer learning.
 - **model**
-  - _provider\_name_ : Defines the source you want to load your models from. Models from the timm and torchvision repositories can be downloaded with or without pre-trained weights and are fully PyTorch compatible. Either `'timm'` or `'torchvision'`.
-  - _model\_name_ : Name of the model your wish to retrieve from your provider. For a complete list of available models, please refer to [timm's]() and [torchvision's]() documentations. Takes a string as input.
-  - **model_kwargs** (parameters forwarded to the model constructor. You may add any parameter in this section belonging to your model's constructor. Leave empty (None) to use the model's default parameter value.)
-    - _pretrained_ : If `true`, your model will be retrieved with pre-trained weights; if `false`, your model will be retrieved with no weights and training will have to be conducted from scratch. Boolean parameter.
-    - _num_classes_ : Number of classes for you classification task. Takes an integer as input.
-    - _in\_chans_ : Number of input channels. Takes an integer as input.
-    - _output\_stride_ : Output stride value for CNN models. This parameter defines how much the convolution window is shifted when performing convolution. Takes an integer as input.
-    - _global\_pool_ : Type of global pooling. Takes any string value in [`'avg'`, `'max'`, `'avgmax'`, `'catavgmax'`].
+  - **provider\_name** _(str)_ : Defines the source you want to load your models from. Models from the timm and torchvision repositories can be downloaded with or without pre-trained weights and are fully PyTorch compatible. Either `'timm'` or `'torchvision'`.
+  - **model\_name** _(str)_ : Name of the model you wish your provider to retrieve. For a complete list of available models, please refer to [timm's](https://timm.fast.ai/) and [torchvision's](https://pytorch.org/vision/stable/models.html) documentations.
+  - **model_kwargs**\
+    Parameters forwarded to the model constructor. You may add any parameter in this section belonging to your model's constructor. Leave empty (None) to use the model's default parameter value.
+    - **pretrained** _(bool)_ : If `true`, your model will be retrieved with pre-trained weights; if `false`, your model will be retrieved with no weights and training will have to be conducted from scratch.
+    - **num_classes** _(int)_ : Number of classes for you classification task.
+    - **in\_chans** _(int)_ : Number of input channels.
+    - **output\_stride** _(int)_ : Output stride value for CNN models. This parameter defines how much the convolution window is shifted when performing convolution.
+    - **global\_pool** _(str)_ : Type of global pooling. Takes any value in [`'avg'`, `'max'`, `'avgmax'`, `'catavgmax'`].
     - ...
-  - **modifiers** (malpolon's modifiers you can call to modify your model's structure or behavior)
+  - **modifiers**\
+    Malpolon's modifiers you can call to modify your model's structure or behavior.
     - **change\_first\_convolutional\_layer**
-      - _num\_input\_channels_ : Number of input channels you would like your model to take instead of its default value. Takes an integer as input.
+      - **num\_input\_channels** _(int)_ : Number of input channels you would like your model to take instead of its default value.
     - **change_last_layer**
-      - _num\_outputs_ : Number of output channels you would like your model to have instead of its default value. Takes an integer as input.
+      - **num\_outputs** _(int)_ : Number of output channels you would like your model to have instead of its default value.
 
 - **optimizer**
-  - _lr_ : learning rate. Takes a float as input.
-  - _weight\_decay_ : model's weight decay. Takes a float as input.
-  - _momentum_ : model's momentum factor. Takes a float as input.
-  - _nesterov_ : If `true`, adopts nesterov momentum; if `false`, adopts PyTorch's default strategy. Boolean parameter.
+  - **lr** (_float)_ : Learning rate.
+  - **weight\_decay** _(float)_ : Model's regularization parameter that penalizes large weights. Takes any floating value in `[0, 1]`.
+  - **momentum** _(float)_ : Model's momentum factor which acts on the model's gradient descent by minimizing its oscillations thus accelerating the convergence and avoiding being trapped in local minimas. Takes ano floating value in `[0, 1]`.
+  - **nesterov** _(bool)_ : If `true`, adopts nesterov momentum; if `false`, adopts PyTorch's default strategy.
   - **metrics**
     - **_\<metric name\>_** : The name of your metric. Can either be a custom name or one of the keys listed in `malpolon.models.utils.FMETRICS_CALLABLES`. In the latter case, the _callable_ argument is not required.
-      - _callable (optional)_ : Name of the TorchMetrics functional metric to call _(e.g.: `'torchmetrics.functional.classification.multiclass_accuracy'`)_. Find all functional metrics on the TorchMetrics documentation page such as [here](https://torchmetrics.readthedocs.io/en/stable/classification/accuracy.html#functional-interface) in the "functional Interface" section. Learn more about functional metrics [here](https://lightning.ai/docs/torchmetrics/stable/pages/quickstart.html#functional-metrics). Takes a string as input.
-      - _kwargs_ : any key-value arguments compatible with the selected metric such as `num_classes` or `threshold`. See [TorchMetrics documentation](https://lightning.ai/docs/torchmetrics/stable/all-metrics.html) for the complete list of kwargs to your metric.
+      - **callable** (optional) _(str)_ : Name of the TorchMetrics functional metric to call _(e.g.: `'torchmetrics.functional.classification.multiclass_accuracy'`)_. Find all functional metrics on the TorchMetrics documentation page such as [here](https://torchmetrics.readthedocs.io/en/stable/classification/accuracy.html#functional-interface) in the "functional Interface" section. Learn more about functional metrics [here](https://lightning.ai/docs/torchmetrics/stable/pages/quickstart.html#functional-metrics). Takes a string as input.
+      - **_kwargs_** (optional) : any key-value arguments compatible with the selected metric such as `num_classes` or `threshold`. See [TorchMetrics documentation](https://lightning.ai/docs/torchmetrics/stable/all-metrics.html) for the complete list of kwargs to your metric.
 
 - **task**
-  - _task_ : deep learning task to be performed. At the moment, can take any value in [`'classification_binary'`, `'classification_multiclass'`, `'classification_multilabel'`].  Takes a string as input.
+  - **task** _(str)_ : deep learning task to be performed. At the moment, can take any value in [`'classification_binary'`, `'classification_multiclass'`, `'classification_multilabel'`].
 
 - **data**
-  - _dataset\_path_ : path to the dataset. At the moment, patches and rasters should be directly put in this directory. Takes a string as input.
-  - _labels\_name_ : name of the file containing the labels which should be located in the same directory as the data. Takes a string as input.
-  - _download\_data\_sample_ : If `true`, a small sample of the example's dataset will be downloaded (if not already on your machine); if `false`, will not. Boolean parameter.
-  - _train\_batch\_size_ : size of train batches. Takes an integer as input.
-  - _inference\_batch\_size_ : size of inference batches. Takes an integer as input.
-  - _num\_workers_ : number of worker processes to use for loading the data. When you set the “number of workers” parameter to a value greater than 0, the DataLoader will load data in parallel using multiple worker processes. Takes an integer as input.
-  - _units_ : unit system of the queries performed on the dataset. This value should be equal to the units of your observations, which can be different from you dataset's unit system. Takes any string in [`'crs'`, `'pixel'`, `'m'`, `'meter'`, `'metre'`] as input.
-  - _crs_ : coordinate reference system of the queries performed on the dataset. This value should be equal to the CRS of your observations, which can be different from your dataset's CRS. Takes an integer as input.
+  - **dataset\_path** _(str)_ : path to the dataset. At the moment, patches and rasters should be directly put in this directory.
+  - **labels\_name** _(str)_ : name of the file containing the labels which should be located in the same directory as the data.
+  - **download\_data\_sample** _(bool)_ : If `true`, a small sample of the example's dataset will be downloaded (if not already on your machine); if `false`, will not.
+  - **train\_batch\_size** _(int)_ : size of train batches.
+  - **inference\_batch\_size** _(int)_ : size of inference batches.
+  - **num\_workers** _(int)_ : number of worker processes to use for loading the data. When you set the “number of workers” parameter to a value greater than 0, the DataLoader will load data in parallel using multiple worker processes.
+  - **units** _(str)_ : unit system of the queries performed on the dataset. This value should be equal to the units of your observations, which can be different from you dataset's unit system. Takes any value in [`'crs'`, `'pixel'`, `'m'`, `'meter'`, `'metre'`] as input.
+  - **crs** _(int)_ : coordinate reference system of the queries performed on the dataset. This value should be equal to the CRS of your observations, which can be different from your dataset's CRS.
 
 </details>
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-### Inference
-
-This example is configured to run in training mode by default but if you want to re-use it for prediction, follow these steps:
-
-- Change config file parameter `run.predict` to `true` 
-- Specify a path to your model checkpoint in parameter `run.checkpoint_path`
-
-Note that any of these parameters can also be passed through command line like shown in the previous section and overrule those of the config file.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -207,7 +204,7 @@ A new output folder will be generated.
 
 - **Transfer with model modifications**
 
-Be aware that for now there are no tools provided to easily freeze or manage intermediate layers during training. Thus you may encounter challenges when trying to train a model with pre-trained weights _(e.g. from ImageNet)_ on RGB-IR (and more) data as most of the pre-trained models are done over 3-channels RGB images.
+Be aware that for now there are no tools provided to easily freeze or manage intermediate layers during training. Thus you may encounter challenges when trying to train a model with pre-trained weights _(e.g. from ImageNet)_ on 4-channels (or more) data like RGB-IR as most of the pre-trained models are done over 3-channels RGB images.
 
 However, Malpolon provides methods to modify your **first** and **last** model layers. These methods are located in `malpolon.models.model_builder.py`:
 
@@ -215,10 +212,10 @@ However, Malpolon provides methods to modify your **first** and **last** model l
 - `change_last_layer_modifier()`
 - `change_last_layer_to_identity_modifier()`
 
-Furthermore to perform transfer learning in this context you can :
+Furthermore to perform transfer learning with model modifications you can :
 - Train from scratch by setting config hyperparameter `model.model_kwargs.pretrained` to false
 - Manually change your model and use a freeze strategy before `trainer.fit` (in your main script) to only train 3 bands at once
-- Restrain your trainings to 3 bands and merge several trainings output features
+- Restrain your trainings to 3 bands and merge several output features
 
 Future updates will aim at making this step easier.
 
@@ -233,7 +230,7 @@ For debugging purposes, using the `trainer.fast_dev_run=true` and `hydra.job.nam
 python cnn_on_rgb_patches.py data.dataset_path=<DATASET_PATH> trainer.gpus=1 +trainer.fast_dev_run=true +hydra.job.name=test
 ```
 
-Be careful when using any path argument like `data.dataset_path`, hydra will automatically change the current working directory to the path specified in `hydra.run.dir` which is by default `outputs/<hydra job name>/<date>` (where `<hydra job name>` equals the name of your example file).
-Consequently, any path related argument you should be writtent relatively to `hydra.run.dir` (e.g. `data.dataset_path: ../../../dataset`).
+Be careful when using any path argument like `data.dataset_path`, hydra will automatically change the current working directory to the path specified in `hydra.run.dir` which is by default `outputs/<hydra_job_name>/<date>` (where `<hydra_job_name>` equals the name of your example file).
+Consequently, any path related argument you should be written relatively to `hydra.run.dir` (e.g. `data.dataset_path: ../../../dataset`).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

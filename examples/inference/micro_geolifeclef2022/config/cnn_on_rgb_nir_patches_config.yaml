@@ -2,8 +2,8 @@ defaults:
   - cnn_on_rgb_patches_config
 
 run:
-  predict: true
-  checkpoint_path: ??? # Relative to hydra.run.dir
+  predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point]
+  checkpoint_path: ???  # Relative to hydra.run.dir
 
 model:
   modifiers:

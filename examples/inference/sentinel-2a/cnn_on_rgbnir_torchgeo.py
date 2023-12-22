@@ -48,23 +48,24 @@ def main(cfg: DictConfig) -> None:
     ]
     trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
 
-    if cfg.run.predict:
-        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
-                                                                 model=model.model,
-                                                                 hparams_preprocess=False)
+    model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
+                                                             model=model.model,
+                                                             hparams_preprocess=False)
 
+    if cfg.run.predict_type == 'test_dataset':
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
         predictions = model_loaded.predict(datamodule, trainer)
         preds, probas = datamodule.predict_logits_to_class(predictions)
         datamodule.export_predict_csv(preds, probas, out_name='predictions_test_dataset', return_csv=True)
         print('Test dataset prediction (extract) : ', predictions[:10])
 
+    elif cfg.run.predict_type == 'test_point':
         # Option 2: Predict 1 data point (Pytorch)
         test_data = datamodule.get_test_dataset()
         query_point = {'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
-                       'crs': 4326,
-                       'size': datamodule.size,
-                       'units': datamodule.units}
+                        'crs': 4326,
+                        'size': datamodule.size,
+                        'units': datamodule.units}
         test_data_point = test_data[query_point][0]
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
@@ -73,9 +74,6 @@ def main(cfg: DictConfig) -> None:
         preds, probas = datamodule.predict_logits_to_class(prediction)
         datamodule.export_predict_csv(preds, probas, single_point_query=query_point, out_name='prediction_point', return_csv=True)
         print('Point prediction : ', prediction.shape, prediction)
-    else:
-        trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
-        trainer.validate(model, datamodule=datamodule)
 
 
 if __name__ == "__main__":

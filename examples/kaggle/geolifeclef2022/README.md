@@ -26,6 +26,5 @@ python <name_of_the_script>.py
 ```
 
 Several scripts already exist, using different modalities and environmental variables and they use different config files.
-- `cnn_on_rgb_patches.py` uses `mono_modal_3_channels_model.yaml`
+- `cnn_on_rgb_patches.py` and `cnn_on_temperature_patches.py` use `mono_modal_3_channels_model.yaml`
 - `cnn_on_rgb_temperature_patches.py` uses `homogeneous_multi_modal_model.yaml`
-- `cnn_on_temperature_patches.py` uses `mono_modal_3_channels_model.yaml`

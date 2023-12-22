@@ -197,7 +197,7 @@ This roadmap outlines the planned features and milestones for the project. Pleas
 
 </details>
  
-## Librairies
+## Libraries
 Here is an overview of the main Python librairies used in this project. 
 
 * [![PyTorch](https://img.shields.io/badge/PyTorch-%23ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/) - To handle deep learning loops and dataloaders
