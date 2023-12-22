@@ -264,7 +264,4 @@ For debugging purposes, using the `trainer.fast_dev_run=true` and `hydra.job.nam
 python cnn_on_rgb_patches.py data.dataset_path=<DATASET_PATH> trainer.gpus=1 +trainer.fast_dev_run=true +hydra.job.name=test
 ```
 
-Be careful when using any path argument like `data.dataset_path`, hydra will automatically change the current working directory to the path specified in `hydra.run.dir` which is by default `outputs/<hydra_job_name>/<date>` (where `<hydra_job_name>` equals the name of your example file).
-Consequently, any path related argument you should be written relatively to `hydra.run.dir` (e.g. `data.dataset_path: ../../../dataset`).
-
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

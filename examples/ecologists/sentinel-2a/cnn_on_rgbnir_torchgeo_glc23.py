@@ -92,7 +92,7 @@ class RasterSentinel2GLC23(RasterSentinel2):
         return df
 
 
-@hydra.main(version_base="1.1", config_path="config", config_name="cnn_on_rgbnir_torchgeo_glc23_config")
+@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_rgbnir_torchgeo_glc23_config")
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
 
@@ -102,8 +102,8 @@ def main(cfg: DictConfig) -> None:
         hydra config dictionary created from the .yaml config file
         associated with this script.
     """
-    # cfg.data.dataset_pathstate_dict = state_dict.model.state_dict = '../../../' + cfg.data.dataset_path  # Uncomment if value contains only the name of the dataset folder. Only works with a 3-folder-deep hydra job path.
-    logger = pl.loggers.CSVLogger(".", name="", version="")
+    log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    logger = pl.loggers.CSVLogger(log_dir, name="", version="")
     logger.log_hyperparams(cfg)
 
     datamodule = TorchgeoGLC23DataModule(**cfg.data, **cfg.task)
@@ -112,7 +112,7 @@ def main(cfg: DictConfig) -> None:
     callbacks = [
         # Summary(),
         ModelCheckpoint(
-            dirpath=os.getcwd(),
+            dirpath=log_dir,
             filename="checkpoint-{epoch:02d}-{step}-{" + f"val_{next(iter(model.metrics.keys()))}" + ":.4f}",
             monitor=f"val_{next(iter(model.metrics.keys()))}",
             mode="max",

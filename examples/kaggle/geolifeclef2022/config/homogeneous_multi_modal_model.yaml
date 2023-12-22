@@ -35,7 +35,7 @@ optimizer:
         num_classes: 100
 
 data:
-  dataset_path: "../../../dataset/geolifeclef-2022-lifeclef-2022-fgvc9"
+  dataset_path: "dataset/geolifeclef-2022-lifeclef-2022-fgvc9"
   minigeolifeclef: true
   train_batch_size: 32
   inference_batch_size: 256

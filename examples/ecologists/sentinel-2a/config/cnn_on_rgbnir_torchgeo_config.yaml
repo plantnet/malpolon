@@ -12,7 +12,7 @@ trainer:
 
 run:
   predict: false
-  checkpoint_path:   # Relative to hydra.run.dir
+  checkpoint_path: 
                                                                                                                                        
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
@@ -48,7 +48,7 @@ optimizer:
     #     num_labels: 5
 
 data:
-  dataset_path: "../../../dataset/"  # Relative to hydra.run.dir
+  dataset_path: "dataset/"
   labels_name: "sentinel2_raster_torch_geo.csv"
   download_data_sample: True
   train_batch_size: 2

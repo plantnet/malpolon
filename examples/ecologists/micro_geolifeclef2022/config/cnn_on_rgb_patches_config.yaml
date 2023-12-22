@@ -11,7 +11,7 @@ trainer:
 
 run:
   predict: false
-  checkpoint_path:  # Relative to hydra.run.dir
+  checkpoint_path: 
 
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
@@ -40,7 +40,7 @@ task:
   task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
 
 data:
-  dataset_path: "../../../dataset/"  # Relative to hydra.run.dir
+  dataset_path: "dataset/"
   train_batch_size: 32
   inference_batch_size: 256
   num_workers: 8

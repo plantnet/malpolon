@@ -11,7 +11,7 @@ trainer:
 
 run:
   predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point']
-  checkpoint_path: ???  # Relative to hydra.run.dir
+  checkpoint_path: ???
 
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
@@ -37,7 +37,7 @@ optimizer:
         num_classes: 10
 
 data:
-  dataset_path: "../../../dataset/"  # Relative to hydra.run.dir
+  dataset_path: "dataset/"
   train_batch_size: 32
   inference_batch_size: 256
   num_workers: 8
