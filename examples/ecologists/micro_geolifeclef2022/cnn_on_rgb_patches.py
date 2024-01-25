@@ -123,16 +123,29 @@ def main(cfg: DictConfig) -> None:
 
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
         predictions = model_loaded.predict(datamodule, trainer)
-        print('Test dataset prediction (extract) : ', predictions[:10])
+        preds, probas = datamodule.predict_logits_to_class(predictions,
+                                                           list(range(datamodule.dataset_test.n_classes)))
+        datamodule.export_predict_csv(preds, probas,
+                                      out_dir=log_dir, out_name="predictions_test_dataset", top_k=3, return_csv=True)
+        print("Test dataset prediction (extract) : ", predictions[:1])
 
         # Option 2: Predict 1 data point (Pytorch)
         test_data = datamodule.get_test_dataset()
+        query_point = {'observation_id': test_data.observation_ids[0],
+                       'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
+                       'crs': 4326,
+                       'species_id': test_data[0][1]}
         test_data_point = test_data[0][0]
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
+
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
                                                 test_data_point,
                                                 ['model.', ''])
-        print('Point prediction : ', prediction)
+        preds, probas = datamodule.predict_logits_to_class(prediction,
+                                                           list(range(test_data.n_classes)))
+        datamodule.export_predict_csv(preds, probas,
+                                      out_dir=log_dir, out_name='prediction_point', single_point_query=query_point, return_csv=True)
+        print('Point prediction : ', prediction.shape, prediction)
     else:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
         trainer.validate(model, datamodule=datamodule)

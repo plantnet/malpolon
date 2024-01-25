@@ -30,6 +30,7 @@ class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
                               testing, prediction)
         num_workers: Number of workers to use for data loading
     """
+
     def __init__(
         self,
         dataset_path: str,
@@ -86,7 +87,7 @@ class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
             patch_data=["rgb", "near_ir"],
             use_rasters=False,
             transform=transform,
-            **kwargs
+            **kwargs,
         )
         return dataset
 
@@ -110,7 +111,11 @@ class NewConvolutionalLayerInitFuncStrategy:
                 new_layer.bias = old_layer.bias
 
 
-@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_rgb_nir_patches_config")
+@hydra.main(
+    version_base="1.3",
+    config_path="config",
+    config_name="cnn_on_rgb_nir_patches_config",
+)
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
 
@@ -133,7 +138,9 @@ def main(cfg: DictConfig) -> None:
         Summary(),
         ModelCheckpoint(
             dirpath=log_dir,
-            filename="checkpoint-{epoch:02d}-{step}-{" + f"val_{next(iter(model.metrics.keys()))}" + ":.4f}",
+            filename="checkpoint-{epoch:02d}-{step}-{"
+            + f"val_{next(iter(model.metrics.keys()))}"
+            + ":.4f}",
             monitor=f"val_{next(iter(model.metrics.keys()))}",
             mode="max",
         ),
@@ -141,22 +148,35 @@ def main(cfg: DictConfig) -> None:
     trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
 
     if cfg.run.predict:
-        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
-                                                                 model=model.model,
-                                                                 hparams_preprocess=False)
+        model_loaded = ClassificationSystem.load_from_checkpoint(
+            cfg.run.checkpoint_path, model=model.model, hparams_preprocess=False
+        )
 
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
         predictions = model_loaded.predict(datamodule, trainer)
-        print('Test dataset prediction (extract) : ', predictions[:10])
+        preds, probas = datamodule.predict_logits_to_class(predictions,
+                                                           list(range(datamodule.dataset_test.n_classes)))
+        datamodule.export_predict_csv(preds, probas,
+                                      out_dir=log_dir, out_name="predictions_test_dataset", top_k=3, return_csv=True)
+        print("Test dataset prediction (extract) : ", predictions[:1])
 
         # Option 2: Predict 1 data point (Pytorch)
         test_data = datamodule.get_test_dataset()
+        query_point = {'observation_id': test_data.observation_ids[0],
+                       'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
+                       'crs': 4326,
+                       'species_id': test_data[0][1]}
         test_data_point = test_data[0][0]
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
+
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
                                                 test_data_point,
                                                 ['model.', ''])
-        print('Point prediction : ', prediction)
+        preds, probas = datamodule.predict_logits_to_class(prediction,
+                                                           list(range(test_data.n_classes)))
+        datamodule.export_predict_csv(preds, probas,
+                                      out_dir=log_dir, out_name='prediction_point', single_point_query=query_point, return_csv=True)
+        print('Point prediction : ', prediction.shape, prediction)
     else:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
         trainer.validate(model, datamodule=datamodule)

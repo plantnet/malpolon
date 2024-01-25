@@ -4,7 +4,7 @@ hydra:
 
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
-  accelerator: 'gpu'
+  accelerator: "gpu"
   devices: 1
   max_epochs: 2
   # val_check_interval: 10
@@ -12,20 +12,20 @@ trainer:
 
 run:
   predict: false
-  checkpoint_path: 
-                                                                                                                                       
+  checkpoint_path:
+
 model:
-  provider_name: "timm"  # choose from ["timm", "torchvision"]
+  provider_name: "timm" # choose from ["timm", "torchvision"]
   model_name: "resnet18"
   model_kwargs:
-    pretrained: true  # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
+    pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
     num_classes:
     in_chans:
     output_stride:
     global_pool:
   modifiers:
     change_first_convolutional_layer:
-     num_input_channels: 4
+      num_input_channels: 4
     change_last_layer:
       num_outputs: 5
 
@@ -55,7 +55,7 @@ data:
   inference_batch_size: 2
   num_workers: 8
   units: "pixel"
-  crs: 4326 
+  crs: 4326
 
 task:
-  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+  task: "classification_multiclass" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']

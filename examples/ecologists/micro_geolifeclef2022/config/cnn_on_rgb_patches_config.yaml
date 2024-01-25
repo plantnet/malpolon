@@ -11,7 +11,7 @@ trainer:
 
 run:
   predict: false
-  checkpoint_path: 
+  checkpoint_path:
 
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
