@@ -19,8 +19,9 @@ from torch.utils.data import DataLoader
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Optional, Union
-    from torch.utils.data import Dataset
+
     from torch import Tensor
+    from torch.utils.data import Dataset
 
 
 class BaseDataModule(pl.LightningDataModule, ABC):
@@ -305,6 +306,8 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         return_csv : bool, optional
             if true, the method returns the CSV as a pandas DataFrame,
             by default False
+        top_k : int, optional
+            number of top predictions to return, by default 1
 
         Returns
         -------
