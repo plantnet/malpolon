@@ -55,9 +55,14 @@ def main(cfg: DictConfig) -> None:
 
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
         predictions = model_loaded.predict(datamodule, trainer)
-        preds, probas = datamodule.predict_logits_to_class(predictions)
-        datamodule.export_predict_csv(preds, probas, out_name='predictions_test_dataset', return_csv=True)
-        print('Test dataset prediction (extract) : ', predictions[:10])
+        preds, probas = datamodule.predict_logits_to_class(predictions,
+                                                           datamodule.get_test_dataset().unique_labels)
+        datamodule.export_predict_csv(preds,
+                                      probas,
+                                      out_name='predictions_test_dataset',
+                                      top_k=3,
+                                      return_csv=True)
+        print('Test dataset prediction (extract) : ', predictions[:1])
 
         # Option 2: Predict 1 data point (Pytorch)
         test_data = datamodule.get_test_dataset()
@@ -70,8 +75,13 @@ def main(cfg: DictConfig) -> None:
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
                                                 test_data_point,
                                                 ['model.', ''])
-        preds, probas = datamodule.predict_logits_to_class(prediction)
-        datamodule.export_predict_csv(preds, probas, single_point_query=query_point, out_name='prediction_point', return_csv=True)
+        preds, probas = datamodule.predict_logits_to_class(prediction,
+                                                           datamodule.get_test_dataset().unique_labels)
+        datamodule.export_predict_csv(preds,
+                                      probas,
+                                      single_point_query=query_point,
+                                      out_name='prediction_point',
+                                      return_csv=True)
         print('Point prediction : ', prediction.shape, prediction)
     else:
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)

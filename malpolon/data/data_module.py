@@ -15,13 +15,12 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
-from torch import Tensor
 from torch.utils.data import DataLoader
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Optional, Union
-
     from torch.utils.data import Dataset
+    from torch import Tensor
 
 
 class BaseDataModule(pl.LightningDataModule, ABC):
@@ -235,7 +234,8 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         return dataloader
 
     def predict_logits_to_class(self,
-                                predictions: Union[np.ndarray, Tensor],
+                                predictions: Tensor,
+                                classes: Union[np.ndarray, Tensor],
                                 activation_fn: torch.nn.modules.activation = torch.nn.Softmax(dim=1)) -> Tensor:
         """Convert the model's predictions to class labels.
 
@@ -244,27 +244,37 @@ class BaseDataModule(pl.LightningDataModule, ABC):
 
         Parameters
         ----------
-        predictions : Union[np.ndarray, Tensor]
+        predictions : Tensor
             model's predictions (raw logits), by default Softmax(dim=1)
+        classes : Union[np.ndarray, Tensor]
+            classes labels
+        activation_fn : torch.nn.modules.activation, optional
+            activation function to apply to the model's predictions,
+            by default torch.nn.Softmax(dim=1)
 
         Returns
         -------
-        tuple[Union[np.ndarray, Tensor], Tensor]
-            _description_
+        tuple[np.ndarray, np.ndarray]
+            class labels and corresponding probabilities
         """
-        device = torch.device("cpu")
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        classes = torch.tensor(classes).to(device)
         probas = activation_fn(predictions)
         probas, indices = torch.sort(probas, descending=True)
         probas, indices = probas.to(device), indices.to(device)
-        predictions = self.get_test_dataset().unique_labels[indices]
-        return predictions, probas
+        class_preds = torch.zeros(probas.shape[0], len(classes), device=device)
+        for batch_i in range(predictions.shape[0]):
+            class_preds[batch_i] = classes[indices[batch_i]]
+        return class_preds.to('cpu').numpy().astype(int), probas.to('cpu').numpy()
 
     def export_predict_csv(self,
-                           predictions: np.ndarray,
+                           predictions: Union[Tensor, np.ndarray],
                            probas: Union[Tensor, np.ndarray] = None,
                            single_point_query: dict = None,
                            out_name: str = "predictions",
+                           out_dir: str = './',
                            return_csv: bool = False,
+                           top_k: int = 1,
                            **kwargs: Any) -> Any:
         """Export predictions to csv file.
 
@@ -280,7 +290,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
 
         Parameters
         ----------
-        predictions : np.ndarray
+        predictions : Union[Tensor, np.ndarray]
             model's predictions.
         probas : Union[Tensor, np.ndarray], optional
             predictions' raw logits or logits passed through an
@@ -290,6 +300,8 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             None
         out_name : str, optional
             output CSV file name, by default "predictions"
+        out_dir : str, optional
+            output directory name, by default "./"
         return_csv : bool, optional
             if true, the method returns the CSV as a pandas DataFrame,
             by default False
@@ -300,26 +312,28 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             CSV content as a pandas DataFrame if `return_csv` is True
         """
         out_name = out_name + ".csv" if not out_name.endswith(".csv") else out_name
-        fp = Path('./') / Path(out_name)
+        fp = Path(out_dir) / Path(out_name)
         if single_point_query:
             df = pd.DataFrame({'observation_id': [single_point_query['observation_id'] if 'observation_id' in single_point_query else None],
                                'lon': [single_point_query['lon']],
                                'lat': [single_point_query['lat']],
                                'crs': [single_point_query['crs']],
                                'target_species_id': [single_point_query['species_id'] if 'species_id' in single_point_query else None],
-                               'predictions': predictions[:, 0],
-                               'probas': probas[:, 0]})
+                               'predictions': tuple(predictions[:, :top_k].astype(str)),
+                               'probas': tuple(probas[:, :top_k].astype(str))})
         else:
             test_ds = self.get_test_dataset()
             df = pd.DataFrame({'observation_id': test_ds.observation_ids,
                                'lon': test_ds.coordinates[:, 0],
                                'lat': test_ds.coordinates[:, 1],
                                'target_species_id': test_ds.targets,
-                               'predictions': predictions[:, 0],
+                               'predictions': tuple(predictions[:, :top_k].astype(str)),
                                'probas': [None] * len(predictions)})
         if probas is not None:
-            df['probas'] = probas[:, 0]
-        df.to_csv(fp, index=False, sep=',', **kwargs)
+            df['probas'] = tuple(probas[:, :top_k].astype(str))
+        df['predictions'] = df['predictions'].apply(' '.join)
+        df['probas'] = df['probas'].apply(' '.join)
+        df.to_csv(fp, index=False, sep=';', **kwargs)
         if return_csv:
             return df
         return None
