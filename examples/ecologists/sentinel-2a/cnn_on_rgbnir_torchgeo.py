@@ -31,8 +31,10 @@ def main(cfg: DictConfig) -> None:
         associated with this script.
     """
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
-    logger = pl.loggers.CSVLogger(log_dir, name="", version="")
-    logger.log_hyperparams(cfg)
+    logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
+    logger_csv.log_hyperparams(cfg)
+    logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
+    logger_tb.log_hyperparams(cfg)
 
     datamodule = Sentinel2TorchGeoDataModule(**cfg.data, **cfg.task)
     model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
@@ -46,7 +48,7 @@ def main(cfg: DictConfig) -> None:
             mode="max",
         ),
     ]
-    trainer = pl.Trainer(logger=logger, callbacks=callbacks, **cfg.trainer)
+    trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
 
     if cfg.run.predict:
         model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
