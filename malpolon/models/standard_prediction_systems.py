@@ -75,7 +75,7 @@ class GenericPredictionSystem(pl.LightningModule):
         self, split: str, batch: tuple[Any, Any], batch_idx: int
     ) -> Union[Tensor, dict[str, Any]]:
         if split == "train":
-            log_kwargs = {"on_step": False, "on_epoch": True}
+            log_kwargs = {"on_step": False, "on_epoch": True, "sync_dist": True}
         else:
             log_kwargs = {}
 
@@ -229,7 +229,7 @@ class GenericPredictionSystem(pl.LightningModule):
         self.model.to(device)
         data = data.to(device)
 
-        ckpt = torch.load(checkpoint_path)
+        ckpt = torch.load(checkpoint_path, map_location=device)
         if state_dict_replace_key:
             ckpt['state_dict'] = self.state_dict_replace_key(ckpt['state_dict'],
                                                              state_dict_replace_key)

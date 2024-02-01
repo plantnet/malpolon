@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import signal
+from pathlib import Path
 from typing import Mapping, Union
 
 import torchmetrics.functional as Fmetrics
@@ -14,6 +16,22 @@ FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.classification.binary_accuracy
                       'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
                       'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
 
+
+class CrashHandler():
+    """Saves the model in case of unexpected crash or user interruption."""
+    def __init__(self, trainer):
+        self.trainer = trainer
+        self.ckpt_dir_path = Path(trainer.logger.log_dir) / "crash_latest_checkpoint.ckpt"
+        signal.signal(signal.SIGINT, self.signal_handler)
+
+    def save_checkpoint(self):
+        print("Saving lastest checkpoint...")
+        self.trainer.save_checkpoint(self.ckpt_dir_path)
+
+    def signal_handler(self, sig, frame):
+        print(f"Received signal {sig}. Performing cleanup...")
+        self.save_checkpoint()
+        exit(0)
 
 def check_metric(metrics: OmegaConf) -> bool:
     """_summary_
