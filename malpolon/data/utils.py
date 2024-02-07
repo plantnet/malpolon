@@ -3,11 +3,11 @@ from __future__ import annotations
 
 import os
 import re
-import numpy as np
 from typing import Iterable, Union
-from torchgeo.datasets import BoundingBox
 
-from shapely import Polygon, Point
+import numpy as np
+from shapely import Point, Polygon
+from torchgeo.datasets import BoundingBox
 
 
 def is_bbox_contained(
