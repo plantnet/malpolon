@@ -327,8 +327,8 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         else:
             test_ds = self.get_test_dataset()
             df = pd.DataFrame({'observation_id': test_ds.observation_ids,
-                               'lon': test_ds.coordinates[:, 0],
-                               'lat': test_ds.coordinates[:, 1],
+                               'lon': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 0],
+                               'lat': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 1],
                                'target_species_id': test_ds.targets,
                                'predictions': tuple(predictions[:, :top_k].astype(str)),
                                'probas': [None] * len(predictions)})

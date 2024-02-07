@@ -21,10 +21,11 @@ import pandas as pd
 import pyproj
 import rasterio
 import torch
-from malpolon.data.get_jpeg_patches_stats import standardize as jpeg_stand
 from PIL import Image
 from torch import tensor
 from torch.utils.data import Dataset
+
+from malpolon.data.get_jpeg_patches_stats import standardize as jpeg_stand
 
 
 class PatchesDataset(Dataset):
@@ -48,7 +49,7 @@ class PatchesDataset(Dataset):
         id_name="glcID",
         label_name="speciesId",
         item_columns=['lat', 'lon', 'PlotID'],
-        id_getitem = 'PlotID'
+        id_getitem='PlotID'
     ):
         self.occurences = Path(occurrences)
         self.base_providers = providers
@@ -56,7 +57,7 @@ class PatchesDataset(Dataset):
         self.target_transform = target_transform
         self.provider = MetaPatchProvider(self.base_providers, self.transform)
         self.id_getitem = id_getitem
-        
+
         df = pd.read_csv(self.occurences, sep=";",
                          header='infer', low_memory=False)
 
@@ -145,7 +146,7 @@ class PatchesDatasetMultiLabel(PatchesDataset):
             (tuple): tuple of data patch (tensor) and labels (list).
         """
         item = self.items.iloc[index].to_dict()
-        pid_rows_i = self.items[self.self.id_getitem] == item[self.self.id_getitem].index
+        pid_rows_i = self.items[self.id_getitem] == item[self.id_getitem].index
         self.targets_sorted = np.sort(self.targets)
 
         patch = self.provider[item]
@@ -357,7 +358,7 @@ class MetaPatchProvider(PatchProvider):
             (array): concatenaned patch from all providers.
         """
         patch = np.concatenate([provider[item] for provider in self.providers])
-        
+
         if self.transform:
             patch = self.transform(torch.from_numpy(patch).float())
 
