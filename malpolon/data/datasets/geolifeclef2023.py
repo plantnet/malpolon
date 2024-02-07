@@ -21,10 +21,10 @@ import pandas as pd
 import pyproj
 import rasterio
 import torch
-from PIL import Image
-from torch.utils.data import Dataset
-
 from malpolon.data.get_jpeg_patches_stats import standardize as jpeg_stand
+from PIL import Image
+from torch import tensor
+from torch.utils.data import Dataset
 
 
 class PatchesDataset(Dataset):
@@ -47,14 +47,16 @@ class PatchesDataset(Dataset):
         target_transform=None,
         id_name="glcID",
         label_name="speciesId",
-        item_columns=['lat', 'lon', 'patchID']
+        item_columns=['lat', 'lon', 'PlotID'],
+        id_getitem = 'PlotID'
     ):
         self.occurences = Path(occurrences)
         self.base_providers = providers
         self.transform = transform
         self.target_transform = target_transform
         self.provider = MetaPatchProvider(self.base_providers, self.transform)
-
+        self.id_getitem = id_getitem
+        
         df = pd.read_csv(self.occurences, sep=";",
                          header='infer', low_memory=False)
 
@@ -84,13 +86,14 @@ class PatchesDataset(Dataset):
         item = self.items.iloc[index].to_dict()
 
         patch = self.provider[item]
+        if not torch.is_tensor(patch):
+            patch = torch.from_numpy(patch).float()
 
         target = self.targets[index]
-
         if self.target_transform:
             target = self.target_transform(target)
 
-        return torch.from_numpy(patch).float(), target
+        return patch, target
 
     def plot_patch(self, index):
         """Plot a patch based on a dataset id.
@@ -122,7 +125,7 @@ class PatchesDatasetMultiLabel(PatchesDataset):
         target_transform=None,
         id_name="glcID",
         label_name="speciesId",
-        item_columns=['lat', 'lon', 'patchID']
+        item_columns=['lat', 'lon', 'PlotID']
     ):
         super().__init__(occurrences, providers, transform,
                          target_transform, id_name, label_name,
@@ -142,10 +145,12 @@ class PatchesDatasetMultiLabel(PatchesDataset):
             (tuple): tuple of data patch (tensor) and labels (list).
         """
         item = self.items.iloc[index].to_dict()
-        pid_rows_i = self.items[self.items['patchID'] == item['patchID']].index
+        pid_rows_i = self.items[self.self.id_getitem] == item[self.self.id_getitem].index
         self.targets_sorted = np.sort(self.targets)
 
         patch = self.provider[item]
+        if not torch.is_tensor(patch):
+            patch = torch.from_numpy(patch).float()
 
         targets = np.zeros(len(self.targets))
         for idx in pid_rows_i:
@@ -155,7 +160,7 @@ class PatchesDatasetMultiLabel(PatchesDataset):
             targets[np.where(self.targets_sorted == target)] = 1
         targets = torch.from_numpy(targets)
 
-        return torch.from_numpy(patch).float(), targets
+        return patch, targets
 
 
 class TimeSeriesDataset(Dataset):
@@ -219,13 +224,14 @@ class TimeSeriesDataset(Dataset):
         item = self.items.iloc[index].to_dict()
 
         patch = self.provider[item]
+        if not torch.is_tensor(patch):
+            patch = torch.from_numpy(patch).float()
 
         target = self.targets[index]
-
         if self.target_transform:
             target = self.target_transform(target)
 
-        return torch.from_numpy(patch).float(), target
+        return patch, target
 
     def plot_ts(self, index):
         """Plot a time series occurrence.
@@ -351,8 +357,10 @@ class MetaPatchProvider(PatchProvider):
             (array): concatenaned patch from all providers.
         """
         patch = np.concatenate([provider[item] for provider in self.providers])
+        
         if self.transform:
-            patch = self.transform(patch)
+            patch = self.transform(torch.from_numpy(patch).float())
+
         return patch
 
     def __str__(self):
@@ -554,7 +562,7 @@ class JpegPatchProvider(PatchProvider):
         (PatchProvider): inherits PatchProvider.
     """
 
-    def __init__(self, root_path, select=None, normalize=True, patch_transform=None, size=128, dataset_stats='jpeg_patches_stats.csv'):
+    def __init__(self, root_path, select=None, normalize=True, patch_transform=None, size=128, dataset_stats='jpeg_patches_stats.csv', id_getitem='PlotID'):
         """Class constructor.
 
         Args:
@@ -575,6 +583,7 @@ class JpegPatchProvider(PatchProvider):
         self.n_rows = 0
         self.n_cols = 0
         self.dataset_stats = os.path.join(self.root_path, dataset_stats)
+        self.id_getitem = id_getitem
 
         self.channel_folder = {'red': 'rgb', 'green': 'rgb', 'blue': 'rgb',
                                'swir1': 'swir1',
@@ -594,23 +603,23 @@ class JpegPatchProvider(PatchProvider):
         Looks for every spectral bands listed in self.channels and returns
         a 3-dimensionnal patch concatenated in 1 tensor. The index used to
         query the right patch is a dictionnary with at least one key/value
-        pair : {'patchID', <patchID_value>}.
+        pair : {'PlotID', <PlotID_value>}.
 
         Args:
-            item (dict): dictionnary containing the patchID necessary to
+            item (dict): dictionnary containing the PlotID necessary to
                          identify the jpeg patch to return.
 
         Raises:
-            KeyError: the 'patchID' key is missing from item
+            KeyError: the 'PlotID' key is missing from item
             Exception: item is not a dictionnary as expected
 
         Returns:
             (tensor): multi-channel patch tensor.
         """
         try:
-            id_ = str(int(item['patchID']))
+            id_ = str(int(item[self.id_getitem]))
         except KeyError as e:
-            raise KeyError('The patchID key does not exists.') from e
+            raise KeyError(f'The {self.id_getitem} key does not exists.') from e
 
         # folders that contain patches
         sub_folder_1 = id_[-2:]
@@ -849,7 +858,8 @@ class MetaTimeSeriesProvider(TimeSeriesProvider):
         """
         patch = np.concatenate([provider[item] for provider in self.providers], axis=1)
         if self.transform:
-            patch = self.transform(patch)
+            patch = self.transform(torch.from_numpy(patch).float())
+
         return patch
 
     def __str__(self):

@@ -11,6 +11,7 @@ import os
 import numpy as np
 import pandas as pd
 from PIL import Image
+from tqdm import tqdm
 
 from malpolon.data.utils import get_files_path_recursively
 
@@ -52,6 +53,32 @@ def standardize(root_path: str = 'sample_data/SatelliteImages/',
     stats['std'].append(np.nanstd(imgs))
     if output:
         output = os.path.join(root_path, 'standardize_stats.csv') if output == 'root_path' else output
+        df = pd.DataFrame(stats)
+        df.to_csv(output, index=False, sep=';')
+    return stats['mean'][0], stats['std'][0]
+
+def standardize_by_parts(fps_fp: str,
+                         output: str = 'glc23_stats.csv',
+                         max_imgs_per_computation: int = 100000):
+    with open(fps_fp, 'r', encoding="utf-8") as f:
+        fps = f.readlines()
+    imgs = []
+    stats = {'mean': [], 'std': []}
+    i = 0
+    for fpath in tqdm(fps):
+        img = np.array(Image.open(fpath[:-1], mode='r'))
+        if len(img.shape) == 3:
+            img = np.transpose(img, (2, 0, 1))
+        elif len(img.shape) == 2:
+            img = np.expand_dims(img, axis=0)
+        imgs.append(img)
+        stats['mean'].append(np.nanmean(imgs))
+        stats['std'].append(np.nanstd(imgs))
+        i += 1
+        if i % max_imgs_per_computation == 0 and i > 0:
+            imgs = []
+            stats = {'mean': [np.mean(stats['mean'])], 'std': [np.std(stats['std'])]}
+    if output:
         df = pd.DataFrame(stats)
         df.to_csv(output, index=False, sep=';')
     return stats['mean'][0], stats['std'][0]
