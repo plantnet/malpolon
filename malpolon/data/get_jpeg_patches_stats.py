@@ -57,9 +57,30 @@ def standardize(root_path: str = 'sample_data/SatelliteImages/',
         df.to_csv(output, index=False, sep=';')
     return stats['mean'][0], stats['std'][0]
 
+
 def standardize_by_parts(fps_fp: str,
                          output: str = 'glc23_stats.csv',
                          max_imgs_per_computation: int = 100000):
+    """Perform standardization over images part by part.
+
+    With too many images, memory can overflow. This function addresses
+    this problem by performing the computation in parts.
+    Downside: the computed standard deviation is an mean approximation
+    of the true value.
+
+    Args:
+        fps_fp (str): file path to a text file containing the paths to
+                      the images.
+        output (str, optional): output path where to save the csv containing
+                                the mean and std of the dataset.
+                                If None: doesn't output anything.
+                                Defaults to root_path.
+        max_imgs_per_computation (int, optional): maximum number of images to hold in memory.
+                                                  Defaults to 100000.
+
+    Returns:
+        (tuple): tuple of mean and std fo the jpeg images.
+    """
     with open(fps_fp, 'r', encoding="utf-8") as f:
         fps = f.readlines()
     imgs = []
