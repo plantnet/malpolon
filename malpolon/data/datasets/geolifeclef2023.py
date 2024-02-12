@@ -124,13 +124,10 @@ class PatchesDatasetMultiLabel(PatchesDataset):
         providers,
         transform=None,
         target_transform=None,
-        id_name="glcID",
-        label_name="speciesId",
-        item_columns=['lat', 'lon', 'PlotID']
+        **kwargs
     ):
         super().__init__(occurrences, providers, transform,
-                         target_transform, id_name, label_name,
-                         item_columns)
+                         target_transform, **kwargs)
         self.targets_sorted = []
 
     def __getitem__(self, index):
@@ -146,7 +143,7 @@ class PatchesDatasetMultiLabel(PatchesDataset):
             (tuple): tuple of data patch (tensor) and labels (list).
         """
         item = self.items.iloc[index].to_dict()
-        pid_rows_i = self.items[self.id_getitem] == item[self.id_getitem].index
+        pid_rows_i = self.items[self.items[self.id_getitem] == item[self.id_getitem]].index
         self.targets_sorted = np.sort(self.targets)
 
         patch = self.provider[item]
@@ -376,7 +373,10 @@ class MetaPatchProvider(PatchProvider):
             result += '\n'
         return result
 
+from memory_profiler import profile
 
+
+@profile
 class RasterPatchProvider(PatchProvider):
     """Patch provider for .tif raster files.
 
@@ -522,7 +522,11 @@ class MultipleRasterPatchProvider(PatchProvider):
             rasters_paths = [r + '.tif' for r in select]
         else:
             rasters_paths = [f for f in files if f.endswith('.tif')]
-        self.rasters_providers = [RasterPatchProvider(rasters_folder + path, size=size, spatial_noise=spatial_noise, normalize=normalize, fill_zero_if_error=fill_zero_if_error) for path in rasters_paths]
+        self.rasters_providers = []
+        from tqdm import tqdm
+        for path in tqdm(rasters_paths):
+            self.rasters_providers.append(RasterPatchProvider(rasters_folder + path, size=size, spatial_noise=spatial_noise, normalize=normalize, fill_zero_if_error=fill_zero_if_error))
+        # self.rasters_providers = [RasterPatchProvider(rasters_folder + path, size=size, spatial_noise=spatial_noise, normalize=normalize, fill_zero_if_error=fill_zero_if_error) for path in rasters_paths]
         self.nb_layers = np.sum([len(raster) for raster in self.rasters_providers])
         self.bands_names = list(itertools.chain.from_iterable([raster.bands_names for raster in self.rasters_providers]))
 
