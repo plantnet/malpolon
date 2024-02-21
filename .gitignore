@@ -8,10 +8,10 @@ checkMyCode.sh
 !.gitignore
 
 docs/_build
-examples/ecologists/micro_geolifeclef/dataset/patches
-examples/ecologists/micro_geolifeclef/dataset/rasters
-examples/inference/micro_geolifeclef/dataset/patches
-examples/inference/micro_geolifeclef/dataset/rasters
+examples/ecologists/micro_geolifeclef*/dataset/patches
+examples/ecologists/micro_geolifeclef*/dataset/rasters
+examples/inference/micro_geolifeclef*/dataset/patches
+examples/inference/micro_geolifeclef*/dataset/rasters
 
 examples/ecologists/sentinel-2a/dataset/*.tif
 examples/inference/sentinel-2a/dataset/*.tif

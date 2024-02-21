@@ -12,15 +12,16 @@ import numpy as np
 import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
-from torchgeo.samplers import Units
 from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
 from malpolon.data.datasets.geolifeclef2023 import (JpegPatchProvider,
-                                                    PatchesDataset)
+                                                    PatchesDataset,
+                                                    PatchesDatasetMultiLabel)
 from malpolon.logging import Summary
 from malpolon.models import ClassificationSystem
 from malpolon.models.utils import CrashHandler
+from torchgeo.samplers import Units
 
 
 class Sentinel2PatchesDataModule(BaseDataModule):
@@ -36,7 +37,7 @@ class Sentinel2PatchesDataModule(BaseDataModule):
         units: Units = Units.CRS,
         crs: int = 4326,
         binary_positive_classes: list = [],
-        task: str = 'classification_multiclass',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
+        task: str = 'classification_multiclass',
     ):
         """Class constructor.
 
@@ -87,15 +88,27 @@ class Sentinel2PatchesDataModule(BaseDataModule):
         jpp_rgbnir = JpegPatchProvider(self.dataset_path + 'SatelliteImages/',
                                        dataset_stats='jpeg_patches_sample_stats.csv',
                                        id_getitem='patchID')  # 'dataset/jpeg_patches_sample_stats_bidon.csv')
-        dataset = PatchesDataset(
-            occurrences=self.labels_name,
-            providers=[jpp_rgbnir],
-            transform=transform,
-            target_transform=target_transform,
-            id_getitem='patchID',
-            item_columns=['lat', 'lon', 'patchID'],
-            **kwargs
-        )
+        if 'multiclass' in self.task:
+            dataset = PatchesDataset(
+                occurrences=self.labels_name,
+                providers=[jpp_rgbnir],
+                transform=transform,
+                target_transform=target_transform,
+                id_getitem='patchID',
+                item_columns=['lat', 'lon', 'patchID'],
+                **kwargs
+            )
+        else:
+            dataset = PatchesDatasetMultiLabel(
+                occurrences=self.labels_name,
+                providers=[jpp_rgbnir],
+                transform=transform,
+                target_transform=target_transform,
+                id_getitem='patchID',
+                item_columns=['lat', 'lon', 'patchID'],
+                n_classes='max',
+                **kwargs
+            )
         dataset.coordinates = dataset.items[['lon', 'lat']].values
         return dataset
 
@@ -123,7 +136,8 @@ class Sentinel2PatchesDataModule(BaseDataModule):
                 transforms.RandomHorizontalFlip(),
                 transforms.RandomVerticalFlip(),
                 transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406, 0.2], std=[0.229, 0.224, 0.225, 0.2]
+                    mean=[0.485, 0.456, 0.406, 0.2],
+                    std=[0.229, 0.224, 0.225, 0.2]
                 ),
             ]
         )
@@ -135,13 +149,14 @@ class Sentinel2PatchesDataModule(BaseDataModule):
                 transforms.CenterCrop(size=128),
                 transforms.RandomVerticalFlip(),
                 transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406, 0.2], std=[0.229, 0.224, 0.225, 0.2]
+                    mean=[0.485, 0.456, 0.406, 0.2],
+                    std=[0.229, 0.224, 0.225, 0.2]
                 ),
             ]
         )
 
 
-@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_rgbnir_glc23_patches_train.yaml")
+@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_rgbnir_glc23_patches_train_multiclass.yaml")
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
 
@@ -171,8 +186,8 @@ def main(cfg: DictConfig) -> None:
             save_last=True,
         ),
     ]
-    trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, num_sanity_val_steps=0, **cfg.trainer)
 
+    trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, num_sanity_val_steps=0, **cfg.trainer)
     if cfg.run.predict:
         model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
                                                                  model=model.model,
