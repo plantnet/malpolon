@@ -12,7 +12,7 @@ trainer:
 
 run:
   predict: true
-  checkpoint_path: ???
+  checkpoint_path: "outputs/cnn_on_rgbnir_glc23_patches_multilabel/2024-02-21_17-40-10/checkpoint-epoch=02-step=39-val_multilabel_accuracy=0.6204.ckpt"
                                                                                                                                        
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
@@ -27,7 +27,7 @@ model:
     change_first_convolutional_layer:
      num_input_channels: 4
     change_last_layer:
-      num_outputs: 9827
+      num_outputs: 96
 
 optimizer:
   lr: 1e-2
@@ -35,26 +35,23 @@ optimizer:
   momentum: 0.9
   nesterov: true
   metrics:
-    # binary_accuracy:
-    #   # callable: 'Fmetrics.accuracy'
-    #   kwargs: {}
-    multiclass_accuracy:
-      # callable: 'Fmetrics.classification.multiclass_accuracy'
+    multilabel_accuracy:
+      # callable: 'Fmetrics.classification.multilabel_accuracy'
       kwargs:
-        num_classes: 9827
-    multiclass_accuracy_top100:
-      callable: 'Fmetrics.classification.multiclass_accuracy'
+        num_labels: 96
+    multilabel_recall:
+      callable: 'Fmetrics.classification.multilabel_recall'
       kwargs:
-        top_k: 100
-        num_classes: 9827
-    # multilabel_accuracy:
-    #   # callable: 'Fmetrics.classification.multilabel_accuracy'
-    #   kwargs:
-    #     num_labels: 9827
+        num_labels: 96
+    multilabel_f1_score_macro:
+      callable: 'Fmetrics.classification.multilabel_f1_score'
+      kwargs:
+        num_labels: 96
+        average: 'macro'
 
 data:
   dataset_path: "dataset/sample_data/"
-  labels_name: ???
+  labels_name: "dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample_mutilabel_dummy.csv"
   train_batch_size: 8
   inference_batch_size: 2
   num_workers: 8

@@ -22,8 +22,8 @@ import pyproj
 import rasterio
 import torch
 from PIL import Image
-from torch import tensor
 from torch.utils.data import Dataset
+from tqdm import tqdm
 
 from malpolon.data.get_jpeg_patches_stats import standardize as jpeg_stand
 
@@ -122,16 +122,21 @@ class PatchesDatasetMultiLabel(PatchesDataset):
         self,
         occurrences,
         providers,
-        transform=None,
-        target_transform=None,
-        id_name="glcID",
-        label_name="speciesId",
-        item_columns=['lat', 'lon', 'PlotID']
+        n_classes='max',
+        **kwargs
     ):
-        super().__init__(occurrences, providers, transform,
-                         target_transform, id_name, label_name,
-                         item_columns)
+        super().__init__(occurrences, providers, **kwargs)
         self.targets_sorted = []
+        self.observation_ids = np.unique(self.observation_ids)
+        match n_classes:
+            case 'max':
+                self.n_classes = np.max(self.targets) + 1
+            case 'length':
+                self.n_classes = len(np.unique(self.targets))
+            case _ if isinstance(n_classes, int):
+                self.n_classes = n_classes
+            case _:
+                raise ValueError('n_classes must be "max", "length" or an integer')
 
     def __getitem__(self, index):
         """Return a dataset element.
@@ -146,18 +151,16 @@ class PatchesDatasetMultiLabel(PatchesDataset):
             (tuple): tuple of data patch (tensor) and labels (list).
         """
         item = self.items.iloc[index].to_dict()
-        pid_rows_i = self.items[self.id_getitem] == item[self.id_getitem].index
-        self.targets_sorted = np.sort(self.targets)
+        pid_rows_i = self.items[self.items[self.id_getitem] == item[self.id_getitem]].index
+        self.targets_sorted = np.unique(self.targets)
 
         patch = self.provider[item]
         if not torch.is_tensor(patch):
             patch = torch.from_numpy(patch).float()
 
-        targets = np.zeros(len(self.targets))
+        targets = np.zeros(self.n_classes)
         for idx in pid_rows_i:
             target = self.targets[idx]
-            if self.target_transform:
-                target = self.target_transform(target)
             targets[np.where(self.targets_sorted == target)] = 1
         targets = torch.from_numpy(targets)
 
@@ -194,7 +197,7 @@ class TimeSeriesDataset(Dataset):
         self.provider = MetaTimeSeriesProvider(self.base_providers,
                                                self.transform)
 
-        df = pd.read_csv(self.occurences, sep=";",
+        df = pd.read_csv(self.occurences, sep=",",
                          header='infer', low_memory=False)
 
         self.observation_ids = df[id_name].values
@@ -522,7 +525,10 @@ class MultipleRasterPatchProvider(PatchProvider):
             rasters_paths = [r + '.tif' for r in select]
         else:
             rasters_paths = [f for f in files if f.endswith('.tif')]
-        self.rasters_providers = [RasterPatchProvider(rasters_folder + path, size=size, spatial_noise=spatial_noise, normalize=normalize, fill_zero_if_error=fill_zero_if_error) for path in rasters_paths]
+        self.rasters_providers = []
+
+        for path in tqdm(rasters_paths):
+            self.rasters_providers.append(RasterPatchProvider(rasters_folder + path, size=size, spatial_noise=spatial_noise, normalize=normalize, fill_zero_if_error=fill_zero_if_error))
         self.nb_layers = np.sum([len(raster) for raster in self.rasters_providers])
         self.bands_names = list(itertools.chain.from_iterable([raster.bands_names for raster in self.rasters_providers]))
 
@@ -563,7 +569,7 @@ class JpegPatchProvider(PatchProvider):
         (PatchProvider): inherits PatchProvider.
     """
 
-    def __init__(self, root_path, select=None, normalize=True, patch_transform=None, size=128, dataset_stats='jpeg_patches_stats.csv', id_getitem='PlotID'):
+    def __init__(self, root_path, select=None, normalize=False, patch_transform=None, size=128, dataset_stats='jpeg_patches_stats.csv', id_getitem='PlotID'):
         """Class constructor.
 
         Args:
