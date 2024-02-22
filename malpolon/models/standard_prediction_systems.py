@@ -276,8 +276,11 @@ class ClassificationSystem(GenericPredictionSystem):
             created from the `malpolon.models.utils.FMETRICS_CALLABLES`
             constant or supplied, by the user directly.
         task : str, optional
-            machine learning task (used to format labels accordingly),
-            by default 'classification_multiclass'
+            Machine learning task (used to format labels accordingly),
+            by default 'classification_multiclass'. The value determines
+            the loss to be selected. if 'multilabel' or 'binary' is
+            in the task, the BCEWithLogitsLoss is selected, otherwise
+            the CrossEntropyLoss is used.
         hparams_preprocess : bool, optional
             if True performs preprocessing operations on the hyperparameters,
             by default True
