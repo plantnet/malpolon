@@ -14,6 +14,7 @@ import os
 from abc import abstractmethod
 from pathlib import Path
 from random import random
+from typing import Callable, Iterable, Union
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -42,21 +43,41 @@ class PatchesDataset(Dataset):
 
     def __init__(
         self,
-        occurrences,
-        providers,
-        transform=None,
-        target_transform=None,
-        id_name="glcID",
-        label_name="speciesId",
-        item_columns=['lat', 'lon', 'PlotID'],
-        id_getitem='PlotID'
+        occurrences: str,
+        providers: Iterable,
+        transform: Callable = None,
+        target_transform: Callable = None,
+        id_name: str = "glcID",
+        label_name: str = "speciesId",
+        item_columns: Iterable = ['lat', 'lon', 'patchID'],
     ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        occurrences : str
+            path to the occurrences (observations) file
+        providers : Iterable
+            list of providers to extract patches from
+        transform : Callable, optional
+            data transform function passed as callable, by default None
+        target_transform : Callable, optional
+            labels transform function passed as callable, by default
+            None
+        id_name : str, optional
+            observation id name, by default "glcID"
+        label_name : str, optional
+            name of the species label in the observation file,
+            by default "speciesId"
+        item_columns : Iterable, optional
+            columns to keep (by names) for further usage,
+            by default ['lat', 'lon', 'patchID']
+        """
         self.occurences = Path(occurrences)
         self.base_providers = providers
         self.transform = transform
         self.target_transform = target_transform
         self.provider = MetaPatchProvider(self.base_providers, self.transform)
-        self.id_getitem = id_getitem
 
         df = pd.read_csv(self.occurences, sep=";",
                          header='infer', low_memory=False)
@@ -120,12 +141,37 @@ class PatchesDatasetMultiLabel(PatchesDataset):
 
     def __init__(
         self,
-        occurrences,
-        providers,
-        n_classes='max',
+        occurrences: str,
+        providers: Iterable,
+        n_classes: Union[int, str] = 'max',
+        id_getitem: str = 'patchId',
         **kwargs
     ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        occurrences : str
+            path to the occurrences (observations) file
+        providers : Iterable
+            list of providers to extract patches from
+        n_classes : str, optional
+            Number of classes. 3 options are available:
+            - 'max' : infered from maximum value of the species id column
+            - 'length' : infered from the number of unique species id
+            - int : defined by user input
+            By default 'max'.
+        id_getitem : str, optional
+            column id to query the multiple observations by,
+            by default 'patchID'
+
+        Raises
+        ------
+        ValueError
+            raises a ValueError if n_classes is not 1 of the 3 options
+        """
         super().__init__(occurrences, providers, **kwargs)
+        self.id_getitem = id_getitem
         self.targets_sorted = []
         self.observation_ids = np.unique(self.observation_ids)
         match n_classes:
@@ -182,14 +228,36 @@ class TimeSeriesDataset(Dataset):
 
     def __init__(
         self,
-        occurrences,
-        providers,
-        transform=None,
-        target_transform=None,
-        id_name="glcID",
-        label_name="speciesId",
-        item_columns=['timeSerieID'],
+        occurrences: str,
+        providers: Iterable,
+        transform: Callable = None,
+        target_transform: Callable = None,
+        id_name: str = "glcID",
+        label_name: str = "speciesId",
+        item_columns: Iterable = ['timeSerieID'],
     ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        occurrences : str
+            path to the occurrences (observations) file
+        providers : Iterable
+            list of providers to extract patches from
+        transform : Callable, optional
+            data transform function passed as callable, by default None
+        target_transform : Callable, optional
+            labels transform function passed as callable, by default
+            None
+        id_name : str, optional
+            observation id name, by default "glcID"
+        label_name : str, optional
+            name of the species label in the observation file,
+            by default "speciesId"
+        item_columns : Iterable, optional
+            columns to keep (by names) for further usage,
+            by default ['timeSerieID']
+        """
         self.occurences = Path(occurrences)
         self.base_providers = providers
         self.transform = transform
@@ -197,7 +265,7 @@ class TimeSeriesDataset(Dataset):
         self.provider = MetaTimeSeriesProvider(self.base_providers,
                                                self.transform)
 
-        df = pd.read_csv(self.occurences, sep=",",
+        df = pd.read_csv(self.occurences, sep=";",
                          header='infer', low_memory=False)
 
         self.observation_ids = df[id_name].values
@@ -257,7 +325,22 @@ class PatchProvider():
     all patch providers. Particularly, the plot method is designed to
     accommodate all cases of the GLC23 patch datasets.
     """
-    def __init__(self, size, normalize) -> None:
+    def __init__(
+        self,
+        size: int = 128,
+        normalize: bool = False
+    ) -> None:
+        """Class constructor.
+
+        Parameters
+        ----------
+        size : int
+            patch extraction size, by default 128
+        normalize : bool, optional
+            If True, performs (mean, std) normalization over each raster
+            individually or over all pre-extracted patches.
+            By default False.
+        """
         self.patch_size = size
         self.normalize = normalize
         self.nb_layers = 0
@@ -341,7 +424,20 @@ class MetaPatchProvider(PatchProvider):
     Args:
         (PatchProvider): inherits PatchProvider.
     """
-    def __init__(self, providers, transform=None):
+    def __init__(
+        self,
+        providers: Iterable[Callable],
+        transform: Callable = None
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        providers : Iterable[Callable]
+            list of providers to extract patches from
+        transform : Callable, optional
+            transform function to apply on the patches, by default None
+        """
         super().__init__(0, None)
         self.providers = providers
         self.nb_layers = np.sum([len(provider) for provider in self.providers])
@@ -390,13 +486,41 @@ class RasterPatchProvider(PatchProvider):
     Args:
         (PatchProvider): inherits PatchProvider.
     """
-    def __init__(self,
-                 raster_path,
-                 size=128,
-                 spatial_noise=0,
-                 normalize=True,
-                 fill_zero_if_error=False,
-                 nan_value=0):
+    def __init__(
+        self,
+        raster_path: str,
+        size: int = 128,
+        spatial_noise: int = 0,
+        normalize: bool = True,
+        fill_zero_if_error: bool = False,
+        nan_value: Union[int, float] = 0
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        raster_path : str
+            path to the .tif raster file
+        size : int, optional
+            size of the patches to extract, by default 128
+        spatial_noise : int, optional
+            Data augmentation technique that shifts the patch center
+            (observation (lon, lat)) by a random value between 0 and 1.
+            The noise is computed as follows :
+            `x * 2 * spatial_noise - spatial_noise` where `x` is a random
+            value between 0 and 1.
+            The noise is then added to the patch center coordinates.
+            By default 0
+        normalize : bool, optional
+            if True performs (mean, std) normalization raster-wise,
+            by default True
+        fill_zero_if_error : bool, optional
+            if the output patch tensor is not of the expected size
+            (nb_layers, size, size), fills the patch with zeros instead,
+            by default False
+        nan_value : Union[int, float], optional
+            value to replace NaN values with, by default 0
+        """
         super().__init__(size, normalize)
         self.spatial_noise = spatial_noise
         self.fill_zero_if_error = fill_zero_if_error
@@ -518,8 +642,24 @@ class MultipleRasterPatchProvider(PatchProvider):
     Args:
         PatchProvider (_type_): _description_
     """
-    def __init__(self, rasters_folder, select=None, size=128, spatial_noise=0, normalize=True, fill_zero_if_error=False):
-        super().__init__(size, normalize)
+    def __init__(
+        self,
+        rasters_folder: str,
+        select: Iterable[str] = None,
+        **kwargs,
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        rasters_folder : str
+            path to the folder containing the rasters
+        select : Iterable[str], optional
+            List of rasters prefix names. Only the rasters containing
+            those names will be loaded.
+            By default None
+        """
+        super().__init__(**kwargs)
         files = os.listdir(rasters_folder)
         if select:
             rasters_paths = [r + '.tif' for r in select]
@@ -528,7 +668,7 @@ class MultipleRasterPatchProvider(PatchProvider):
         self.rasters_providers = []
 
         for path in tqdm(rasters_paths):
-            self.rasters_providers.append(RasterPatchProvider(rasters_folder + path, size=size, spatial_noise=spatial_noise, normalize=normalize, fill_zero_if_error=fill_zero_if_error))
+            self.rasters_providers.append(RasterPatchProvider(rasters_folder + path, **kwargs))
         self.nb_layers = np.sum([len(raster) for raster in self.rasters_providers])
         self.bands_names = list(itertools.chain.from_iterable([raster.bands_names for raster in self.rasters_providers]))
 
@@ -569,19 +709,46 @@ class JpegPatchProvider(PatchProvider):
         (PatchProvider): inherits PatchProvider.
     """
 
-    def __init__(self, root_path, select=None, normalize=False, patch_transform=None, size=128, dataset_stats='jpeg_patches_stats.csv', id_getitem='PlotID'):
+    def __init__(
+        self,
+        root_path: str,
+        select: Iterable[str] = None,
+        normalize: bool = False,
+        patch_transform: Callable = None,
+        size: int = 128,
+        dataset_stats: str = 'jpeg_patches_stats.csv',
+        id_getitem: str = 'patchID'
+    ):
         """Class constructor.
 
-        Args:
-            root_path (str): root path to the directory containg all patches modalities
-            channel_list (list, optional): list of channels to provide for the output tensor. Defaults to None.
-            normalize (bool, optional): normalize data. Defaults to False.
-            patch_transform (callable, optional): custom transformation functions. Defaults to None.
-            size (int, optional): default tensor sizes (must match patch sizes). Defaults to 128.
-            dataset_stats (str, optional): path to the csv file containing the mean and std values of the
-                                           jpeg patches dataset if `normalize` is True. If the file doesn't
-                                           exist, the values will be calculated and the file will be created once.
-                                           Defaults to 'jpeg_patches_stats.csv'
+        Parameters
+        ----------
+        root_path : str
+            root path to the directory containg all patches modalities
+        select : Iterable[str], optional
+            List of rasters prefix names. Only the rasters containing
+            those names will be loaded.
+            by default None
+        normalize : bool, optional
+            normalize patches, by default False
+        patch_transform : Iterable[Callable], optional
+            custom transformation function, by default None
+        size : int, optional
+            size of the patches to extract, by default 128
+        dataset_stats : str, optional
+            Path to a csv file containing mean and std values of the
+            patches dataset which can be used to normalize the data
+            (depending on argument `normalize`). If the file does not
+            exists, the method will attempt to compute it: WARNING,
+            THIS CAN TAKE A VERY BIG AMOUNT OF TIME.
+            By default 'jpeg_patches_stats.csv'
+        id_getitem : str, optional
+            Labels column id on which are based the organization of
+            patches in folders and sub-folders.
+            Patches should be organized in the following way:
+            root_path/YZ/WX/patchID.jpeg with patchId being the value
+            ABCDWXYZ.
+            By default 'patchID'
         """
         super().__init__(size, normalize)
         self.patch_transform = patch_transform
@@ -610,14 +777,14 @@ class JpegPatchProvider(PatchProvider):
         Looks for every spectral bands listed in self.channels and returns
         a 3-dimensionnal patch concatenated in 1 tensor. The index used to
         query the right patch is a dictionnary with at least one key/value
-        pair : {'PlotID', <PlotID_value>}.
+        pair : {'patchID', <patchID_value>}.
 
         Args:
-            item (dict): dictionnary containing the PlotID necessary to
+            item (dict): dictionnary containing the patchID necessary to
                          identify the jpeg patch to return.
 
         Raises:
-            KeyError: the 'PlotID' key is missing from item
+            KeyError: the 'patchID' key is missing from item
             Exception: item is not a dictionnary as expected
 
         Returns:
@@ -694,14 +861,25 @@ class TimeSeriesProvider():
     It handles time series data stored as .csv files where each file
     has values for a single spectral band (red, green, infra-red etc...).
     """
-    def __init__(self,
-                 root_path,
-                 normalize=False,
-                 transform=None,
-                 eos_replace_value=-1) -> None:
+    def __init__(
+        self,
+        root_path: str,
+        eos_replace_value: Union[int, float] = -1,
+        transform: Iterable[Callable] = None
+    ) -> None:
+        """Class constructor.
+
+        Parameters
+        ----------
+        root_path : str
+            path to the directory containing the time series data
+        transform : Iterable[Callable], optional
+            list of transformation functions to apply on the time series,
+            by default None
+        eos_replace_value : Union[int, float], optional
+            _description_, by default -1
+        """
         self.root_path = root_path
-        self.normalize = normalize
-        self.transform = transform
         self.nb_layers = 0
         self.min_sequence = 0
         self.max_sequence = 0
@@ -709,6 +887,7 @@ class TimeSeriesProvider():
         self.layers_length = 0
         self.eos_replace_value = eos_replace_value
         self.features_col = []
+        self.transform = transform
 
     @abstractmethod
     def __getitem__(self, item):
@@ -837,14 +1016,27 @@ class MetaTimeSeriesProvider(TimeSeriesProvider):
     Args:
         (TimeSeriesProvider) : inherits TimeSeriesProvider.
     """
-    def __init__(self, providers, transform=None):
+    def __init__(
+        self,
+        providers: Iterable[Callable],
+        transform: Iterable[Callable] = None
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        providers : Iterable[Callable]
+            list of providers to extract patches from
+        transform : Iterable[Callable], optional
+            list of transform functions to apply on the time series,
+            by default None
+        """
         super().__init__('', True, transform)
         self.providers = providers
         self.layers_length = [provider.nb_layers for provider in self.providers]
         self.nb_layers = sum(self.layers_length)
         self.bands_names = list(itertools.chain.from_iterable([provider.bands_names for provider in self.providers]))
         self.features_col = [provider.features_col for provider in self.providers]
-        self.transform = transform
         self.eos_replace_value = []
         for provider, ll_ in zip(self.providers, self.layers_length):
             self.eos_replace_value.extend([provider.eos_replace_value] * ll_)
@@ -892,13 +1084,41 @@ class CSVTimeSeriesProvider(TimeSeriesProvider):
     Args:
         (TimeSeriesProvider) : inherits TimeSeriesProvider.
     """
-    def __init__(self,
-                 ts_data_path,
-                 normalize=False,
-                 ts_id='timeSerieID',
-                 features_col=[],
-                 eos_replace_value=-1,
-                 transform=None) -> None:
+    def __init__(
+        self,
+        ts_data_path: str,
+        normalize: bool = False,
+        ts_id: str = 'timeSerieID',
+        features_col: list = [],
+        eos_replace_value: Union[int, float] = -1,
+        transform: Iterable[Callable] = None
+    ) -> None:
+        """Class constructor.
+
+        Parameters
+        ----------
+        ts_data_path : str
+            path to the .csv file containing the time series data
+        normalize : bool, optional
+            normalize the time series data, by default False
+        ts_id : str, optional
+            time series id, by default 'timeSerieID'
+        features_col : list, optional
+            time series columns to keep (if empty list then keeps all),
+            by default []
+        eos_replace_value : Iterable[int, float], optional
+            value to replace 'eos' string in the time series data,
+            by default -1
+        transform : Iterable[Callable], optional
+            list of transformation functions to apply on the time series,
+            by default None
+
+        Raises
+        ------
+        KeyError
+            raises a key error if some values in `features_col`
+            do not match the `ts_data` column names.
+        """
         super().__init__(ts_data_path, normalize, transform)
         self.ts_id = ts_id
         self.ts_data_path = ts_data_path
@@ -986,13 +1206,38 @@ class MultipleCSVTimeSeriesProvider(TimeSeriesProvider):
     """
     # Be careful not to place the label .csv with the data .csv and leaving
     # select=None as the provider would then list all .csv files as data including the label file.
-    def __init__(self, root_path,
-                 select=[],  # ['red', 'green', 'blue', 'ir', 'swir1', 'swir2']
-                 normalize=False,
-                 ts_id='timeSerieID',
-                 features_col=[],
-                 eos_replace_value=-1,
-                 transform=None) -> None:
+    def __init__(
+        self,
+        root_path: str,
+        select: list = [],  # ['red', 'green', 'blue', 'ir', 'swir1', 'swir2']
+        normalize: bool = False,
+        ts_id: str = 'timeSerieID',
+        features_col: list = [],
+        eos_replace_value: Union[int, float] = -1,
+        transform: Iterable[Callable] = None
+    ) -> None:
+        """Class constructor.
+
+        Parameters
+        ----------
+        root_path : str
+            path to the directory containing the time series data
+        select : list, optional
+            list of time series files to load,
+            by default []
+        ts_id : str, optional
+            time series id,
+            by default 'timeSerieID'
+        features_col : list, optional
+            time series columns to keep (if empty list then keeps all),
+            by default []
+        eos_replace_value : Union[int, float], optional
+            value to replace 'eos' string in the time series data,
+            by default -1
+        transform : Iterable[Callable], optional
+            list of transformation functions to apply on the time series,
+            by default None
+        """
         super().__init__(root_path, normalize, transform)
         self.root_path = root_path
         self.ts_id = ts_id

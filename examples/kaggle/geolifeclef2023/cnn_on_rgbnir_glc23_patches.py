@@ -12,6 +12,7 @@ import numpy as np
 import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
+from torchgeo.samplers import Units
 from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
@@ -21,7 +22,6 @@ from malpolon.data.datasets.geolifeclef2023 import (JpegPatchProvider,
 from malpolon.logging import Summary
 from malpolon.models import ClassificationSystem
 from malpolon.models.utils import CrashHandler
-from torchgeo.samplers import Units
 
 
 class Sentinel2PatchesDataModule(BaseDataModule):
@@ -94,7 +94,6 @@ class Sentinel2PatchesDataModule(BaseDataModule):
                 providers=[jpp_rgbnir],
                 transform=transform,
                 target_transform=target_transform,
-                id_getitem='patchID',
                 item_columns=['lat', 'lon', 'patchID'],
                 **kwargs
             )

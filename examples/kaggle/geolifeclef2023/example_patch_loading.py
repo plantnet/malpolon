@@ -28,15 +28,14 @@ def main():
     # create dataset
     dataset = PatchesDataset(occurrences=data_path + 'Presence_only_occurrences/Presences_only_train_sample.csv',
                              providers=[p_hfp_d, p_bioclim, p_hfp_s, p_rgb],
-                             item_columns=['lat', 'lon', 'patchID'],
-                             id_getitem='patchID')
+                             item_columns=['lat', 'lon', 'patchID'])
     dataset_multi = PatchesDatasetMultiLabel(occurrences=data_path + 'Presence_only_occurrences/Presences_only_train_sample.csv',
                                              providers=[p_hfp_d, p_bioclim, p_hfp_s, p_rgb],
                                              item_columns=['lat', 'lon', 'patchID'],
                                              id_getitem='patchID')
 
     # print random tensors from dataset
-    ids = [random.randint(0, len(dataset) - 1) for i in range(1)]
+    ids = [random.randint(0, len(dataset) - 1) for i in range(5)]
     for i in ids:
         tensor, label = dataset[i]
         label_multi = dataset_multi[i][1]
