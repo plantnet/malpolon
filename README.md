@@ -41,7 +41,7 @@ Here is a list of the currently available scenarios:
 
 ## :wrench: Installation
 
-To install malpolon, you will first need to install **Python 3.8, 3.9 or 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
+To install malpolon, you will first need to install **Python ≥ 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
 
 ⚠️ **macOS** installation does not yet include instructions on how to properly set up GPU usage for GPU-enabled mac. For training purposes we recommend sticking to Linux for the time being. ⚠️
 
@@ -52,7 +52,7 @@ To install malpolon, you will first need to install **Python 3.8, 3.9 or 3.10**,
 
 Before proceeding, please make sure the following packages are installed on your system:
 
-- [3.8 ≤ Python ≤ 3.10](https://www.python.org/downloads/)
+- [Python ≥ 3.10](https://www.python.org/downloads/)
 - [`pip`](https://pip.pypa.io/en/stable/installation/)
 - [`git`](https://git-scm.com/downloads)
 - `libgeos-dev` (dependency of Python library `Cartopy`)
@@ -124,9 +124,9 @@ python -m malpolon.check_install
 which, if you have CUDA properly installed, should output something similar to
 
 ```script
-Using PyTorch version 1.13.0
-CUDA available: True (version: 11.6)
-cuDNN available: True (version: 8302)
+Using PyTorch version 2.1.0+cu121
+CUDA available: True (version: 12.1)
+cuDNN available: True (version: 8902)
 Number of CUDA-compatible devices found: 1
 ```
 
