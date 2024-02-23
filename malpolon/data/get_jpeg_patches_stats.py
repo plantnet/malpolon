@@ -3,6 +3,8 @@
 When dealing with a large amount of files it should be run
 only once, and the statistics should be stored in a separate .csv
 for later use.
+
+Author: Theo Larcher <theo.larcher@inria.fr>
 """
 
 import argparse

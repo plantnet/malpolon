@@ -1,11 +1,16 @@
+"""This script tests the GeoLifeCLEF2022 dataset module.
+
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
+"""
+
 from pathlib import Path
 
 import numpy as np
 import pytest
 
+from malpolon.data.datasets.geolifeclef2022 import (
+    GeoLifeCLEF2022Dataset, load_patch, visualize_observation_patch)
 from malpolon.data.environmental_raster import PatchExtractor
-from malpolon.data.datasets.geolifeclef2022 import load_patch, GeoLifeCLEF2022Dataset, visualize_observation_patch
-
 
 DATA_PATH = Path("malpolon/tests/data/glc22")
 

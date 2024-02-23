@@ -1,4 +1,8 @@
-"""This file compiles useful functions related to data and file handling."""
+"""This file compiles useful functions related to data and file handling.
+
+Author: Theo Larcher <theo.larcher@inria.fr>
+"""
+
 from __future__ import annotations
 
 import os
