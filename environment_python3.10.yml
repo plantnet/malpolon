@@ -7,5 +7,6 @@ dependencies:
   - cmake==3.26.3
   - pip==23.2.1
   - pip:
+    - --no-deps pipreqs==0.5.0
     - -r requirements_python3.10.txt
 prefix: ~/envs/malpolon
