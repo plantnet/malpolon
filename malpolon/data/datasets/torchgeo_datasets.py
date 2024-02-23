@@ -6,18 +6,14 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 from __future__ import annotations
 
 from pathlib import Path
-from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional,
-                    Sequence, Tuple, Union)
+from typing import TYPE_CHECKING, Any, Callable, Dict, Sequence, Union
 
 import numpy as np
 import pandas as pd
 import pyproj
-import torch
-from matplotlib import pyplot as plt
-from matplotlib.figure import Figure
 from pyproj import CRS, Transformer
-from torchgeo.datasets import BoundingBox, GeoDataset, RasterDataset
-from torchgeo.samplers import GeoSampler, Units
+from torchgeo.datasets import BoundingBox, RasterDataset
+from torchgeo.samplers import Units
 
 from malpolon.data.utils import is_point_in_bbox, to_one_hot_encoding
 
@@ -243,7 +239,7 @@ class RasterTorchGeoDataset(RasterDataset):
         """
         crs = self.crs_pyproj if crs == 'self' else crs
         units = {'pixel': Units.PIXELS, 'crs': Units.CRS, 'm': 'm', 'meter': 'm', 'metre': 'm'}[units]
-        size = self.patch_size if size is None else size
+        size = self.patch_size if size is None else size  # size = size or self.patch_size
         size = (size, size) if isinstance(size, (int, float)) else size
         if units == Units.PIXELS:
             size = (size[0] * self.res, size[1] * self.res)
@@ -345,6 +341,41 @@ class RasterTorchGeoDataset(RasterDataset):
             return to_one_hot_encoding(label, self.unique_labels)
         return label
 
+    def get_label(self,
+                  df: pd.DataFrame,
+                  query_lon: float,
+                  query_lat: float,
+                  obs_id: int = None):
+        """Return the label(s) matching the query coordinates.
+
+        This method takes into account the fact that several labels can
+        match a single coordinate set. For that reason, the labels
+        are chosen according to the value of the 'obs_id' parameter
+        (matching the observation_id column of the labels DataFrame).
+        If no value is given to 'obs_id', all matching labels are
+        returned.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            dataset DataFrame composed of columns:
+            ['lon', 'lat', 'observation_id']
+        query_lon : float
+            longitude value of the query point.
+        query_lat : float
+            latitude value of the query point.
+        obs_id : int, optional
+            observation ID tied to the query point, by default None
+
+        Returns
+        -------
+        Union[np.ndarray, int]
+            target label(s).
+        """
+        if obs_id is None:
+            return self.targets[df.index[(df['lon'] == query_lon) & (df['lat'] == query_lat)].values]
+        return self.targets[df.index[df['observation_id'] == obs_id].values]
+
     def __getitem__(
         self,
         query: Union[dict, tuple, list, set, BoundingBox]
@@ -423,13 +454,18 @@ class RasterTorchGeoDataset(RasterDataset):
                 query['units'] = 'pixel'
             if 'crs' not in query.keys() or query['crs'] != self.crs_pyproj:
                 query['crs'] = self.crs_pyproj
+            if 'obs_id' not in query.keys():
+                query['obs_id'] = None
 
+            query_obs_id = query['obs_id']
             query = self.point_to_bbox(query['lon'], query['lat'], query['size'], query['units'], query['crs'])
 
             # Use Case 2
             patch = super().__getitem__(query)
             df = pd.DataFrame(self.coordinates, columns=['lon', 'lat'])
-            label = self.targets[df.index[(df['lon'] == query_lon) & (df['lat'] == query_lat)].values]
+            df['observation_id'] = self.observation_ids
+
+            label = self.get_label(df, query_lon, query_lat, query_obs_id)
             label = self._format_label_to_task(label)
             sample = patch['image']
             if self.transforms_data is not None:
@@ -439,107 +475,3 @@ class RasterTorchGeoDataset(RasterDataset):
         if self.transforms_data is not None:
             sample = self.transforms_data(sample)
         return sample
-
-
-class RasterSentinel2(RasterTorchGeoDataset):
-    """Raster dataset adapted for Sentinel-2 data.
-
-    Inherits RasterTorchGeoDataset.
-    """
-    filename_glob = "T*_B0*_10m.tif"
-    filename_regex = r"T31TEJ_20190801T104031_(?P<band>B0[\d])"
-    date_format = "%Y%m%dT%H%M%S"
-    is_image = True
-    separate_files = True
-    all_bands = ["B02", "B03", "B04", "B08"]
-    plot_bands = ["B04", "B03", "B02"]
-
-    def plot(
-        self,
-        sample: Patches
-    ) -> Figure:
-        """Plot a 3-bands dataset patch (sample).
-
-        Plots a dataset sample by selecting the 3 bands indicated in
-        the `plot_bands` variable (in the same order).
-        By default, the method plots the RGB bands.
-
-        Parameters
-        ----------
-        sample : Patches
-            dataset's patch to plot
-
-        Returns
-        -------
-        Figure
-            matplotlib figure containing the plot
-        """
-        # Find the correct band index order
-        plot_indices = []
-        for band in self.plot_bands:
-            plot_indices.append(self.all_bands.index(band))
-
-        # Reorder and rescale the image
-        image = sample[plot_indices].permute(1, 2, 0)
-        image = torch.clamp(image / 10000, min=0, max=1).numpy()
-
-        # Plot the image
-        fig, ax = plt.subplots()
-        ax.imshow(image)
-
-        return fig
-
-
-class Sentinel2GeoSampler(GeoSampler):
-    """Custom sampler for RasterSentinel2.
-
-    This custom sampler is used by RasterSentinel2 to query the dataset
-    with the fully constructed dictionary. The sampler is passed to and
-    used by PyTorch dataloaders in the training/inference workflow.
-
-    Inherits GeoSampler.
-
-    NOTE: this sampler is compatible with any class inheriting
-          RasterTorchGeoDataset's `__getitem__` method so the name of
-          this sampler may become irrelevant when more dataset-specific
-          classes inheriting RasterTorchGeoDataset are created.
-    """
-
-    def __init__(
-        self,
-        dataset: GeoDataset,
-        size: Union[Tuple[float, float], float],
-        length: Optional[int] = None,
-        roi: Optional[BoundingBox] = None,
-        units: Units = 'pixel',
-        crs: str = 'crs',
-    ) -> None:
-        super().__init__(dataset, roi)
-        self.units = units
-        self.crs = crs
-        self.size = (size, size) if isinstance(size, (int, float)) else size
-        self.coordinates = dataset.coordinates
-        self.length = length if length is not None else len(dataset.observation_ids)
-
-    def __iter__(self) -> Iterator[BoundingBox]:
-        """Yield a dict to iterate over a RasterTorchGeoDataset dataset.
-
-        Yields
-        ------
-        Iterator[BoundingBox]
-            dataset input query
-        """
-        for _ in range(len(self)):
-            coords = tuple(self.coordinates[_])
-            yield {'lon': coords[0], 'lat': coords[1],
-                   'crs': self.crs,
-                   'size': self.size,
-                   'units': self.units}
-
-    def __len__(self) -> int:
-        """Return the number of samples in a single epoch.
-
-        Returns:
-            length of the epoch
-        """
-        return self.length

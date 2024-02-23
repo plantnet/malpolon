@@ -150,7 +150,7 @@ def test_patch_extractor_out_of_bounds(size):
     extractor = PatchExtractor(DATA_PATH / "bioclimatic_rasters", size=size)
     extractor.append("bio_1", out_of_bounds="error")
     with pytest.raises(IndexError):
-        extractor[0, 0]
+        _ = extractor[0, 0]
 
     extractor = PatchExtractor(DATA_PATH / "bioclimatic_rasters", size=size)
     extractor.append("bio_1", out_of_bounds="warn")

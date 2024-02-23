@@ -10,6 +10,7 @@ ipython==8.17.2
 jupyter==1.0.0
 jupyter-server==2.7.2
 jupyterlab==3.5.0
+kaggle==1.5.16
 lightning==2.0.9.post0
 Markdown==3.4.1
 matplotlib==3.8.0

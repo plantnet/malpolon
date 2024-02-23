@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
 from torchgeo.datasets import BoundingBox
 
-from malpolon.data.utils import *
+from malpolon.data.utils import (get_files_path_recursively, is_bbox_contained,
+                                 is_point_in_bbox, to_one_hot_encoding)
 
 
 def test_is_bbox_contained() -> None:
@@ -13,7 +13,7 @@ def test_is_bbox_contained() -> None:
     bbox2 = [0, 0, 10, 10]
     ibc_manual = is_bbox_contained(bbox1, bbox2, method='manual')
     ibc_shapely = is_bbox_contained(bbox1, bbox2, method='shapely')
-    
+
     tg_bbox1 = BoundingBox(bbox1[0], bbox1[2], bbox1[1], bbox1[3], 0, 10)
     tg_bbox2 = BoundingBox(bbox2[0], bbox2[2], bbox2[1], bbox2[3], 0, 10)
     ibc_torchgeo = is_bbox_contained(tg_bbox1, tg_bbox2, method='torchgeo')

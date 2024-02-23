@@ -96,7 +96,7 @@ Quick start
 
 For a quick overview of the framework, you can run the following commands::
 
-   cd examples/sentinel2_raster_torchgeo
+   cd examples/ecologists/sentinel-2a
    python cnn_on_rgbnir_torchgeo.py trainer.accelerator=cpu run.predict=false trainer.max_epochs=5
 
 This will train a ResNet-50 CNN on a 1 tile, 4 modalities (RGB + IR) sample of the Sentinel-2A dataset for 5 epochs, using the CPU. The model will be saved in the ``outputs`` folder. To run the prediction on the test set, run::

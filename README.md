@@ -23,67 +23,36 @@
 
 Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including bioclimatic rasters, remote sensing images, land-use rasters, etc...
 
-## Acknowledgments
+If you're not a deep learning or PyTorch expert but nonetheless want to use visual deep learning models on satellite and/or bioclimatic rasters to predict the presence of species on a given area, this framework is for you.
 
-This work is made possible through public financing by the [European Commission](https://commission.europa.eu/index_en) on european projects [MAMBO](https://www.mambo-project.eu/) and [GUARDEN](https://guarden.org/).
+## 🧭 Usage
 
-<div align="center">
-  <a href="https://www.mambo-project.eu/"><img src="docs/resources/mambo_logo.png" alt="MAMBO_logo" style="width: 200px;  margin-top: 15px; margin-right: 50px;"></a>
-  <a href="https://guarden.org/"><img src="docs/resources/guarden_logo.png" alt="GUARDEN_logo" style="width: 230px; height: auto; margin-right: 50px;"></a>
-</div>
-<div align="center">
-  <a href="https://commission.europa.eu/index_en"><img src="docs/resources/logo-ec--en.svg" alt="europ_commission_logo" style="width: 300px;  margin-top: 20px; margin-bottom: 15px;"></a>
-</div>
+Malpolon is destined to be used by various user profiles, some more experimented than others. To this end, we provide several examples of usage of the framework, organized by use case or _scenarios_. These examples can be found in the `examples` folder of the repository, each with a README file for more details on how to use the scripts.
 
-This work is currently under development and maintained by the [Pl@ntNet](https://plantnet.org/) team within the [INRIA](https://www.inria.fr/en) research institute.
+Here is a list of the currently available scenarios:
 
-<div align="center">
-  <a href="https://www.inria.fr/en"><img src="docs/resources/inria.png" alt="MAMBO_logo" style="width: 150px;  margin-top: 15px; margin-right: 50px;"></a>
-  <a href="https://plantnet.org/"><img src="docs/resources/plantnet_logo.png" alt="GUARDEN_logo" style="width: 250px; height: auto; margin-right: 50px;"></a>
-</div>
+- [**Kaggle**](examples/kaggle/) : I am a potential kaggle participant on the GeoLifeClef challenge. I want to train a model on the provided datasets without having to worry about the data loading, starting from a plug-and-play example.
+  - [<u>GeoLifeClef2022</u>](examples/kaggle/geolifeclef2022/) : contains a fully functionnal example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction.
+  - [<u>GeoLifeClef2023</u>](examples/kaggle/geolifeclef2023/) : contains dataloaders for the GeoLifeClef2023 dataset (different from the GLC2022 dataloaders). The training and prediction scripts are not provided.
+- [**Ecologists**](examples/ecologists/) : I have a dataset of my own and I want to train a model on it. I want to be able to easily customize the training process and the model architecture.
+  - <u>Drop and play</u> : I have an observations file (.csv) and I want to train a model on different environmental variables (rasters, satellite imagery) without having to worry about the data loading.
+  - <u>Custom dataset</u> : I have my own dataset consisting of pre-extracted image patches and/or rasters and I want to train a model on it.
+- [**Inference**](examples/inference/) : I have an observations file (.csv) and I want to predict the presence of species on a given area using a model I trained previously and a selected dataset or a shapefile I would provide.
 
-## Roadmap
+## :wrench: Installation
 
-This roadmap outlines the planned features and milestones for the project. Please note that the roadmap is subject to change and may be updated as the project progress.
-
-- [ ] Data support
-    - [x] Images (pre-extracted patches)
-    - [x] Rasters
-    - [ ] Time series
-      - [x] Via GLC23 loaders (.csv)
-      - [ ] Via generic loader
-    - [ ] Shapefiles
-    - [ ] Fuse several data types in one training
-- [ ] Deep learning tasks
-  - [x] Binary classification
-  - [x] Multi-class classification
-  - [x] Multi-label classification
-  - [ ] Regression (abundance prediction)
-  - [ ] Ordinal
-- [ ] Supported models
-  - [x] CNN
-  - [ ] LSTM
-  - [ ] Transformers
-- [ ] Training flexibility
-  - [x] Add model head/tail modifiers
-  - [ ] Allow easy (un-)freeze of layers
-  - [ ] Allow dataset intersections and unions
-- [ ] Allow data parallel training
-  - [x] Multithreading
-  - [ ] Multiprocessing
-    - Issues may arise depending on hardware
-
-## Installation
-
-To install malpolon, you will first need to install **Python 3.8, 3.9 or 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
+To install malpolon, you will first need to install **Python ≥ 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
 
 ⚠️ **macOS** installation does not yet include instructions on how to properly set up GPU usage for GPU-enabled mac. For training purposes we recommend sticking to Linux for the time being. ⚠️
+
+<details>
+  <summary><i><u>Click here to expand instructions</u></i></summary>
 
 ### 0. Requirements
 
 Before proceeding, please make sure the following packages are installed on your system:
 
-- [3.8 ≤ Python ≤ 3.10](https://www.python.org/downloads/)
+- [Python ≥ 3.10](https://www.python.org/downloads/)
 - [`pip`](https://pip.pypa.io/en/stable/installation/)
 - [`git`](https://git-scm.com/downloads)
 - `libgeos-dev` (dependency of Python library `Cartopy`)
@@ -155,9 +124,9 @@ python -m malpolon.check_install
 which, if you have CUDA properly installed, should output something similar to
 
 ```script
-Using PyTorch version 1.13.0
-CUDA available: True (version: 11.6)
-cuDNN available: True (version: 8302)
+Using PyTorch version 2.1.0+cu121
+CUDA available: True (version: 12.1)
+cuDNN available: True (version: 8902)
 Number of CUDA-compatible devices found: 1
 ```
 
@@ -169,21 +138,9 @@ The **dev** branch is susceptible to have more up-to-date content such as newer 
 git checkout dev
 ```
 
-## Librairies
-Here is an overview of the main Python librairies used in this project. 
+</details>
 
-* [![PyTorch](https://img.shields.io/badge/PyTorch-%23ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/) - To handle deep learning loops and dataloaders
-* [![PyTorch Lightning](https://img.shields.io/badge/PyTorch%20Lightning-%23792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/docs/pytorch/stable/) - Deep learning framework which simplifies the usage of PyTorch elements
-* [![Numpy](https://img.shields.io/badge/Numpy-%234D77CF.svg?logo=numpy&logoColor=white)](https://numpy.org/) - For common computational operations
-* [![Torchgeo](https://img.shields.io/badge/Torchgeo-%23EE4C2C.svg?logo=torchgeo&logoColor=white)](https://torchgeo.readthedocs.io/en/stable/) - To handle data rasters
-* [![Matplotlib](https://img.shields.io/badge/Matplotlib-%2311557C.svg?logo=matplotlib&logoColor=white)](https://matplotlib.org/) - For displaying purposes
-* [![Hydra](https://img.shields.io/badge/Hydra-%23729DB1.svg?logo=hydra&logoColor=white)](https://hydra.cc/docs/intro/) - To handle models' hyperparameters
-
-## Examples
-
-Examples using the GeoLifeCLEF 2022 and 2023 datasets, as well as Sentinel-2A rasters are provided in the `examples` folder. Instructions about how to train and perform predictions with your models can be found in the README file of each example in said folder.
-
-## Documentation
+## :page_facing_up: Documentation
 
 An online code documentation is available via GitHub pages at [this link](https://plantnet.github.io/malpolon/). This documentation is updated each time new content is pushed to the `main` branch.
 
@@ -202,6 +159,73 @@ make -C docs html
 ```
 
 The result can be found in `docs/_build/html`.
+
+## :train2: Roadmap
+
+This roadmap outlines the planned features and milestones for the project. Please note that the roadmap is subject to change and may be updated as the project progress.
+
+<details>
+  <summary><i><u>Click here to toggle roadmap</u></i></summary>
+  <br>
+
+- [ ] Data support
+    - [x] Images (pre-extracted patches)
+    - [x] Rasters
+    - [ ] Time series
+      - [x] Via GLC23 loaders (.csv)
+      - [ ] Via generic loader
+    - [ ] Shapefiles
+    - [ ] Fuse several data types in one training
+- [ ] Deep learning tasks
+  - [x] Binary classification
+  - [x] Multi-class classification
+  - [x] Multi-label classification
+  - [ ] Regression (abundance prediction)
+  - [ ] Ordinal
+- [ ] Supported models
+  - [x] CNN
+  - [ ] LSTM
+  - [ ] Transformers
+- [ ] Training flexibility
+  - [x] Add model head/tail modifiers
+  - [ ] Allow easy (un-)freeze of layers
+  - [ ] Allow dataset intersections and unions
+- [ ] Allow data parallel training
+  - [x] Multithreading
+  - [ ] Multiprocessing
+    - Issues may arise depending on hardware
+
+</details>
+ 
+## Libraries
+Here is an overview of the main Python librairies used in this project. 
+
+* [![PyTorch](https://img.shields.io/badge/PyTorch-%23ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/) - To handle deep learning loops and dataloaders
+* [![PyTorch Lightning](https://img.shields.io/badge/PyTorch%20Lightning-%23792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/docs/pytorch/stable/) - Deep learning framework which simplifies the usage of PyTorch elements
+* [![Numpy](https://img.shields.io/badge/Numpy-%234D77CF.svg?logo=numpy&logoColor=white)](https://numpy.org/) - For common computational operations
+* [![Torchgeo](https://img.shields.io/badge/Torchgeo-%23EE4C2C.svg?logo=torchgeo&logoColor=white)](https://torchgeo.readthedocs.io/en/stable/) - To handle data rasters
+* [![Matplotlib](https://img.shields.io/badge/Matplotlib-%2311557C.svg?logo=matplotlib&logoColor=white)](https://matplotlib.org/) - For displaying purposes
+* [![Hydra](https://img.shields.io/badge/Hydra-%23729DB1.svg?logo=hydra&logoColor=white)](https://hydra.cc/docs/intro/) - To handle models' hyperparameters
+* [![Cartopy](https://img.shields.io/badge/Cartopy-%2300A1D9.svg?logo=cartopy&logoColor=white)](https://scitools.org.uk/cartopy/docs/latest/) - To handle geographical data
+
+ ## Acknowledgments
+
+This work is made possible through public financing by the [European Commission](https://commission.europa.eu/index_en) on european projects [MAMBO](https://www.mambo-project.eu/) and [GUARDEN](https://guarden.org/).
+
+<div align="center">
+  <a href="https://www.mambo-project.eu/"><img src="docs/resources/mambo_logo.png" alt="MAMBO_logo" style="width: 200px;  margin-top: 15px; margin-right: 50px;"></a>
+  <a href="https://guarden.org/"><img src="docs/resources/guarden_logo.png" alt="GUARDEN_logo" style="width: 230px; height: auto; margin-right: 50px;"></a>
+</div>
+<div align="center">
+  <a href="https://commission.europa.eu/index_en"><img src="docs/resources/logo-ec--en.svg" alt="europ_commission_logo" style="width: 300px;  margin-top: 20px; margin-bottom: 15px;"></a>
+</div>
+
+This work is currently under development and maintained by the [Pl@ntNet](https://plantnet.org/) team within the [INRIA](https://www.inria.fr/en) research institute.
+
+<div align="center">
+  <a href="https://www.inria.fr/en"><img src="docs/resources/inria.png" alt="MAMBO_logo" style="width: 150px;  margin-top: 15px; margin-right: 50px;"></a>
+  <a href="https://plantnet.org/"><img src="docs/resources/plantnet_logo.png" alt="GUARDEN_logo" style="width: 250px; height: auto; margin-right: 50px;"></a>
+</div>
 
 ## Licensing
 This framework is ditributed under the [MIT license](https://opensource.org/license/mit/), as is the Pl@ntNet project. See LICENSE.md for more information.
