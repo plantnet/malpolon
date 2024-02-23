@@ -1,3 +1,47 @@
 from setuptools import setup, find_packages
 
-setup(name="malpolon", packages=find_packages())
+setup(name="malpolon",
+      version="1.0.0",
+      description="Malpolon v1.0.0.0",
+      author="Theo Larcher, Titouan Lorieul",
+      author_email="theo.larcher@inria.fr, titouan.lorieul@inria.fr",
+      url="https://github.com/plantnet/malpolon",
+      classifiers=[
+        "Intended Audience :: Developpers, Ecologists, Researchers",
+        "License :: MIT License",
+        "Programming Language :: Python :: 3.10"],
+      package_dir={"": "malpolon"},
+      packages=find_packages(where="malpolon", exclude="malpolon.tests"),
+      python_requires=">=3.10, <4",
+      install_requires=[
+        "Cartopy>=0.21.1",
+        "kaggle>=1.5.16",
+        "matplotlib>=3.8.0",
+        "numpy>=1.26.4",
+        "omegaconf>=2.3.0",
+        "pandas>=2.2.1",
+        "Pillow>=10.0.1",
+        "Pillow>=10.2.0",
+        "planetary_computer>=0.4.9",
+        "pyproj>=3.6.1",
+        "pystac>=1.6.1",
+        "pytest>=7.2.2",
+        "pytorch_lightning>=2.1.0",
+        "rasterio>=1.3.8.post1",
+        "scikit_learn>=1.1.3",
+        "Shapely>=2.0.3",
+        "tifffile>=2022.10.10",
+        "timm>=0.9.2",
+        "torch>=2.1.0",
+        "torchgeo>=0.5.0",
+        "torchmetrics>=1.2.0",
+        "torchvision>=0.16.0",
+        "tqdm>=4.66.1"
+      ],
+      project_urls={
+        "Bug Reports": "https://github.com/plantnet/malpolon/issues/new?assignees=aerodynamic-sauce-pan&labels=bug&projects=&template=bug_report.md&title=%5BBUG%5D",
+        "Feature request": "https://github.com/plantnet/malpolon/issues/new?assignees=aerodynamic-sauce-pan&labels=enhancement&projects=&template=enhancement.md&title=%5BEnhancement%5D",
+        "Host organizer": "https://plantnet.org/",
+        "Source": "https://github.com/plantnet/malpolon",
+    },
+)

@@ -7,13 +7,18 @@ checkMyCode.sh
 
 !.gitignore
 
+# Build utilities
 docs/_build
+
+# Data
 examples/ecologists/micro_geolifeclef*/dataset/patches
 examples/ecologists/micro_geolifeclef*/dataset/rasters
+examples/ecologists/sentinel-2a/dataset/*.tif
 examples/inference/micro_geolifeclef*/dataset/patches
 examples/inference/micro_geolifeclef*/dataset/rasters
-
-examples/ecologists/sentinel-2a/dataset/*.tif
 examples/inference/sentinel-2a/dataset/*.tif
-
 examples/kaggle/geolifeclef2022/dataset
+
+# Packaging
+dist/
+build/
