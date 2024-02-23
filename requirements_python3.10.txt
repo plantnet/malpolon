@@ -8,8 +8,8 @@ hydra-core==1.3.2
 ipykernel==6.18.2
 ipython==8.17.2
 jupyter==1.0.0
-jupyter-server==2.7.2
-jupyterlab==3.5.0
+jupyter-server==2.11.2
+jupyterlab==3.6.7
 kaggle==1.5.16
 lightning==2.0.9.post0
 Markdown==3.4.1
