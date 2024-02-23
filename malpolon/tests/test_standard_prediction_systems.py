@@ -1,3 +1,8 @@
+"""This script tests the standard prediction systems module.
+
+Author: Theo Larcher <theo.larcher@inria.fr>
+"""
+
 import numpy as np
 import timm
 

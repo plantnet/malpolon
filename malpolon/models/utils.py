@@ -1,4 +1,8 @@
-"""This file compiles useful functions related to models."""
+"""This file compiles useful functions related to models.
+
+Author: Theo Larcher <theo.larcher@inria.fr>
+        Titouan Lorieul <titouan.lorieul@gmail.com>
+"""
 
 from __future__ import annotations
 

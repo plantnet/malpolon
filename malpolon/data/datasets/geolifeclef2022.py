@@ -3,7 +3,7 @@
 This module has since been updated for GeoLifeCLEF2023
 
 Author: Benjamin Deneu <benjamin.deneu@inria.fr>
-        Titouan Lorieul <titouan.lorieul@inria.fr>
+        Titouan Lorieul <titouan.lorieul@gmail.com>
 
 License: GPLv3
 Python version: 3.8

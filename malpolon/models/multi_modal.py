@@ -1,10 +1,17 @@
+"""This module provides classes for advanced model building.
+
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
+
+"""
+
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import torch
-from torch import nn
 from pytorch_lightning.strategies import SingleDeviceStrategy, StrategyRegistry
 from pytorch_lightning.utilities import move_data_to_device
+from torch import nn
 
 from .utils import check_model
 

@@ -3,8 +3,8 @@
 This script runs the RasterSentinel2 dataset class by default.
 
 Author: Theo Larcher <theo.larcher@inria.fr>
-        Titouan Lorieul <titouan.lorieul@inria.fr>
 """
+
 from __future__ import annotations
 
 import hydra

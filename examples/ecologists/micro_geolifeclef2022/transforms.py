@@ -3,9 +3,10 @@
 These transform classes can be called during training loops to perform
 data augmentation.
 
-Author: Titouan Lorieul <titouan.lorieul@inria.fr>
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
         Theo Larcher <theo.larcher@inria.fr>
 """
+
 import numpy as np
 import torch
 from torchvision import transforms

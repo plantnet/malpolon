@@ -1,3 +1,14 @@
+"""This module provides classes to build your PyTorch models.
+
+Classes listed in this module allow to select a model from your
+provider (timm, torchvision...), retrieve it with or without
+pre-trained weights, and modify it by adding or removing layers.
+
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
+        Theo Larcher <theo.larcher@inria.fr>
+
+"""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

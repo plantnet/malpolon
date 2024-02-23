@@ -1,4 +1,10 @@
+"""Utilities used for plotting purposes.
+
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
+"""
+
 from __future__ import annotations
+
 from typing import Optional
 
 import matplotlib.pyplot as plt
@@ -109,6 +115,7 @@ def plot_history(
 
 if __name__ == "__main__":
     import argparse
+
     import pandas as pd
 
     parser = argparse.ArgumentParser(description="plots the training curves")
