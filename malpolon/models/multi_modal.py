@@ -1,7 +1,7 @@
 """This module provides classes for advanced model building.
 
 Author: Titouan Lorieul <titouan.lorieul@gmail.com>
-
+        Theo Larcher <theo.larcher@inria.fr>
 """
 
 from __future__ import annotations
@@ -20,11 +20,32 @@ if TYPE_CHECKING:
 
 
 class MultiModalModel(nn.Module):
+    """Base multi-modal model.
+
+    This class builds an aggregation of multiple models from the passed
+    on config file values, one for each modality, splits the training
+    routine per modality and then aggregates the features from each
+    modality after each forward pass.
+    """
     def __init__(
         self,
         modality_models: Union[nn.Module, Mapping],
         aggregator_model: Union[nn.Module, Mapping],
     ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        modality_models : Union[nn.Module, Mapping]
+            dictionary of modality names and their respective models to
+            pass on to the model builder
+        aggregator_model : Union[nn.Module, Mapping]
+            Model strategy to aggregate the features from each modality.
+            Can either be a PyTorch module directly (in this case, the
+            module will be directly called), or a mapping in the same
+            fashion as for buiding the modality models, in which case
+            the model builder will be called again.
+        """
         super().__init__()
 
         for modality_name, model in modality_models.items():
@@ -46,12 +67,29 @@ class MultiModalModel(nn.Module):
 
 
 class HomogeneousMultiModalModel(MultiModalModel):
+    """Straightforward multi-modal model."""
     def __init__(
         self,
         modality_names: list,
         modalities_model: dict,
         aggregator_model: Union[nn.Module, Mapping],
     ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        modality_names : list
+            list of modalities names
+        modalities_model : dict
+            dictionary of modality names and their respective models to
+            pass on to the model builder
+        aggregator_model : Union[nn.Module, Mapping]
+            Model strategy to aggregate the features from each modality.
+            Can either be a PyTorch module directly (in this case, the
+            module will be directly called), or a mapping in the same
+            fashion as for buiding the modality models, in which case
+            the model builder will be called again.
+        """
         self.modality_names = modality_names
         self.modalities_model = modalities_model
 
@@ -62,6 +100,10 @@ class HomogeneousMultiModalModel(MultiModalModel):
 
 
 class ParallelMultiModalModelStrategy(SingleDeviceStrategy):
+    """Model parallelism strategy for multi-modal models.
+
+    WARNING: STILL UNDER DEVELOPMENT.
+    """
     strategy_name = "parallel_multi_modal_model"
 
     def __init__(
