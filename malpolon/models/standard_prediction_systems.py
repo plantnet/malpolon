@@ -6,16 +6,20 @@ Author: Titouan Lorieul <titouan.lorieul@inria.fr>
 """
 
 from __future__ import annotations
+
 from typing import TYPE_CHECKING
 
 import pytorch_lightning as pl
 import torch
 import torchmetrics.functional as Fmetrics
 
+from malpolon.models.utils import check_metric
+
 from .utils import check_loss, check_model, check_optimizer
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Mapping, Optional, Union
+
     from torch import Tensor
 
 
@@ -71,7 +75,7 @@ class GenericPredictionSystem(pl.LightningModule):
         self, split: str, batch: tuple[Any, Any], batch_idx: int
     ) -> Union[Tensor, dict[str, Any]]:
         if split == "train":
-            log_kwargs = {"on_step": False, "on_epoch": True}
+            log_kwargs = {"on_step": False, "on_epoch": True, "sync_dist": True}
         else:
             log_kwargs = {}
 
@@ -158,8 +162,8 @@ class GenericPredictionSystem(pl.LightningModule):
         """
         replace[0] += '.' if not replace[0].endswith('.') else ''
         for key in list(state_dict):
-            print(key)
             state_dict[key.replace(replace[0], replace[1])] = state_dict.pop(key)
+        print(f'Inference state_dict: replaced {len(state_dict)} keys from "{replace[0]}" to "{replace[1]}"')
         return state_dict
 
     def predict(
@@ -221,7 +225,11 @@ class GenericPredictionSystem(pl.LightningModule):
         array
             Predicted tensor value.
         """
-        ckpt = torch.load(checkpoint_path)
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.model.to(device)
+        data = data.to(device)
+
+        ckpt = torch.load(checkpoint_path, map_location=device)
         if state_dict_replace_key:
             ckpt['state_dict'] = self.state_dict_replace_key(ckpt['state_dict'],
                                                              state_dict_replace_key)
@@ -234,21 +242,8 @@ class GenericPredictionSystem(pl.LightningModule):
         return prediction
 
 
-class FinetuningClassificationSystem(GenericPredictionSystem):
-    r"""
-    Basic finetuning classification system.
-
-    Parameters
-    ----------
-        model: model to use
-        lr: learning rate
-        weight_decay: weight decay value
-        momentum: value of momentum
-        nesterov: if True, uses Nesterov's momentum
-        metrics: dictionnary containing the metrics to compute
-        binary: if True, uses binary classification loss instead of multi-class one
-    """
-
+class ClassificationSystem(GenericPredictionSystem):
+    """Classification task class."""
     def __init__(
         self,
         model: Union[torch.nn.Module, Mapping],
@@ -257,8 +252,44 @@ class FinetuningClassificationSystem(GenericPredictionSystem):
         momentum: float = 0.9,
         nesterov: bool = True,
         metrics: Optional[dict[str, Callable]] = None,
-        task: str = 'binary',
+        task: str = 'classification_binary',
+        hparams_preprocess: bool = True,
     ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        model : dict
+            model to use
+        lr : float
+            learning rate
+        weight_decay : float
+            weight decay
+        momentum : float
+            value of momentum
+        nesterov : bool
+            if True, uses Nesterov's momentum
+        metrics : dict
+            dictionnary containing the metrics to compute.
+            Keys must match metrics' names and have a subkey with each
+            metric's functional methods as value. This subkey is either
+            created from the `malpolon.models.utils.FMETRICS_CALLABLES`
+            constant or supplied, by the user directly.
+        task : str, optional
+            Machine learning task (used to format labels accordingly),
+            by default 'classification_multiclass'. The value determines
+            the loss to be selected. if 'multilabel' or 'binary' is
+            in the task, the BCEWithLogitsLoss is selected, otherwise
+            the CrossEntropyLoss is used.
+        hparams_preprocess : bool, optional
+            if True performs preprocessing operations on the hyperparameters,
+            by default True
+        """
+
+        if hparams_preprocess:
+            task = task.split('classification_')[1]
+            metrics = check_metric(metrics)
+
         self.lr = lr
         self.weight_decay = weight_decay
         self.momentum = momentum
@@ -273,14 +304,14 @@ class FinetuningClassificationSystem(GenericPredictionSystem):
             momentum=self.momentum,
             nesterov=self.nesterov,
         )
-        if 'binary' in task:
+        if ('binary' or 'multilabel') in task:
             loss = torch.nn.BCEWithLogitsLoss()
         else:
             loss = torch.nn.CrossEntropyLoss()
 
         if metrics is None:
             metrics = {
-                "accuracy": {'callable': Fmetrics.binary_accuracy,
+                "accuracy": {'callable': Fmetrics.classification.binary_accuracy,
                              'kwargs': {}}
             }
 

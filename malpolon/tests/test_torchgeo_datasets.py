@@ -1,10 +1,9 @@
 from pathlib import Path
 
 import numpy as np
-import torch
-import pyproj
 import pandas as pd
-from pathlib import Path
+import pyproj
+import torch
 
 from malpolon.data.datasets.torchgeo_datasets import RasterTorchGeoDataset
 
