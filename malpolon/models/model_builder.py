@@ -184,16 +184,15 @@ def _find_module_of_type(
         modules = reversed(list(module.named_children()))
     else:
         raise ValueError(
-            "order must be either 'first' or 'last', given {}".format(order)
+            f"order must be either 'first' or 'last', given {order}"
         )
 
     for child_name, child in modules:
         if isinstance(child, module_type):
             return module, child_name
-        else:
-            res = _find_module_of_type(child, module_type, order)
-            if res[1] != "":
-                return res
+        res = _find_module_of_type(child, module_type, order)
+        if res[1] != "":
+            return res
 
     return module, ""
 
@@ -203,8 +202,7 @@ def change_first_convolutional_layer_modifier(
     num_input_channels: int,
     new_conv_layer_init_func: Optional[Callable[[nn.Conv2d, nn.Conv2d], None]] = None,
 ) -> nn.Module:
-    """
-    Removes the first registered convolutional layer of a model and replaces it by a new convolutional layer with the provided number of input channels.
+    """Remove the first registered convolutional layer of a model and replaces it by a new convolutional layer with the provided number of input channels.
 
     Parameters
     ----------
@@ -284,8 +282,7 @@ def change_last_layer_modifier(
 
 
 def change_last_layer_to_identity_modifier(model: nn.Module) -> nn.Module:
-    """
-    Removes the last  linear layer of a model and replaces it by an nn.Identity layer.
+    """Remove the last  linear layer of a model and replaces it by an nn.Identity layer.
 
     Parameters
     ----------

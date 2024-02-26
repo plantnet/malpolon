@@ -12,6 +12,7 @@ import numpy as np
 
 
 def escape_tex(s: str) -> str:
+    """Escape special characters for LaTeX rendering."""
     if not plt.rcParams["text.usetex"]:
         return s
 
@@ -22,7 +23,7 @@ def escape_tex(s: str) -> str:
 
 
 def plot_metric(df_metrics: pd.DataFrame, metric: str, ax: plt.Axis) -> plt.Axis:
-    """Plot specific metric monitored during model training history
+    """Plot specific metric monitored during model training history.
 
     Parameters
     ----------
@@ -76,7 +77,7 @@ def plot_history(
     fig: Optional[plt.Figure] = None,
     axes: Optional[list[plt.Axis]] = None,
 ) -> tuple[plt.Figure, list[plt.Axis]]:
-    """Plot model training history
+    """Plot model training history.
 
     Parameters
     ----------
@@ -102,7 +103,7 @@ def plot_history(
 
         axes = fig.subplots(nrows=nrows, ncols=ncols)
 
-        empty_axes = axes.ravel()[-(len(axes) - len(base_metrics) + 1) :]
+        empty_axes = axes.ravel()[-(len(axes) - len(base_metrics) + 1):]
         for ax in empty_axes:
             ax.axis("off")
 
@@ -141,10 +142,10 @@ if __name__ == "__main__":
         title = args.title[i] if i < len(args.title) else ""
         df = pd.read_csv(filename, index_col=args.index_column)
 
-        fig, axes = plot_history(df)
-        fig.canvas.manager.set_window_title(filename)
+        fig_hist, _ = plot_history(df)
+        fig_hist.canvas.manager.set_window_title(filename)
 
         if title:
-            fig.suptitle(title)
+            fig_hist.suptitle(title)
 
     plt.show()

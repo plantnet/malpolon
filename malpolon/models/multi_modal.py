@@ -116,6 +116,7 @@ class ParallelMultiModalModelStrategy(SingleDeviceStrategy):
         super().__init__("cuda:0", accelerator, checkpoint_io, precision_plugin)
 
     def model_to_device(self) -> None:
+        """TODO: Docstring."""
         model = self.model.model
         self.modalites_names = model.modalities_models.keys()
         num_modalities = len(self.modalities_names)
@@ -137,6 +138,7 @@ class ParallelMultiModalModelStrategy(SingleDeviceStrategy):
     def batch_to_device(
         self, batch: Any, device: Optional[torch.device] = None, dataloader_idx: int = 0
     ) -> Any:
+        """TODO: Docstring."""
         x, target = batch
 
         for modality_name in self.modalities_models:

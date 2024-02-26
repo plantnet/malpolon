@@ -20,7 +20,7 @@ def plot_map(
     extent: Optional[npt.ArrayLike] = None,
     ax: Optional[plt.Axes] = None,
 ) -> plt.Axes:
-    """Plots a map to show the observations on
+    """Plot a map on which to show the observations.
 
     Parameters
     ----------
@@ -43,8 +43,11 @@ def plot_map(
     elif region is None and extent is None:
         raise ValueError("Either region or extent must be set")
 
-    import cartopy.crs as ccrs
-    import cartopy.feature as cfeature
+    # Import outside toplevel to ease package management, especially
+    # when working on a computing cluster because cartopy requires
+    # binaries to be installed.
+    import cartopy.crs as ccrs  # pylint: disable=C0415
+    import cartopy.feature as cfeature  # pylint: disable=C0415
 
     if ax is None:
         ax = plt.axes(projection=ccrs.PlateCarree())

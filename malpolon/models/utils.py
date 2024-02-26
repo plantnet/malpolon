@@ -7,6 +7,7 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 from __future__ import annotations
 
 import signal
+import sys
 from pathlib import Path
 from typing import Mapping, Union
 
@@ -29,28 +30,42 @@ class CrashHandler():
         signal.signal(signal.SIGINT, self.signal_handler)
 
     def save_checkpoint(self):
+        """Save the latest checkpoint."""
         print("Saving lastest checkpoint...")
         self.trainer.save_checkpoint(self.ckpt_dir_path)
 
     def signal_handler(self, sig, frame):
+        """Attempt to save the latest checkpoint in case of crash."""
         print(f"Received signal {sig}. Performing cleanup...")
         self.save_checkpoint()
-        exit(0)
+        sys.exit(0)
 
-def check_metric(metrics: OmegaConf) -> bool:
-    """_summary_
+
+def check_metric(metrics: OmegaConf) -> OmegaConf:
+    """Ensure user's model metrics are valid.
+
+    Users can either choose from a list of predefined metrics or
+    define their own custom metrics. This function binds the user's
+    metrics with their corresponding callable function from
+    torchmetrics, by reading the values in `metrics` which is a
+    dict-like structure returned by hydra when reading the config
+    file.
+    If the user chose predefined metrics, the function will
+    automatically bind the corresponding callable function from
+    torchmetrics.
+    If the user chose custom metrics, the function checks that they
+    also provided the callable function to compute the metric.
 
     Parameters
     ----------
-    metric_name : str
-        _description_
-    metric_type : str, optional
-        _description_, by default 'classification'
+    metrics: OmegaConf
+        user's input metrics, read from the config file via hydra, in
+        a dict-like structure
 
     Returns
     -------
-    bool
-        _description_
+    OmegaConf
+        user's metrics with their corresponding callable function
     """
     try:
         metrics = OmegaConf.to_container(metrics)

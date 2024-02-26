@@ -347,9 +347,9 @@ class GeoLifeCLEF2022Dataset(Dataset):
             return
 
         try:
-            import kaggle
+            import kaggle  # pylint: disable=C0415,W0611 # noqa: F401
         except OSError as error:
-            raise OSError("Have you properly set up your Kaggle API token ? For more information, please refer to section 'Authentication' of the kaggle documentation : https://www.kaggle.com/docs/api"+msg) from error
+            raise OSError("Have you properly set up your Kaggle API token ? For more information, please refer to section 'Authentication' of the kaggle documentation : https://www.kaggle.com/docs/api") from error
 
         answer = input("You are about to download the GeoLifeClef2022 dataset which weighs ~62 GB. Do you want to continue ? [y/n]")
         if answer.lower() in ["y", "yes"]:
