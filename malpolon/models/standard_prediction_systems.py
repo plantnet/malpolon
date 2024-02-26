@@ -2,7 +2,6 @@
 
 Author: Titouan Lorieul <titouan.lorieul@gmail.com>
         Theo Larcher <theo.larcher@inria.fr>
-
 """
 
 from __future__ import annotations
@@ -82,7 +81,7 @@ class GenericPredictionSystem(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
 
-        loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float() 
+        loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
         self.log(f"{split}_loss", loss, **log_kwargs)
 
         for metric_name, metric_func in self.metrics.items():
@@ -285,7 +284,6 @@ class ClassificationSystem(GenericPredictionSystem):
             if True performs preprocessing operations on the hyperparameters,
             by default True
         """
-
         if hparams_preprocess:
             task = task.split('classification_')[1]
             metrics = check_metric(metrics)

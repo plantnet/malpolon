@@ -17,7 +17,7 @@ from torchgeo.datasets import BoundingBox
 def is_bbox_contained(
     bbox1: Union[Iterable, BoundingBox],
     bbox2: Union[Iterable, BoundingBox],
-    method: str['shapely', 'manual', 'torchgeo'] = 'shapely'
+    method: str = 'shapely'
 ) -> bool:
     """Determine if a 2D bbox in included inside of another.
 
@@ -62,7 +62,7 @@ def is_bbox_contained(
 def is_point_in_bbox(
     point: Iterable,
     bbox: Iterable,
-    method: str['shapely', 'manual'] = 'shapely'
+    method: str = 'shapely'
 ) -> bool:
     """Determine if a 2D point in included inside of a 2D bounding box.
 
@@ -119,7 +119,7 @@ def to_one_hot_encoding(
     list
         One-hot encoded labels.
     """
-    labels_predict = [labels_predict] if type(labels_predict) is int else labels_predict
+    labels_predict = [labels_predict] if isinstance(labels_predict, int) else labels_predict
     n_classes = len(labels_target)
     one_hot_labels = np.zeros(n_classes, dtype=np.float32)
     one_hot_labels[np.in1d(labels_target, labels_predict)] = 1
