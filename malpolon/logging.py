@@ -45,7 +45,7 @@ def str_object(obj: Any) -> str:
             filtered_attributes.append((key, val))
 
     formatted_attributes = ", ".join(
-        map(lambda x: f"{*x,}={filtered_attributes}")
+        map(lambda x: f"{x[0]}={x[1]}", filtered_attributes)
     )
     return f"{class_name}(\n    {formatted_attributes}\n)".format(class_name, formatted_attributes)
 
