@@ -3,11 +3,10 @@
 This script runs the RasterSentinel2 dataset class by default.
 
 Author: Theo Larcher <theo.larcher@inria.fr>
-        Titouan Lorieul <titouan.lorieul@inria.fr>
+        Titouan Lorieul <titouan.lorieul@gmail.com>
 """
-from __future__ import annotations
 
-import os
+from __future__ import annotations
 
 import hydra
 import pytorch_lightning as pl

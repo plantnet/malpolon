@@ -1,8 +1,14 @@
-import os
+"""Main script to run training on microlifeclef2022 dataset.
+
+Uses RGB pre-extracted patches from the dataset.
+This script was created for Kaggle participants of the GeoLifeCLEF 2022
+challenge.
+
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
+"""
 
 import hydra
-import pytorch_lightning as pl
-import torchmetrics.functional as Fmetrics
+import pytorch_lightning as p
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms

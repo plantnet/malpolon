@@ -1,9 +1,15 @@
+"""This module checks the installation of PyTorch and GPU libraries.
+
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
+"""
+
 import os
 
 import torch
 
 
 def print_cuda_info():
+    """Print information about the CUDA/PyTorch installation."""
     print(f"Using PyTorch version {torch.__version__}")
     print(f"CUDA available: {torch.cuda.is_available()} (version: {torch.version.cuda})")
     print(f"cuDNN available: {torch.backends.cudnn.enabled} (version: {torch.backends.cudnn.version()})")

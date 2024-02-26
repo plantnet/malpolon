@@ -1,3 +1,9 @@
+"""This script tests the models module.
+
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
+        Theo Larcher <theo.larcher@inria.fr>
+"""
+
 import timm
 import torch
 from torchvision import models

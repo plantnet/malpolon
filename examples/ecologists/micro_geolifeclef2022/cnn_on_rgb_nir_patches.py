@@ -1,3 +1,11 @@
+"""Main script to run training or inference on microlifeclef2022 dataset.
+
+Uses RGB and Near infra-red pre-extracted patches from the dataset.
+
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
+        Theo Larcher <theo.larcher@inria.fr>
+"""
+
 from __future__ import annotations
 
 import os

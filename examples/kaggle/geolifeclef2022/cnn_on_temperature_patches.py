@@ -1,4 +1,12 @@
-import os
+"""Main script to run training on microlifeclef2022 dataset.
+
+Uses temperature rasters from the dataset.
+This script was created for Kaggle participants of the GeoLifeCLEF 2022
+challenge.
+
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
+"""
+
 from pathlib import Path
 
 import hydra
