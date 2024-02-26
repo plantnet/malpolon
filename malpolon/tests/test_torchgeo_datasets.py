@@ -1,3 +1,8 @@
+"""This script tests the torchgeo datasets module.
+
+Author: Theo Larcher <theo.larcher@inria.fr>
+"""
+
 from pathlib import Path
 
 import numpy as np

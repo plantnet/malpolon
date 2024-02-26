@@ -1,6 +1,12 @@
-from __future__ import annotations
+"""Main script to run inference on microlifeclef2022 dataset.
 
-import os
+Uses RGB pre-extracted patches from the dataset.
+
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
+        Theo Larcher <theo.larcher@inria.fr>
+"""
+
+from __future__ import annotations
 
 import hydra
 import pytorch_lightning as pl

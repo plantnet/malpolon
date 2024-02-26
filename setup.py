@@ -4,7 +4,7 @@ setup(name="malpolon",
       version="1.0.0",
       description="Malpolon v1.0.0",
       author="Theo Larcher, Titouan Lorieul",
-      author_email="theo.larcher@inria.fr, titouan.lorieul@inria.fr",
+      author_email="theo.larcher@inria.fr, titouan.lorieul@gmail.com",
       url="https://github.com/plantnet/malpolon",
       classifiers=[
         "Development Status :: 3 - Alpha",

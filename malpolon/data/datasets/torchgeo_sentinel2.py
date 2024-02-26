@@ -254,7 +254,7 @@ class RasterSentinel2(RasterTorchGeoDataset):
 
 
 class RasterSentinel2GLC23(RasterSentinel2):
-    """Adaptation of RasterSentinel2 for new GLC23 observations"""
+    """Adaptation of RasterSentinel2 for new GLC23 observations."""
     filename_glob = "*.tif"
     filename_regex = r"(?P<band>red|green|blue|nir)_2021"
     all_bands = ["red", "green", "blue", "nir"]
