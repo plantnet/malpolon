@@ -1,3 +1,8 @@
+"""This script tests the environmental raster module.
+
+Author: Titouan Lorieul <titouan.lorieul@gmail.com>
+"""
+
 from pathlib import Path
 
 import numpy as np
