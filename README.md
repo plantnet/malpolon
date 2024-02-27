@@ -1,10 +1,11 @@
 <p align="center">
+  <a href="https://pypi.org/project/malpolon/"><img src="https://img.shields.io/pypi/v/malpolon
+  " alt="Python version"></a>
+  <a href="https://www.python.org/downloads/release/python-3100/"><img src="https://img.shields.io/pypi/pyversions/malpolon
+  " alt="Python version"></a>
   <a href="https://github.com/plantnet/malpolon/issues"><img src="https://img.shields.io/github/issues/plantnet/malpolon" alt="GitHub issues"></a>
   <a href="https://github.com/plantnet/malpolon/pulls"><img src="https://img.shields.io/github/issues-pr/plantnet/malpolon" alt="GitHub pull requests"></a>
   <a href="https://github.com/plantnet/malpolon/graphs/contributors"><img src="https://img.shields.io/github/contributors/plantnet/malpolon" alt="GitHub contributors"></a>
-  <a href="https://github.com/plantnet/malpolon/network/members"><img src="https://img.shields.io/github/forks/plantnet/malpolon" alt="GitHub forks"></a>
-  <a href="https://github.com/plantnet/malpolon/stargazers"><img src="https://img.shields.io/github/stars/plantnet/malpolon" alt="GitHub stars"></a>
-  <a href="https://github.com/plantnet/malpolon/watchers"><img src="https://img.shields.io/github/watchers/plantnet/malpolon" alt="GitHub watchers"></a>
   <a href="https://github.com/plantnet/malpolon/blob/main/LICENSE"><img src="https://img.shields.io/github/license/plantnet/malpolon" alt="License"></a>
 </p>
 
@@ -39,7 +40,7 @@ Here is a list of the currently available scenarios:
   - <u>Custom dataset</u> : I have my own dataset consisting of pre-extracted image patches and/or rasters and I want to train a model on it.
 - [**Inference**](examples/inference/) : I have an observations file (.csv) and I want to predict the presence of species on a given area using a model I trained previously and a selected dataset or a shapefile I would provide.
 
-## :wrench: Installation
+## 🔧 Installation
 
 To install malpolon, you will first need to install **Python ≥ 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
 
@@ -151,7 +152,7 @@ git checkout dev
 
 </details>
 
-## :page_facing_up: Documentation
+## 📄 Documentation
 
 An online code documentation is available via GitHub pages at [this link](https://plantnet.github.io/malpolon/). This documentation is updated each time new content is pushed to the `main` branch.
 
@@ -171,7 +172,7 @@ make -C docs html
 
 The result can be found in `docs/_build/html`.
 
-## :train2: Roadmap
+## 🚆 Roadmap
 
 This roadmap outlines the planned features and milestones for the project. Please note that the roadmap is subject to change and may be updated as the project progress.
 
