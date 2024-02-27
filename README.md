@@ -1,8 +1,6 @@
 <p align="center">
-  <a href="https://pypi.org/project/malpolon/"><img src="https://img.shields.io/pypi/v/malpolon
-  " alt="Python version"></a>
-  <a href="https://www.python.org/downloads/release/python-3100/"><img src="https://img.shields.io/pypi/pyversions/malpolon
-  " alt="Python version"></a>
+  <a href="https://pypi.org/project/malpolon/"><img src="https://img.shields.io/pypi/v/malpolon" alt="Python version"></a>
+  <a href="https://www.python.org/downloads/release/python-3100/"><img src="https://img.shields.io/pypi/pyversions/malpolon" alt="Python version"></a>
   <a href="https://github.com/plantnet/malpolon/issues"><img src="https://img.shields.io/github/issues/plantnet/malpolon" alt="GitHub issues"></a>
   <a href="https://github.com/plantnet/malpolon/pulls"><img src="https://img.shields.io/github/issues-pr/plantnet/malpolon" alt="GitHub pull requests"></a>
   <a href="https://github.com/plantnet/malpolon/graphs/contributors"><img src="https://img.shields.io/github/contributors/plantnet/malpolon" alt="GitHub contributors"></a>
