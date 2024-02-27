@@ -48,7 +48,7 @@ To install malpolon, you will first need to install **Python ≥ 3.10**, and sev
 <details>
   <summary><i><u>Click here to expand instructions</u></i></summary>
 
-### 0. Requirements
+### Requirements
 
 Before proceeding, please make sure the following packages are installed on your system:
 
@@ -67,7 +67,18 @@ Before proceeding, please make sure the following packages are installed on your
 
 The following instructions show installation commands for Python 3.10, but can be adapted for any of the compatible Python versions metionned above by simply changing the version number.
 
-### 1. Clone the repository
+### Install from `PyPi`
+The backend side of malpolon is distributed as a package on `PyPi`. To install it, simply run the following command:
+
+```script
+pip install malpolon
+```
+
+However, versions available on PyPi are non-experimental and possibly behind the repository's `main` and `dev` branches. To know which version you want download, please refer to the *tags* section of the repository and match it with PyPi.
+Furthermore, the PyPi package does not include the examples and the documentation. If you want to install the full repository, follow the next steps.
+
+### Install from `GitHub`
+#### 1. Clone the repository
 
 Clone the Malpolon repository using `git` in the directory of your choice:
 ```script
@@ -76,7 +87,7 @@ git clone https://github.com/plantnet/malpolon.git
 
 ---
 
-### 2. Create your virtual environment
+#### 2. Create your virtual environment
 
 - **Via `virtualenv`**
   
@@ -106,7 +117,7 @@ conda activate malpolon_3.10
 
 ---
 
-### 3. Install Malpolon as a python package
+#### 3. Install Malpolon as a python package
 
 The malpolon repository can also be installed in your virtual environment as a package. This allows you to import `malpolon` anywhere in your scripts without having to worry about file paths. It can be installed via `pip` using:
 
