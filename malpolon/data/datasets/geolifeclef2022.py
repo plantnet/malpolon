@@ -278,7 +278,6 @@ class GeoLifeCLEF2022Dataset(Dataset):
     target_transform : callable (optional)
         A function/transform that takes in the target and transforms it.
     """
-
     def __init__(
         self,
         root: Union[str, Path],

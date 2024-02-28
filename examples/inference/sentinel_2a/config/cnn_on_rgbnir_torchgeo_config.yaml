@@ -12,7 +12,7 @@ trainer:
 
 run:
   predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point]
-  checkpoint_path: ???
+  checkpoint_path: 'outputs_training/cnn_on_rgbnir_torchgeo/2024-02-26_16-48-31/checkpoint-epoch=00-step=3-val_multiclass_accuracy=0.3333.ckpt'
                                                                                                                                        
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]

@@ -3,71 +3,100 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root ``toctree`` directive.
 
-Welcome to Malpolon's documentation!
-====================================
+=====================================
+Welcome to Malpolon's documentation !
+=====================================
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :maxdepth: 1
 
+   api
+   examples
 
-Installation
-============
+🔧 Installation
+===============
 
-To install malpolon, you will first need to install **Python 3.8 or newer**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
+To install malpolon, you will first need to install **Python ≥ 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
 
-⚠️ **macOS** installation may be bumpy for now. More instructions will be added shortly. It is recommended to stick to Linux for the time being. ⚠️
+⚠️ **macOS** installation does not yet include instructions on how to properly set up GPU usage for GPU-enabled mac. For training purposes we recommend sticking to Linux for the time being. ⚠️
 
-0. Requirements
----------------
+Requirements
+````````````
 
 Before proceeding, please make sure the following packages are installed on your system:
 
-- [Python3.8](https://www.python.org/downloads/) (or newer)
-- [``pip``](https://pip.pypa.io/en/stable/installation/)
-- [``git``](https://git-scm.com/downloads)
+- `Python ≥ 3.10 <https://www.python.org/downloads/>`_
+- `pip <https://pip.pypa.io/en/stable/installation/>`_
+- `git <https://git-scm.com/downloads>`_
 - ``libgeos-dev`` (dependency of Python library ``Cartopy``)
+
   - On Linux (Ubuntu): ``sudo apt install libgeos-dev``
+
   - On MacOS: ``brew install geos``
+
 - ``cmake``
+
   - On Linux (Ubuntu): ``sudo apt install cmake``
+
   - On MacOS: ``brew install cmake``
+
 - ``cuda`` (if you intend to run your models on GPU)
-  - [``CUDA Installation guide``](https://docs.nvidia.com/cuda/index.html)
-  - [``CuDNN Installation guide``](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html)
+
+  - `CUDA Installation guide <https://docs.nvidia.com/cuda/index.html>`_
+  
+  - `CuDNN Installation guide <https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html>`_
+
+The following instructions show installation commands for Python 3.10, but can be adapted for any of the compatible Python versions metionned above by simply changing the version number.
+
+Install from ``PyPi``
+`````````````````````
+The backend side of malpolon is distributed as a package on `PyPi`. To install it, simply run the following command::
+
+
+   pip install malpolon
+
+
+However, versions available on PyPi are non-experimental and possibly behind the repository's `main` and `dev` branches. To know which version you want download, please refer to the *tags* section of the repository and match it with PyPi.
+Furthermore, the PyPi package does not include the examples and the documentation. If you want to install the full repository, follow the next steps.
+
+
+Install from ``GitHub``
+```````````````````````
 
 1. Clone the repository
------------------------
-
+'''''''''''''''''''''''
 Clone the Malpolon repository using ``git`` in the directory of your choice::
-   
-	git clone https://github.com/plantnet/malpolon.git
+
+   git clone https://github.com/plantnet/malpolon.git
+
 
 2. Create your virtual environment
-----------------------------------
+''''''''''''''''''''''''''''''''''
 
 - **Via** ``virtualenv`` **(recommended)**
   
-We recommend handling your virtual environment using [``virtualenv``](https://virtualenv.pypa.io/en/stable/) (or similar) and installing the packages via ``pip``.
+We recommend handling your virtual environment using [``virtualenv``](https://virtualenv.pypa.io/en/stable/) (or similar) and installing the packages via `pip`.
 
 First create your virtual environment using the proper python version, and activate it _(note that in this example, the virtual environment "malpolon_env" will be installed in the current directory)_.::
 
-   virtualenv -p /usr/bin/python3.8 ./malpolon_env
-   source ./malpolon_env/bin/activate
+   virtualenv -p /usr/bin/python3.10 ./malpolon_3.10
+   source ./malpolon_3.10/bin/activate
 
-Once the env is activated, install the python packages listed in ``requirements.txt``::
-   
+Once the env is activated, install the python packages listed in ``requirements_python3.10.txt``::
+
    pip install --upgrade setuptools
-   pip install -r requirements.txt
+   pip install -r requirements_python3.10.txt
+
 
 - **Via** ``conda``
-You can also use ``conda`` to install your packages.::
+
+You can also use ``conda`` to install your packages::
 
    conda env create -n <name> -f environment.yml
    conda activate <name>
 
 3. Install Malpolon as a python package
----------------------------------------
+'''''''''''''''''''''''''''''''''''''''
 
 The malpolon repository can also be installed in your virtual environment as a package. This allows you to import ``malpolon`` anywhere in your scripts without having to worry about file paths. It can be installed via ``pip`` using::
 
@@ -110,33 +139,33 @@ Examples using the GeoLifeCLEF 2022 and 2023 datasets, as well as Sentinel-2A ra
 
 Build your own scripts by modifying the provided examples!
 
-API documentation
-=================
+.. API documentation
+.. =================
 
-Data
-----
+.. malpolon.data.data_module
+.. =========================
+.. .. automodule:: malpolon.data.data_module
+..    :members: BaseDataModule
+.. .. automodule:: malpolon.data.environmental_raster
+..     :members:
 
-.. automodule:: malpolon.data
-    :members:
+.. Datasets
+.. ========
+.. .. automodule:: malpolon.data.datasets
+..     :members:
 
+.. Models
+.. ======
+.. .. automodule:: malpolon.models
+..    :members:
 
-Datasets
---------
-
-.. automodule:: malpolon.data.datasets
-    :members:
-
-
-Models
-------
-
-.. automodule:: malpolon.models
-   :members:
-
+.. Plot
+.. ====
+.. .. automodule:: malpolon.plot
+..    :members:
 
 Indices and tables
 ==================
-
-* :ref:``genindex``
-* :ref:``modindex``
-* :ref:``search``
+* :ref:`genindex`
+* :ref:`modindex`
+* :ref:`search`
