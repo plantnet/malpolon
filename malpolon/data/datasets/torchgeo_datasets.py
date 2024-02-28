@@ -341,19 +341,20 @@ class RasterTorchGeoDataset(RasterDataset):
             return to_one_hot_encoding(label, self.unique_labels)
         return label
 
-    def get_label(self,
-                  df: pd.DataFrame,
-                  query_lon: float,
-                  query_lat: float,
-                  obs_id: int = None):
+    def get_label(
+        self,
+        df: pd.DataFrame,
+        query_lon: float,
+        query_lat: float,
+        obs_id: int = None
+    ) -> Union[np.ndarray, int]:
         """Return the label(s) matching the query coordinates.
 
         This method takes into account the fact that several labels can
         match a single coordinate set. For that reason, the labels
         are chosen according to the value of the 'obs_id' parameter
         (matching the observation_id column of the labels DataFrame).
-        If no value is given to 'obs_id', all matching labels are
-        returned.
+        If no value is given to 'obs_id', all matching labels are returned.
 
         Parameters
         ----------
@@ -387,16 +388,13 @@ class RasterTorchGeoDataset(RasterDataset):
         The dataset is always queried with a torchgeo BoundingBox because it is
         itself a torchgeo dataset, but the query in this getter method can be
         passed as a tuple, list, set, dict or BoundingBox.
-        Use case 1:
-            query is a [list, tuple, set] of 2 elements : lon, lat.
-            Here the CRS and Units system are by default those of the dataset's.
-        Use case 2:
-            query is a torchgeo BoundingBox.
-            Here the CRS and Units system are by default those of the dataset's.
-        Use case 3:
-            query is a dict containing the following necessary keys: {'lon', 'lat'},
-            and optional keys: {'crs', 'units', 'size'} which values default to those of
-            the dataset's.
+        - Use case 1: query is a [list, tuple, set] of 2 elements : lon, lat.
+        Here the CRS and Units system are by default those of the dataset's.
+        - Use case 2: query is a torchgeo BoundingBox.
+        Here the CRS and Units system are by default those of the dataset's.
+        - Use case 3: query is a dict containing the following necessary keys: {'lon', 'lat'},
+        and optional keys: {'crs', 'units', 'size'} which values default to those of
+        the dataset's.
 
         In Use case 3, if the 'crs' key is registered and it is different from
         the dataset's CRS, the coordinates of the point are projected into the
@@ -407,7 +405,7 @@ class RasterTorchGeoDataset(RasterDataset):
 
         The unit of measurement of the bbox can be set to ['m', 'meters', 'metres']
         even if the dataset's unit is different as the points will be projected
-        in the nearest meter-based CRS (see self.point_to_bbox()). Note that
+        in the nearest meter-based CRS (see `self.point_to_bbox()`). Note that
         depending on your dataset's CRS, querying a meter-based bbox may result
         in rectangular patches because of deformations.
 
