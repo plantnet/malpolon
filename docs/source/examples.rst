@@ -23,7 +23,7 @@ I have a dataset of my own and I want to train a model on it. I want to be able 
 Sentinel-2A
 ===========
 
-`See Sentinel-2a (training) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/ecologists/sentinel-2a>`_
+`See Sentinel-2a (training) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/ecologists/sentinel_2a>`_
 
 MicroGeoLifeCLEF2022
 ====================
@@ -39,7 +39,7 @@ I have an observations file (.csv) and I want to predict the presence of species
 Sentinel-2A
 ===========
 
-`See Sentinel-2a (inference) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/inference/sentinel-2a>`_
+`See Sentinel-2a (inference) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/inference/sentinel_2a>`_
 
 MicroGeoLifeCLEF2022
 ====================
