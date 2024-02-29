@@ -5,6 +5,12 @@ on:
       branches:
         - main
         - dev-ci-doc
+      paths:
+        - "malpolon/**"
+        - "!malpolon/tests/**"
+        - "docs/**"
+        - "!docs/resources/**
+
 jobs:
     test:
         name: Build doc & deploy
