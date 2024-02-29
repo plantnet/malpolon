@@ -76,6 +76,12 @@ html_theme_options = {
 html_static_path = ["_static"]
 
 
+# These paths are either relative to html_static_path
+# or fully qualified paths (eg. https://...)
+html_css_files = [
+    'css/custom.css',
+]
+
 # -- Options for autodoc ----------------------------------------------------
 
 # autodoc_class_signature = "separated"
