@@ -6,6 +6,9 @@ on:
         - main
         - dev
         - dev-ci-doc
+      paths:
+        - '**.py'
+        - '!docs/**'
 
 jobs:
     test:
