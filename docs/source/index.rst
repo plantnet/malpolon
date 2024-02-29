@@ -7,6 +7,16 @@
 Welcome to Malpolon's documentation !
 =====================================
 
+.. figure:: ../resources/Malpolon_transparent.png
+  :width: 300
+  :alt: Malpolon_logo
+  :align: center
+
+
+Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including bioclimatic rasters, remote sensing images, land-use rasters, etc...
+
+If you're not a deep learning or PyTorch expert but nonetheless want to use visual deep learning models on satellite and/or bioclimatic rasters to predict the presence of species on a given area, this framework is for you.
+
 .. toctree::
    :maxdepth: 1
 
@@ -139,30 +149,6 @@ Examples using the GeoLifeCLEF 2022 and 2023 datasets, as well as Sentinel-2A ra
 
 Build your own scripts by modifying the provided examples!
 
-.. API documentation
-.. =================
-
-.. malpolon.data.data_module
-.. =========================
-.. .. automodule:: malpolon.data.data_module
-..    :members: BaseDataModule
-.. .. automodule:: malpolon.data.environmental_raster
-..     :members:
-
-.. Datasets
-.. ========
-.. .. automodule:: malpolon.data.datasets
-..     :members:
-
-.. Models
-.. ======
-.. .. automodule:: malpolon.models
-..    :members:
-
-.. Plot
-.. ====
-.. .. automodule:: malpolon.plot
-..    :members:
 
 Indices and tables
 ==================

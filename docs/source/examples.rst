@@ -7,16 +7,19 @@
 Experiment examples
 *******************
 
+The repository contains examples of how to use Malpolon for different scenarios.
+The examples are organized by the type of user and the type of dataset used.
+
 .. toctree::
    :maxdepth: 10
 
 
-Ecologists scenario
-*******************
+I. Ecologists scenario
+**********************
 
-I have a dataset of my own and I want to train a model on it. I want to be able to easily customize the training process and the model architecture.
+I have a dataset of **pre-extracted image patches** or **raster files** *(e.g. bioclimatic data, satellite rasters...)* of my own and I want to train a **deep image neural network model** on it. I want to be able to easily customize the training process and the model architecture.
 
-- *Drop and play* : I have an observations file (.csv) and I want to train a model on different environmental variables (rasters, satellite imagery) without having to worry about the data loading.
+- *Drop and play* : I have a file (.csv) of Presence/Absence (PA) or Presence Only (PO) observations and I want to train a model on different environmental variables (rasters, satellite imagery) without having to worry about the data loading and on-the-fly extraction.
 
 - *Custom dataset* : I have my own dataset consisting of pre-extracted image patches and/or rasters and I want to train a model on it.
 
@@ -31,10 +34,10 @@ MicroGeoLifeCLEF2022
 `See MicroGeoLifeCLEF2022 (training) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/ecologists/micro_geolifeclef2022>`_
 
 
-Inference scenario
-******************
+II. Inference scenario
+**********************
 
-I have an observations file (.csv) and I want to predict the presence of species on a given area using a model I trained previously and a selected dataset or a shapefile I would provide.
+I have a file (.csv) of Presence/Absence (PA) or Presence Only (PO) observations and I want to predict the presence of species on a given area using a model I trained previously and a selected dataset I would provide.
 
 Sentinel-2A
 ===========
@@ -47,8 +50,8 @@ MicroGeoLifeCLEF2022
 `See MicroGeoLifeCLEF2022 (inference) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/inference/micro_geolifeclef2022>`_
 
 
-Kaggle scenario
-***************
+III. Kaggle scenario
+********************
 
 I am a potential kaggle participant on the GeoLifeClef challenge. I want to train a model on the provided datasets without having to worry about the data loading, starting from a plug-and-play example.
 
