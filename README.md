@@ -239,3 +239,14 @@ This work is currently under development and maintained by the [Pl@ntNet](https:
 
 ## Licensing
 This framework is ditributed under the [MIT license](https://opensource.org/license/mit/), as is the Pl@ntNet project. See LICENSE.md for more information.
+
+## Citation & credits
+Malpolon is a project developed by the [Pl@ntNet](https://plantnet.org/) team within the [INRIA](https://www.inria.fr/en) research institute. If you use this framework in your research, please cite this repository in your paper.
+
+Authors include :
+- [Théo Larcher](https://github.com/tlarcher) (current lead developper) ([email](mailto:theo.larcher@inria.fr))
+- [Maximilien Servajean](https://github.com/maximiliense)
+- [Alexis Joly](https://github.com/alexisjoly)
+
+Former developpers include :
+- [Titouan Lorieul](https://github.com/tlorieul) (former lead developper) ([email](mailto:titouan.lorieul@gmail.com))
