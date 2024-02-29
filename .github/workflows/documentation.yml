@@ -6,10 +6,10 @@ on:
         - main
         - dev-ci-doc
       paths:
-        - "malpolon/**"
-        - "!malpolon/tests/**"
-        - "docs/**"
-        - "!docs/resources/**
+        - 'malpolon/**'
+        - '!malpolon/tests/**'
+        - 'docs/**'
+        - '!docs/resources/**'
 
 jobs:
     test:
