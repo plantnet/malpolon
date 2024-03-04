@@ -1,8 +1,8 @@
 from setuptools import find_packages, setup
 
 setup(name="malpolon",
-      version="1.0.2",
-      description="Malpolon v1.0.2",
+      version="1.0.3",
+      description="Malpolon v1.0.3",
       author="Theo Larcher, Titouan Lorieul",
       author_email="theo.larcher@inria.fr, titouan.lorieul@gmail.com",
       url="https://github.com/plantnet/malpolon",
@@ -21,8 +21,11 @@ setup(name="malpolon",
         "Topic :: Scientific/Engineering :: Image Recognition",
         "Topic :: Scientific/Engineering :: GIS"
       ],
-      package_dir={"": "malpolon"},
-      packages=find_packages(where="malpolon", exclude="malpolon.tests"),
+      packages=find_packages(
+       where="./",
+       include="malpolon*",
+       exclude="malpolon.tests"),
+      package_data={'malpolon.data.datasets._data': ['minigeolifeclef2022_species_details.csv']},
       python_requires=">=3.10, <4",
       install_requires=[
         "Cartopy>=0.21.1",
