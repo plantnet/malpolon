@@ -8,6 +8,7 @@ from __future__ import annotations
 import os
 import re
 from typing import Iterable, Union
+import warnings
 
 import numpy as np
 import rasterio
@@ -204,6 +205,8 @@ def get_mean_sd_by_band(path, compute_if_needed=False, ignore_zeros=True):
                     sd = np.std(arr)
                 means.append(float(mean))
                 sds.append(float(sd))
+            else : 
+                warnings.warn("Statistics metadata not found and computation not enabled.", UserWarning)
         except Exception as e:
             print(f"Error processing band {band}: {e}")
 
