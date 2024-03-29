@@ -7,7 +7,8 @@ trainer:
   accelerator: 'gpu'
   devices: 1
   max_epochs: 10
-  val_check_interval: 0.2
+  val_check_interval: 5
+  log_every_n_steps: 10
 
 model:
   provider_name: "torchvision"
@@ -34,7 +35,7 @@ optimizer:
         num_classes: 100
 
 data:
-  dataset_path: "dataset/geolifeclef-2022-lifeclef-2022-fgvc9"
+  dataset_path: "dataset/"
   minigeolifeclef: true
   train_batch_size: 32
   inference_batch_size: 256
@@ -42,3 +43,7 @@ data:
 
 task:
   task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+
+loggers:
+  exp_name: "resnet50_glc22"  # Name of your experiment
+  log_dir_name: "tensorboard_logs/"  # Name of the logs directory

@@ -19,3 +19,6 @@ model:
 data:
   dataset_path: "dataset/"
   train_batch_size: 32
+
+loggers:
+  exp_name: "resnet18_rgb-nir_microglc22"  # Name of your experiment
