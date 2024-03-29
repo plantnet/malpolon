@@ -8,7 +8,7 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 
 import hydra
 import pytorch_lightning as pl
@@ -34,7 +34,7 @@ def main(cfg: DictConfig) -> None:
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
     logger_csv.log_hyperparams(cfg)
-    logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
+    logger_tb = pl.loggers.TensorBoardLogger(Path(log_dir)/Path(cfg.loggers.log_dir_name), name=cfg.loggers.exp_name, version="")
     logger_tb.log_hyperparams(cfg)
 
     datamodule = Sentinel2TorchGeoDataModule(**cfg.data, **cfg.task)
@@ -44,8 +44,8 @@ def main(cfg: DictConfig) -> None:
         Summary(),
         ModelCheckpoint(
             dirpath=log_dir,
-            filename="checkpoint-{epoch:02d}-{step}-{" + f"val_{next(iter(model.metrics.keys()))}" + ":.4f}",
-            monitor=f"val_{next(iter(model.metrics.keys()))}",
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}_val" + ":.4f}",
+            monitor=f"{next(iter(model.metrics.keys()))}/val",
             mode="max",
         ),
     ]
