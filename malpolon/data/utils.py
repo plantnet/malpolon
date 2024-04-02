@@ -69,14 +69,14 @@ def is_point_in_bbox(
     Returns a boolean answering the question "Is point contained inside
     bbox ?".
     Point must follow the format: [x, y]
-    Bounding boxe must follow the format: [xmin, ymin, xmax, ymax]
+    Bounding box must follow the format: [xmin, xmax, ymin, ymax]
 
     Parameters
     ----------
     point : Iterable
-        Point.
+        Point in the format [x, y].
     bbox : Iterable
-        Bounding box.
+        Bounding box in the format [xmin, xmax, ymin, ymax].
     method : str
         Method to use for comparison. Can take any value in
         ['shapely', 'manual'], by default 'shapely'.
@@ -87,8 +87,8 @@ def is_point_in_bbox(
         True if point ⊂ bbox, False otherwise.
     """
     if method == "manual":
-        is_contained = (point[0] >= bbox[0] and point[0] <= bbox[2]
-                        and point[1] >= bbox[1] and point[1] <= bbox[3])
+        is_contained = (point[0] >= bbox[0] and point[0] <= bbox[1]
+                        and point[1] >= bbox[2] and point[1] <= bbox[3])
     elif method == "shapely":
         point = Point(point)
         polygon2 = Polygon([(bbox[0], bbox[1]), (bbox[0], bbox[3]),
