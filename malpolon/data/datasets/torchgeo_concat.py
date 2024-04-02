@@ -11,23 +11,12 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Callable, Tuple
 
 import numpy as np
-import pandas as pd
 import torch
-from lightning.pytorch.utilities import CombinedLoader
 from omegaconf import OmegaConf
-from torch.utils.data import DataLoader, Dataset, Sampler
-from torchgeo.datasets import BoundingBox, GeoDataset
-from torchgeo.samplers import GeoSampler, Units
-from torchvision import transforms
+from torch.utils.data import DataLoader, Dataset
 
 from malpolon.data.data_module import BaseDataModule
-from malpolon.data.datasets.geolifeclef2024 import (JpegPatchProvider,
-                                                    PatchesDataset,
-                                                    PatchesDatasetMultiLabel)
-from malpolon.data.datasets.torchgeo_datasets import (RasterBioclim,
-                                                      RasterTorchGeoDataset)
-from malpolon.data.datasets.torchgeo_sentinel2 import (RasterSentinel2,
-                                                       Sentinel2GeoSampler)
+from malpolon.data.datasets.torchgeo_datasets import RasterTorchGeoDataset
 
 if TYPE_CHECKING:
     import numpy.typing as npt
@@ -182,28 +171,8 @@ class ConcatTorchGeoDataModule(BaseDataModule):
 
     @property
     def train_transform(self):
-        return transforms.Compose(
-            [
-                transforms.RandomRotation(degrees=45, fill=1),
-                transforms.RandomCrop(size=128),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomVerticalFlip(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406, 0.2],
-                    std=[0.229, 0.224, 0.225, 0.2]
-                ),
-            ]
-        )
+        pass
 
     @property
     def test_transform(self):
-        return transforms.Compose(
-            [
-                transforms.CenterCrop(size=128),
-                transforms.RandomVerticalFlip(),
-                transforms.Normalize(
-                    mean=[0.485, 0.456, 0.406, 0.2],
-                    std=[0.229, 0.224, 0.225, 0.2]
-                ),
-            ]
-        )
+        pass

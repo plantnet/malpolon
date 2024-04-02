@@ -21,7 +21,7 @@ from matplotlib.figure import Figure
 from torch.utils.data import DataLoader
 from torchgeo.datasets import BoundingBox, GeoDataset
 from torchgeo.datasets.utils import download_url
-from torchgeo.samplers import GeoSampler, Units
+from torchgeo.samplers import GeoSampler
 from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
@@ -44,7 +44,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         inference_batch_size: int = 256,
         num_workers: int = 8,
         size: int = 200,
-        units: Units = Units.CRS,
+        units: str = 'pixel',
         crs: int = 4326,
         binary_positive_classes: list = [],
         task: str = 'classification_multiclass',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
@@ -127,7 +127,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
             split=split,
             task=self.task,
             binary_positive_classes=self.binary_positive_classes,
-            transforms_data=transform,
+            transform=transform,
             **kwargs
         )
         return dataset
@@ -317,7 +317,7 @@ class Sentinel2GeoSampler(GeoSampler):
         size: Union[Tuple[float, float], float],
         length: Optional[int] = None,
         roi: Optional[BoundingBox] = None,
-        units: Units = 'pixel',
+        units: str = 'pixel',
         crs: str = 'crs',
     ) -> None:
         super().__init__(dataset, roi)

@@ -1,0 +1,77 @@
+hydra:
+  run:
+    dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+
+trainer:
+  # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
+  accelerator: "gpu"
+  devices: 1
+  max_epochs: 2
+  # val_check_interval: 10
+  check_val_every_n_epoch: 1
+
+run:
+  predict: false
+  checkpoint_path:
+
+model:
+  provider_name: "timm" # choose from ["timm", "torchvision"]
+  model_name: "resnet18"
+  model_kwargs:
+    pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
+    num_classes:
+    in_chans:
+    output_stride:
+    global_pool:
+  modifiers:
+    change_first_convolutional_layer:
+      num_input_channels: 8
+    change_last_layer:
+      num_outputs: 5
+
+optimizer:
+  lr: 1e-2
+  weight_decay: 0
+  momentum: 0.9
+  nesterov: true
+  metrics:
+    # binary_accuracy:
+    #   # callable: 'Fmetrics.accuracy'
+    #   kwargs: {}
+    multiclass_accuracy:
+      # callable: 'Fmetrics.classification.multiclass_accuracy'
+      kwargs:
+        num_classes: 5
+    # multilabel_accuracy:
+    #   # callable: 'Fmetrics.classification.multilabel_accuracy'
+    #   kwargs:
+    #     num_labels: 5
+
+data:
+  concat_datasets:
+    - callable: "RasterBioclim"
+      kwargs:
+        root: "dataset/bioclim_rasters/"
+        labels_name: "../sentinel2_raster_torch_geo.csv"
+        index_name: "surveyId"
+        query_units: "pixel"
+        query_crs: 4326
+        patch_size: 128
+    - callable: "PatchesDataset"
+      kwargs:
+        occurrences: "dataset/sentinel2_raster_torch_geo.csv"
+        providers:
+          - callable: "JpegPatchProvider"
+            kwargs:
+              root_path: "dataset/satellite_patches/"
+              dataset_stats: 'jpeg_patches_sample_stats.csv'
+              id_getitem: "surveyId"
+              size: 128
+        item_columns: ['latitude', 'longitude', 'surveyId']
+  train_batch_size: 2
+  inference_batch_size: 2
+  num_workers: 8
+  
+
+task:
+  task: "classification_multiclass" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
