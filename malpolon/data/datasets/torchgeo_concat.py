@@ -16,7 +16,13 @@ from omegaconf import OmegaConf
 from torch.utils.data import DataLoader, Dataset
 
 from malpolon.data.data_module import BaseDataModule
-from malpolon.data.datasets.torchgeo_datasets import RasterTorchGeoDataset
+from malpolon.data.datasets.geolifeclef2024 import (JpegPatchProvider,
+                                                    PatchesDataset,
+                                                    PatchesDatasetMultiLabel)
+from malpolon.data.datasets.torchgeo_datasets import (RasterBioclim,
+                                                      RasterTorchGeoDataset)
+from malpolon.data.datasets.torchgeo_sentinel2 import (RasterSentinel2,
+                                                       Sentinel2GeoSampler)
 
 if TYPE_CHECKING:
     import numpy.typing as npt
