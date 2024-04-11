@@ -70,10 +70,6 @@ class RasterTorchGeoDataset(RasterDataset):
             labels file name, by default None
         split : str, optional
             dataset subset desired for labels selection, by default None
-        index_name : str, optional
-            name of the column in the labels file that will serve as index,
-            and hereafter referenced as attribute "observation_id",
-            by default "surveyId"
         crs : Any | None, optional
             `coordinate reference system (CRS)` to warp to
             (defaults to the CRS of the first file found), by default None
@@ -82,34 +78,46 @@ class RasterTorchGeoDataset(RasterDataset):
             (defaults to the resolution of the first file found), by default None
         bands : Sequence[str] | None, optional
             bands to return (defaults to all bands), by default None
-        transform : Callable[[Dict[str, Any]], Dict[str, Any]] | None, optional
-            a function/transform that takes an input sample and returns
+        transform : Callable | None, optional
+            a callable function that takes an input sample and returns
             a transformed version, by default None
-        cache : bool, optional
-            if True, cache file handle to speed up repeated sampling, by default True
+        transform_target : Callable | None, optional
+            a callable function that takes an input target and returns
+            a transformed version, by default None
         patch_size : int, optional
             size of the 2D extracted patches. Patches can either be
             square (int/float value) or rectangular (tuple of int/float).
             Defaults to a square of size 256, by default 256
+        query_units : str, optional
+            unit system of the dataset's queries, by default 'pixel'
+        query_crs: Union[int, str, CRS], optional
+            CRS of the dataset's queries, by default 'self' (same as dataset's CRS)
+        obs_data_columns: dict, optional
+            this dictionary allows users to match the dataset attributes
+            with custom column names of their obs data file,
+            by default::
+
+              {'x': 'lon',
+               'y': 'lat',
+               'index': 'surveyId',
+               'species_id': 'speciesId',
+               'split': 'subset'}
+
+            Here's a description of the keys:
+
+            - 'x', 'y': coordinates of the obs points (by default 'lon', 'lat' as per the WGS84 system)
+            - 'index': obs ID over which to iterate during the training loop
+            - 'species_id': species ID (label) associated with the obs points
+            - 'split': dataset split column name
+
         task : str, optional
             machine learning task (used to format labels accordingly), by default 'multiclass'
         binary_positive_classes : list, optional
             labels' classes to consider valid in the case of binary
             classification with multi-class labels (defaults to all 0),
             by default []
-        obs_data_columns: dict, optional
-            this dictionary allows users to match the dataset attributes
-            with custom column names of their obs data file,
-            by default {'x': 'lon',
-                        'y': 'lat',
-                        'index': 'surveyId',
-                        'species_id': 'speciesId',
-                        'split': 'subset'}
-            Here's a description of the keys:
-            - 'x', 'y': coordinates of the obs points (by default 'lon', 'lat' as per the WGS84 system)
-            - 'index': obs ID over which to iterate during the training loop
-            - 'species_id': species ID (label) associated with the obs points
-            - 'split': dataset split column name
+        cache : bool, optional
+            if True, cache file handle to speed up repeated sampling, by default True
         """
         super().__init__(root, crs, res, bands, None, cache)
         self.patch_size = patch_size
@@ -352,6 +360,7 @@ class RasterTorchGeoDataset(RasterDataset):
 
         Depending on the classification task (binary, multiclass or
         multilabel), labels have to be formatted accordingly.
+
         - **Binary**: label is an `int` equal to 1 if potential labels,
         i.e. input label values, contain an elligible value (i.e. in
         self.binary_positive_classes); 0 otherwise.
@@ -440,13 +449,14 @@ class RasterTorchGeoDataset(RasterDataset):
         The dataset is always queried with a torchgeo BoundingBox because it is
         itself a torchgeo dataset, but the query in this getter method can be
         passed as a tuple, list, set, dict or BoundingBox.
+
         - Use case 1: query is a [list, tuple, set] of 2 elements : lon, lat.
-        Here the CRS and Units system are by default those of the dataset's.
+          Here the CRS and Units system are by default those of the dataset's.
         - Use case 2: query is a torchgeo BoundingBox.
-        Here the CRS and Units system are by default those of the dataset's.
+          Here the CRS and Units system are by default those of the dataset's.
         - Use case 3: query is a dict containing the following necessary keys: {'lon', 'lat'},
-        and optional keys: {'crs', 'units', 'size'} which values default to those of
-        the dataset's.
+          and optional keys: {'crs', 'units', 'size'} which values default to those of
+          the dataset's.
 
         In Use case 3, if the 'crs' key is registered and it is different from
         the dataset's CRS, the coordinates of the point are projected into the
@@ -469,9 +479,13 @@ class RasterTorchGeoDataset(RasterDataset):
             One can query a patch by providing a BoundingBox using
             `torchgeo.datasets.BoundingBox` constructor; or by given a center
             and a size.
+
             --- BoundingBox strategy ---
+
             Must follow : BoundingBox(minx, maxx, miny, maxy, mint, maxt)
+
             --- Point strategy ---
+
             If tuple, must follow : (lon, lat) and the CRS of the coordinates
             will be assumed to be the dataset's.
             If dict, must follow : {'lon': lon, 'lat': lat, <'crs': crs>} and
@@ -484,10 +498,6 @@ class RasterTorchGeoDataset(RasterDataset):
         Dict[str, Any]
             dataset patch.
         """
-        # Sampling with a default index
-        # if isinstance(query, int):
-        #     query = self._default_sample_to_getitem(query)
-
         if not isinstance(query, BoundingBox):
             # Use case 1
             if isinstance(query, (tuple, list, set)):
@@ -544,10 +554,6 @@ class RasterBioclim(RasterTorchGeoDataset):
     separate_files = True
     all_bands = ["bio_1", "bio_2", "bio_3", "bio_4"]
     plot_bands = ["bio_1", "bio_2", "bio_3", "bio_4"]
-
-    def __init__(self, all_bands = 'all', plot_bands = 'all', **kwargs) -> None:
-        super().__init__(**kwargs)
-        
 
     def plot(self, sample: Patches):
         """Plot all layers of a given patch.
