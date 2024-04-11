@@ -296,8 +296,12 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             predictions' raw logits or logits passed through an
             activation function, by default None
         single_point_query : dict, optional
-            query dictionnary of the single-point prediction, by default
-            None
+            query dictionnary of the single-point prediction.
+            'target_species_id' key is mandatory expects a list of
+            numpy arrays of species ids.
+            'predictions' and 'probas' keys expect numpy arrays of
+            predictions and probabilities.
+            By default None (whole test dataset predictions)
         out_name : str, optional
             output CSV file name, by default "predictions"
         out_dir : str, optional
@@ -306,7 +310,8 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             if true, the method returns the CSV as a pandas DataFrame,
             by default False
         top_k : int, optional
-            number of top predictions to return, by default max
+            number of top predictions to return, by default None (max
+            number of predictions)
 
         Returns
         -------

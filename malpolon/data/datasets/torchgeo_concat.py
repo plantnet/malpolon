@@ -1,6 +1,9 @@
 """This module provides Sentinel-2 related classes based on torchgeo.
 
 Sentinel-2 data is queried from Microsoft Planetary Computer (MPC).
+NOTE: "unused" imports are necessary because they are evaluated in the
+      eval() function. These classes are passed by the user in the
+      config file along with their arguments.
 
 Author: Theo Larcher <theo.larcher@inria.fr>
 """
@@ -31,6 +34,25 @@ if TYPE_CHECKING:
 
 
 class ConcatPatchRasterDataset(Dataset):
+    """Concatenation dataset.
+
+    This class concatenates multiple datasets into a single one with a
+    single sampler. It is useful when you want to train a model on
+    multiple datasets at the same time _(e.g.: to train both rasters
+    and pre-extracted jpeg patches)_.
+    In the case of RasterTorchgeDataset, the __getitem__ method calls
+    a private method _default_sample_to_getitem to convert the iterating
+    index to the correct index for the dataset. This is necessary because
+    the RasterTorchGeoDataset class uses a custom dict-based sampler but
+    the other classes don't.
+
+    The minimum required class arguments _(i.e. observation_ids, targets,
+    coordinates)_ are taken from the first dataset in the list.
+
+    Target labels are taken from the first dataset in the list.
+
+    All datasets must return tensors of the same shape.
+    """
     def __init__(
         self,
         datasets: list[dict[Dataset]],  # list of dictionaries with keys 'callable' and 'kwargs'
@@ -38,6 +60,18 @@ class ConcatPatchRasterDataset(Dataset):
         transform: Callable,
         task: str
     ) -> None:
+        """Class constructor.
+
+        Parameters
+        ----------
+        datasets : list[dict[Dataset]]
+            list of dictionaries with keys 'callable' and 'kwargs' on
+            which to call the datasets.
+        transform : Callable
+            data transform callable function.
+        task : str
+            deep learning task.
+        """
         super().__init__()
         self.datasets = []
         for ds in deepcopy(datasets):
@@ -57,6 +91,18 @@ class ConcatPatchRasterDataset(Dataset):
         self,
         idx: int
     ) -> Tuple[Patches, Targets]:
+        """Query an item from the dataset.
+
+        Parameters
+        ----------
+        idx : int
+            item index (standard int).
+
+        Returns
+        -------
+        Tuple[Patches, Targets]
+            concatenated data and corresponding label(s).
+        """
         data, labels = ([], [])
         for ds in self.datasets:
             if isinstance(ds, RasterTorchGeoDataset):
@@ -93,6 +139,9 @@ class ConcatTorchGeoDataModule(BaseDataModule):
 
         Parameters
         ----------
+        concat_datasets : list[dict[Dataset, Any]]
+            list of dictionaries with keys 'callable' and 'kwargs' on
+            which to call the datasets.
         dataset_path : str
             path to the directory containing the data
         labels_name : str, optional
@@ -105,20 +154,6 @@ class ConcatTorchGeoDataModule(BaseDataModule):
             how many subprocesses to use for data
             loading. ``0`` means that the data will be loaded in the
             main process, by default 8
-        size : int, optional
-            size of the 2D extracted patches. Patches can either be
-            square (int/float value) or rectangular (tuple of int/float).
-            Defaults to a square of size 200, by default 200
-        units : Units, optional
-             The queries' unit system, must have a value in
-             ['pixel', 'crs', 'm', 'meter', 'metre]. This sets the unit you want
-             your query to be performed in, even if it doesn't match
-             the dataset's unit system, by default Units.CRS
-        crs : int, optional
-            The queries' `coordinate reference system (CRS)`. This
-            argument sets the CRS of the dataset's queries. The value
-            should be equal to the CRS of your observations. It takes
-            any EPSG integer code, by default 4326
         binary_positive_classes : list, optional
             labels' classes to consider valid in the case of binary
             classification with multi-class labels (defaults to all 0),

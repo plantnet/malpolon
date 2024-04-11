@@ -88,6 +88,10 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         task : str, optional
             machine learning task (used to format labels accordingly),
             by default 'classification_multiclass'
+        dataset_kwargs : dict, optional
+            additional keyword arguments for the dataset, by default {}
+        download_data_sample: bool, optional
+            whether to download a sample of Sentinel-2 data, by default False
         """
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path

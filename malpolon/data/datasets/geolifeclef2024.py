@@ -22,10 +22,11 @@ import pandas as pd
 import pyproj
 import rasterio
 import torch
-from malpolon.data.get_jpeg_patches_stats import standardize as jpeg_stand
 from PIL import Image
 from torch.utils.data import Dataset
 from tqdm import tqdm
+
+from malpolon.data.get_jpeg_patches_stats import standardize as jpeg_stand
 
 
 class PatchesDataset(Dataset):
@@ -54,6 +55,11 @@ class PatchesDataset(Dataset):
     ):
         """Class constructor.
 
+        Minimum attributes to be defined in the dataset file:
+        - observation_ids: unique identifier for each observation via id_name
+        - targets: labels for each observation via labels_name
+        - items: columns to keep for further usage, in particular __getitem__ method
+
         Parameters
         ----------
         occurrences : str
@@ -66,7 +72,7 @@ class PatchesDataset(Dataset):
             labels transform function passed as callable, by default
             None
         id_name : str, optional
-            observation id name, by default "glcID"
+            observation id name, by default 'surveyId'
         labels_name : str, optional
             name of the species label in the observation file,
             by default "speciesId"
