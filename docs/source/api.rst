@@ -70,6 +70,11 @@ malpolon.data.datasets.torchgeo_sentinel2
 -----------------------------------------
 .. automodule:: malpolon.data.datasets.torchgeo_sentinel2
    :members:
+   
+malpolon.data.datasets.torchgeo_concat
+----------------------------------------
+.. automodule:: malpolon.data.datasets.torchgeo_concat
+   :members:
 
 malpolon.data.datasets.geolifeclef2022
 --------------------------------------
