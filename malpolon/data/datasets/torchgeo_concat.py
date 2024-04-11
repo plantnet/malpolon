@@ -1,9 +1,10 @@
 """This module provides Sentinel-2 related classes based on torchgeo.
 
 Sentinel-2 data is queried from Microsoft Planetary Computer (MPC).
+
 NOTE: "unused" imports are necessary because they are evaluated in the
-      eval() function. These classes are passed by the user in the
-      config file along with their arguments.
+eval() function. These classes are passed by the user in the
+config file along with their arguments.
 
 Author: Theo Larcher <theo.larcher@inria.fr>
 """
