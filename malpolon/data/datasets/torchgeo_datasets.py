@@ -43,18 +43,22 @@ class RasterTorchGeoDataset(RasterDataset):
         root: str = "data",
         labels_name: str = None,
         split: str = None,  # 'train', 'test', 'val', 'all'
-        index_name: str = "surveyId",
         crs: Any = None,
         res: float = None,
         bands: Sequence[str] = None,
         transform: Callable = None,
         transform_target: Callable = None,
-        cache: bool = True,
         patch_size: Union[int, float, tuple] = 256,
-        task: str = 'multiclass',  # ['binary', 'multiclass', 'multilabel']
-        binary_positive_classes: list = [],
         query_units: str = 'pixel',
         query_crs: Union[int, str, CRS] = 'self',
+        obs_data_columns: dict = {'x': 'lon',
+                                  'y': 'lat',
+                                  'index': 'surveyId',
+                                  'species_id': 'speciesId',
+                                  'split': 'subset'},
+        task: str = 'multiclass',  # ['binary', 'multiclass', 'multilabel']
+        binary_positive_classes: list = [],
+        cache: bool = True,
     ) -> None:
         """Class constructor.
 
@@ -62,10 +66,10 @@ class RasterTorchGeoDataset(RasterDataset):
         ----------
         root : str, optional
             path to the directory containing the data and labels, by default "data"
-        split : str, optional
-            dataset subset desired for labels selection, by default None
         labels_name : str, optional
             labels file name, by default None
+        split : str, optional
+            dataset subset desired for labels selection, by default None
         index_name : str, optional
             name of the column in the labels file that will serve as index,
             and hereafter referenced as attribute "observation_id",
@@ -93,6 +97,19 @@ class RasterTorchGeoDataset(RasterDataset):
             labels' classes to consider valid in the case of binary
             classification with multi-class labels (defaults to all 0),
             by default []
+        obs_data_columns: dict, optional
+            this dictionary allows users to match the dataset attributes
+            with custom column names of their obs data file,
+            by default {'x': 'lon',
+                        'y': 'lat',
+                        'index': 'surveyId',
+                        'species_id': 'speciesId',
+                        'split': 'subset'}
+            Here's a description of the keys:
+            - 'x', 'y': coordinates of the obs points (by default 'lon', 'lat' as per the WGS84 system)
+            - 'index': obs ID over which to iterate during the training loop
+            - 'species_id': species ID (label) associated with the obs points
+            - 'split': dataset split column name
         """
         super().__init__(root, crs, res, bands, None, cache)
         self.patch_size = patch_size
@@ -103,20 +120,23 @@ class RasterTorchGeoDataset(RasterDataset):
         self.binary_positive_classes = set(binary_positive_classes)
         self.transform = transform
         self.transform_target = transform_target
-        self.index_name = index_name
-
-        df = self._load_observation_data(Path(root), labels_name, split)
-        self.observation_ids = df.index
-        self.coordinates = df[["longitude", "latitude"]].values
-        self.targets = df["speciesId"].values
         self._query_units = query_units
         self._query_crs = query_crs
+        self._load_observation_data(Path(root), labels_name, split, obs_data_columns)
+
+    def __len__(self) -> int:
+        return len(self.observation_ids)
 
     def _load_observation_data(
         self,
         root: Path = None,
         obs_fn: str = None,
         subsets: str = ['train', 'test', 'val'],
+        keys: dict = {'x': 'lon',
+                      'y': 'lat',
+                      'index': 'surveyId',
+                      'species_id': 'speciesId',
+                      'split': 'subset'}
     ) -> pd.DataFrame:
         """Load observation data from a CSV file.
 
@@ -143,24 +163,32 @@ class RasterTorchGeoDataset(RasterDataset):
         pd.DataFrame
             labels DataFrame
         """
+        x_key, y_key = keys['x'], keys['y']
+        index_key = keys['index']
+        species_id_key = keys['species_id']
+        split_key = keys['split']
+
         if any([root is None, obs_fn is None]):
-            return pd.DataFrame(columns=['longitude', 'latitude', 'speciesId', 'subset'])
+            return pd.DataFrame(columns=[x_key, y_key, species_id_key, split_key])
         labels_fp = obs_fn if len(obs_fn.split('.csv')) >= 2 else f'{obs_fn}.csv'
         labels_fp = root / labels_fp
         df = pd.read_csv(
             labels_fp,
             sep=",",
-            index_col=self.index_name,
+            index_col=index_key,
         )
-        self.unique_labels = np.sort(np.unique(df['speciesId']))
+        self.unique_labels = np.sort(np.unique(df[species_id_key]))
         try:
             subsets = [subsets] if isinstance(subsets, str) else subsets
-            ind = df.index[df["subset"].isin(subsets)]
+            ind = np.unique(df.index[df[split_key].isin(subsets)])
             df = df.loc[ind]
         except ValueError as e:
             print('Unrecognized subset name.\n'
                   'Please use one or several amongst: ["train", "test", "val"], as a string or list of strings.\n',
                   {e})
+        self.observation_ids = df.index
+        self.coordinates = df[[x_key, y_key]].values
+        self.targets = df[species_id_key].values
         return df
 
     def coords_transform(
@@ -516,6 +544,10 @@ class RasterBioclim(RasterTorchGeoDataset):
     separate_files = True
     all_bands = ["bio_1", "bio_2", "bio_3", "bio_4"]
     plot_bands = ["bio_1", "bio_2", "bio_3", "bio_4"]
+
+    def __init__(self, all_bands = 'all', plot_bands = 'all', **kwargs) -> None:
+        super().__init__(**kwargs)
+        
 
     def plot(self, sample: Patches):
         """Plot all layers of a given patch.

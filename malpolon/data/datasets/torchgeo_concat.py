@@ -48,6 +48,10 @@ class ConcatPatchRasterDataset(Dataset):
                     providers.append(eval(provider['callable'])(**provider['kwargs']))
                 ds['kwargs']['providers'] = providers
             self.datasets.append(dataset(**ds['kwargs'], split=split, transform=transform, task=task))
+        self.observation_ids = self.datasets[0].observation_ids
+        self.targets = self.datasets[0].targets
+        if hasattr(self.datasets[0], 'coordinates'):
+            self.coordinates = self.datasets[0].coordinates
 
     def __getitem__(
         self,
@@ -83,6 +87,7 @@ class ConcatTorchGeoDataModule(BaseDataModule):
         num_workers: int = 8,
         binary_positive_classes: list = [],
         task: str = 'classification_multiclass',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
+        **kwargs,
     ):
         """Class constructor.
 

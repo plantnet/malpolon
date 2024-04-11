@@ -302,7 +302,7 @@ class ClassificationSystem(GenericPredictionSystem):
             momentum=self.momentum,
             nesterov=self.nesterov,
         )
-        if ('binary' or 'multilabel') in task:
+        if 'binary' in task or 'multilabel' in task:
             loss = torch.nn.BCEWithLogitsLoss()
         else:
             loss = torch.nn.CrossEntropyLoss()

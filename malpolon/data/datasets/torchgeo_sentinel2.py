@@ -48,6 +48,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         crs: int = 4326,
         binary_positive_classes: list = [],
         task: str = 'classification_multiclass',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
+        dataset_kwargs: dict = {},
         download_data_sample: bool = False
     ):
         """Class constructor.
@@ -97,6 +98,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         self.sampler = Sentinel2GeoSampler
         self.task = task
         self.binary_positive_classes = binary_positive_classes
+        self.dataset_kwargs = dataset_kwargs
         if download_data_sample:
             self.download_data_sample()
 
@@ -128,7 +130,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
             task=self.task,
             binary_positive_classes=self.binary_positive_classes,
             transform=transform,
-            **kwargs
+            **self.dataset_kwargs
         )
         return dataset
 

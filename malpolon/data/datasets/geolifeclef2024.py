@@ -22,11 +22,10 @@ import pandas as pd
 import pyproj
 import rasterio
 import torch
+from malpolon.data.get_jpeg_patches_stats import standardize as jpeg_stand
 from PIL import Image
 from torch.utils.data import Dataset
 from tqdm import tqdm
-
-from malpolon.data.get_jpeg_patches_stats import standardize as jpeg_stand
 
 
 class PatchesDataset(Dataset):
@@ -183,7 +182,7 @@ class PatchesDatasetMultiLabel(PatchesDataset):
         self.observation_ids = np.unique(self.observation_ids)
         match n_classes:
             case 'max':
-                self.n_classes = np.max(self.targets) + 1
+                self.n_classes = int(np.max(self.targets) + 1)
             case 'length':
                 self.n_classes = len(np.unique(self.targets))
             case _ if isinstance(n_classes, int):
