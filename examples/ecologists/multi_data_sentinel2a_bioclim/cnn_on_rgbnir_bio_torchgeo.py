@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 
 import hydra
+import numpy as np
 import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -59,25 +60,25 @@ def main(cfg: DictConfig) -> None:
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
         predictions = model_loaded.predict(datamodule, trainer)
         preds, probas = datamodule.predict_logits_to_class(predictions,
-                                                           datamodule.get_test_dataset().unique_labels)
+                                                           np.arange(cfg.data.num_classes))
         datamodule.export_predict_csv(preds, probas,
-                                      out_dir=log_dir, out_name='predictions_test_dataset', top_k=3, return_csv=True)
+                                      out_dir=log_dir, out_name='predictions_test_dataset', return_csv=True)
         print('Test dataset prediction (extract) : ', predictions[:1])
 
         # Option 2: Predict 1 data point (Pytorch)
         test_data = datamodule.get_test_dataset()
-        query_point = {'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
-                       'crs': 4326,
-                       'size': datamodule.size,
-                       'units': datamodule.units}
-        test_data_point = test_data[query_point][0]
+        query_point = {'observation_id': test_data.observation_ids[0],
+                       'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
+                       'crs': cfg.data.concat_datasets[0].kwargs.query_crs,
+                       'species_id': [test_data[0][1].astype(int)]}
+        test_data_point = test_data[0][0]
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
 
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
                                                 test_data_point,
                                                 ['model.', ''])
         preds, probas = datamodule.predict_logits_to_class(prediction,
-                                                           datamodule.get_test_dataset().unique_labels)
+                                                           np.arange(cfg.data.num_classes))
         datamodule.export_predict_csv(preds, probas,
                                       out_dir=log_dir, out_name='prediction_point', single_point_query=query_point, return_csv=True)
         print('Point prediction : ', prediction.shape, prediction)
