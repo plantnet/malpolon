@@ -8,16 +8,13 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 
 from __future__ import annotations
 
-import os
-
 import hydra
 import numpy as np
 import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from malpolon.data.datasets.torchgeo_concat import (ConcatPatchRasterDataset,
-                                                    ConcatTorchGeoDataModule)
+from malpolon.data.datasets.torchgeo_concat import ConcatTorchGeoDataModule
 from malpolon.logging import Summary
 from malpolon.models import ClassificationSystem
 
@@ -42,7 +39,7 @@ def main(cfg: DictConfig) -> None:
     model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
     callbacks = [
-        # Summary(),
+        Summary(),
         ModelCheckpoint(
             dirpath=log_dir,
             filename="checkpoint-{epoch:02d}-{step}-{" + f"val_{next(iter(model.metrics.keys()))}" + ":.4f}",
