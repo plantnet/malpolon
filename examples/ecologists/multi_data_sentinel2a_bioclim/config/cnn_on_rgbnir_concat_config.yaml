@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path: 
+  checkpoint_path: # "outputs/cnn_on_rgbnir_bio_torchgeo/2024-04-11_14-38-21/checkpoint-epoch=02-step=9-val_multilabel_accuracy=0.8000.ckpt"
 
 data:
   num_classes: &num_classes 5
@@ -15,10 +15,11 @@ data:
     - callable: "RasterBioclim"
       kwargs:
         root: "dataset/bioclim_rasters/"
-        labels_name: "../sentinel2_raster_torch_geo.csv"
+        labels_name: "../sample_obs.csv"
         query_units: "pixel"
         query_crs: 4326
         patch_size: 128
+        filename_regex: '(?P<band>bio_[\d])_crop_sample'  # single quotes are mandatory
         bands: ["bio_1", "bio_2", "bio_3", "bio_4"]
         obs_data_columns: {'x': 'longitude',
                            'y': 'latitude',
@@ -27,7 +28,7 @@ data:
                            'split': 'subset'}
     - callable: "PatchesDataset"
       kwargs:
-        occurrences: "dataset/sentinel2_raster_torch_geo.csv"
+        occurrences: "dataset/sample_obs.csv"
         providers:
           - callable: "JpegPatchProvider"
             kwargs:
