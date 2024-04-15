@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path: # "outputs/cnn_on_rgbnir_bio_torchgeo/2024-04-11_14-38-21/checkpoint-epoch=02-step=9-val_multilabel_accuracy=0.8000.ckpt"
+  checkpoint_path:  # "outputs/cnn_on_rgbnir_concat/2024-04-15_17-56-41/last.ckpt"
 
 data:
   num_classes: &num_classes 5
