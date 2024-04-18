@@ -6,13 +6,14 @@ trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
   accelerator: "gpu"
   devices: 1
-  max_epochs: 2
-  # val_check_interval: 10
+  max_epochs: 30
+  # val_check_interval: 2
   check_val_every_n_epoch: 1
+  log_every_n_steps: 10
 
 run:
   predict: false
-  checkpoint_path:
+  checkpoint_path: # "outputs/cnn_on_rgbnir_torchgeo/train_multilabel/last.ckpt"
 
 model:
   provider_name: "timm" # choose from ["timm", "torchvision"]
@@ -27,7 +28,7 @@ model:
     change_first_convolutional_layer:
       num_input_channels: 4
     change_last_layer:
-      num_outputs: 5
+      num_outputs: 5  # set to 1 for binary classification
 
 optimizer:
   lr: 1e-2
@@ -38,14 +39,14 @@ optimizer:
     # binary_accuracy:
     #   # callable: 'Fmetrics.accuracy'
     #   kwargs: {}
-    multiclass_accuracy:
-      # callable: 'Fmetrics.classification.multiclass_accuracy'
-      kwargs:
-        num_classes: 5
-    # multilabel_accuracy:
-    #   # callable: 'Fmetrics.classification.multilabel_accuracy'
+    # multiclass_accuracy:
+    #   # callable: 'Fmetrics.classification.multiclass_accuracy'
     #   kwargs:
-    #     num_labels: 5
+    #     num_classes: 5
+    multilabel_accuracy:
+      # callable: 'Fmetrics.classification.multilabel_accuracy'
+      kwargs:
+        num_labels: 5
 
 data:
   dataset_path: "dataset/"
@@ -56,6 +57,13 @@ data:
   num_workers: 8
   units: "pixel"
   crs: 4326
+  binary_positive_classes: [1]
+  dataset_kwargs:
+    obs_data_columns: {"x": "longitude",
+                       "y": "latitude",
+                       "index": "surveyId",
+                       "species_id": "speciesId",
+                       "split": "subset"}
 
 task:
-  task: "classification_multiclass" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
+  task: "classification_multilabel" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']

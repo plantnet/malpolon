@@ -49,7 +49,8 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         binary_positive_classes: list = [],
         task: str = 'classification_multiclass',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
         dataset_kwargs: dict = {},
-        download_data_sample: bool = False
+        download_data_sample: bool = False,
+        **kwargs,
     ):
         """Class constructor.
 
