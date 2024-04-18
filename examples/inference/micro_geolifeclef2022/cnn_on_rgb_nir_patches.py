@@ -43,10 +43,13 @@ class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
         inference_batch_size: int = 256,
         num_workers: int = 8,
         download: bool = True,
+        task: str = 'classification_multiclass',
+        **kwargs
     ):
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
         self.download = download
+        self.task = task
 
     @property
     def train_transform(self):
@@ -147,8 +150,8 @@ def main(cfg: DictConfig) -> None:
         Summary(),
         ModelCheckpoint(
             dirpath=log_dir,
-            filename="checkpoint-{epoch:02d}-{step}-{" + f"val_{next(iter(model.metrics.keys()))}" + ":.4f}",
-            monitor=f"val_{next(iter(model.metrics.keys()))}",
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
+            monitor=f"{next(iter(model.metrics.keys()))}/val",
             mode="max",
         ),
     ]
