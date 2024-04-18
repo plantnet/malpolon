@@ -262,7 +262,8 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         probas = activation_fn(predictions)
         probas, indices = torch.sort(probas, descending=True)
         probas, indices = probas.to(device), indices.to(device)
-        class_preds = torch.zeros(probas.shape[0], len(classes), device=device)
+        # class_preds = torch.zeros(probas.shape[0], len(classes), device=device)  # could use torch.zeros_like
+        class_preds = torch.zeros_like(probas, device=device)
         for batch_i in range(predictions.shape[0]):
             class_preds[batch_i] = classes[indices[batch_i]]
         return class_preds.to('cpu').numpy().astype(int), probas.to('cpu').numpy()
@@ -274,7 +275,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
                            out_name: str = "predictions",
                            out_dir: str = './',
                            return_csv: bool = False,
-                           top_k: int = None,
+                           top_k: int = 1,
                            **kwargs: Any) -> Any:
         """Export predictions to csv file.
 
@@ -296,12 +297,8 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             predictions' raw logits or logits passed through an
             activation function, by default None
         single_point_query : dict, optional
-            query dictionnary of the single-point prediction.
-            'target_species_id' key is mandatory expects a list of
-            numpy arrays of species ids.
-            'predictions' and 'probas' keys expect numpy arrays of
-            predictions and probabilities.
-            By default None (whole test dataset predictions)
+            query dictionnary of the single-point prediction, by default
+            None
         out_name : str, optional
             output CSV file name, by default "predictions"
         out_dir : str, optional
@@ -310,8 +307,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             if true, the method returns the CSV as a pandas DataFrame,
             by default False
         top_k : int, optional
-            number of top predictions to return, by default None (max
-            number of predictions)
+            number of top predictions to return, by default 1
 
         Returns
         -------
@@ -320,31 +316,25 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         """
         out_name = out_name + ".csv" if not out_name.endswith(".csv") else out_name
         fp = Path(out_dir) / Path(out_name)
-        top_k = top_k if top_k is not None else predictions.shape[1]
         if single_point_query:
             df = pd.DataFrame({'observation_id': [single_point_query['observation_id'] if 'observation_id' in single_point_query else None],
                                'lon': [single_point_query['lon']],
                                'lat': [single_point_query['lat']],
                                'crs': [single_point_query['crs']],
-                               'target_species_id': tuple(np.array(single_point_query['species_id']).astype(str) if 'species_id' in single_point_query else None),
+                               'target_species_id': [single_point_query['species_id'] if 'species_id' in single_point_query else None],
                                'predictions': tuple(predictions[:, :top_k].astype(str)),
                                'probas': tuple(probas[:, :top_k].astype(str))})
         else:
             test_ds = self.get_test_dataset()
-            targets = []
-            for _, target in enumerate(test_ds):
-                targets.append(target[1])
             df = pd.DataFrame({'observation_id': test_ds.observation_ids,
                                'lon': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 0],
                                'lat': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 1],
-                               'target_species_id': tuple(np.array(targets).astype(int).astype(str)),
+                               'target_species_id': test_ds.targets,
                                'predictions': tuple(predictions[:, :top_k].astype(str)),
-                               'probas': [None] * len(predictions)})
-        if probas is not None:
-            df['probas'] = tuple(probas[:, :top_k].astype(str))
-        for key in ['probas', 'predictions', 'target_species_id']:
-            if len(df.loc[0, key]) >= 2:
-                df[key] = df[key].apply(' '.join)
+                               'probas': [None] * len(predictions) if probas is None else tuple(probas[:, :top_k].astype(str))})
+
+        df['predictions'] = df['predictions'].apply(' '.join)
+        df['probas'] = df['probas'].apply(' '.join)
         df.to_csv(fp, index=False, sep=';', **kwargs)
         if return_csv:
             return df

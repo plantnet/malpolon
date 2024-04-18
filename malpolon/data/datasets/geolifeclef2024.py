@@ -46,19 +46,12 @@ class PatchesDataset(Dataset):
         occurrences: str,
         providers: Iterable,
         transform: Callable = None,
-        transform_target: Callable = None,
-        id_name: str = "surveyId",
-        labels_name: str = "speciesId",
+        target_transform: Callable = None,
+        id_getitem: str = "surveyId",
+        label_name: str = "speciesId",
         item_columns: Iterable = ['lat', 'lon', 'surveyId'],
-        split: str = None,
-        **kwargs
     ):
         """Class constructor.
-
-        Minimum attributes to be defined in the dataset file:
-        - observation_ids: unique identifier for each observation via id_name
-        - targets: labels for each observation via labels_name
-        - items: columns to keep for further usage, in particular __getitem__ method
 
         Parameters
         ----------
@@ -68,35 +61,35 @@ class PatchesDataset(Dataset):
             list of providers to extract patches from
         transform : Callable, optional
             data transform function passed as callable, by default None
-        transform_target : Callable, optional
+        target_transform : Callable, optional
             labels transform function passed as callable, by default
             None
-        id_name : str, optional
-            observation id name, by default 'surveyId'
-        labels_name : str, optional
+        id_getitem : str, optional
+            observation id name, by default "glcID"
+        label_name : str, optional
             name of the species label in the observation file,
             by default "speciesId"
         item_columns : Iterable, optional
             columns to keep (by names) for further usage,
             by default ['lat', 'lon', 'surveyId']
-        split : str, optional
-            split of the dataset, takes values in ['train', 'val', 'test'].
-            By default None.
         """
-        self.occurrences = Path(occurrences)
+        self.occurences = Path(occurrences)
         self.base_providers = providers
         self.transform = transform
-        self.transform_target = transform_target
+        self.target_transform = target_transform
         self.provider = MetaPatchProvider(self.base_providers, self.transform)
 
-        df = pd.read_csv(self.occurrences, sep=",",
+        df = pd.read_csv(self.occurences, sep=",",
                          header='infer', low_memory=False)
-        if split:
-            df = df[df['subset'] == split]
 
-        self.observation_ids = df[id_name].values
+        self.observation_ids = df[id_getitem].values
         self.items = df[item_columns]
-        self.targets = df[labels_name].values
+        self.coordinates = df[['lat', 'lon']].to_numpy()
+        try:
+            self.targets = df[label_name].values
+        except KeyError:
+            print(f'WARNING: No label column named {label_name} in the occurrences file. Only suitable for inference.')
+            self.targets = None
 
     def __len__(self):
         """Return the size of the dataset.
@@ -124,8 +117,8 @@ class PatchesDataset(Dataset):
             patch = torch.from_numpy(patch).float()
 
         target = self.targets[index]
-        if self.transform_target:
-            target = self.transform_target(target)
+        if self.target_transform:
+            target = self.target_transform(target)
 
         return patch, target
 
@@ -192,7 +185,7 @@ class PatchesDatasetMultiLabel(PatchesDataset):
             case 'length':
                 self.n_classes = len(np.unique(self.targets))
             case _ if isinstance(n_classes, int):
-                self.n_classes = n_classes
+                self.n_classes = int(n_classes)
             case _:
                 raise ValueError('n_classes must be "max", "length" or an integer')
 
@@ -216,13 +209,16 @@ class PatchesDatasetMultiLabel(PatchesDataset):
         if not torch.is_tensor(patch):
             patch = torch.from_numpy(patch).float()
 
-        targets = np.zeros(self.n_classes)
-        for idx in pid_rows_i:
-            target = self.targets[idx]
-            targets[np.where(self.targets_sorted == target)] = 1
-        targets = torch.from_numpy(targets)
+        if self.targets:
+            targets = np.zeros(self.n_classes)
+            for idx in pid_rows_i:
+                target = self.targets[idx]
+                targets[np.where(self.targets_sorted == target)] = 1
+            targets = torch.from_numpy(targets)
 
-        return patch, targets
+            return patch, targets
+
+        return patch
 
 
 class TimeSeriesDataset(Dataset):
@@ -243,9 +239,9 @@ class TimeSeriesDataset(Dataset):
         occurrences: str,
         providers: Iterable,
         transform: Callable = None,
-        transform_target: Callable = None,
+        target_transform: Callable = None,
         id_name: str = "surveyId",
-        labels_name: str = "speciesId",
+        label_name: str = "speciesId",
         item_columns: Iterable = ['timeSerieID'],
     ):
         """Class constructor.
@@ -258,31 +254,31 @@ class TimeSeriesDataset(Dataset):
             list of providers to extract patches from
         transform : Callable, optional
             data transform function passed as callable, by default None
-        transform_target : Callable, optional
+        target_transform : Callable, optional
             labels transform function passed as callable, by default
             None
         id_name : str, optional
             observation id name, by default "glcID"
-        labels_name : str, optional
+        label_name : str, optional
             name of the species label in the observation file,
             by default "speciesId"
         item_columns : Iterable, optional
             columns to keep (by names) for further usage,
             by default ['timeSerieID']
         """
-        self.occurrences = Path(occurrences)
+        self.occurences = Path(occurrences)
         self.base_providers = providers
         self.transform = transform
-        self.transform_target = transform_target
+        self.target_transform = target_transform
         self.provider = MetaTimeSeriesProvider(self.base_providers,
                                                self.transform)
 
-        df = pd.read_csv(self.occurrences, sep=",",
+        df = pd.read_csv(self.occurences, sep=",",
                          header='infer', low_memory=False)
 
         self.observation_ids = df[id_name].values
         self.items = df[item_columns]
-        self.targets = df[labels_name].values
+        self.targets = df[label_name].values
 
     def __len__(self):
         """Return the size of the dataset.
@@ -312,8 +308,8 @@ class TimeSeriesDataset(Dataset):
             patch = torch.from_numpy(patch).float()
 
         target = self.targets[index]
-        if self.transform_target:
-            target = self.transform_target(target)
+        if self.target_transform:
+            target = self.target_transform(target)
 
         return patch, target
 
@@ -580,7 +576,8 @@ class RasterPatchProvider(PatchProvider):
         else:
             self.bands_names = [self.name]
 
-        self.epsg = self.crs.to_epsg()
+        # self.epsg = self.crs.to_epsg()  # modif IROKUBE
+        self.epsg = rasterio.CRS(self.crs)
         if self.epsg != 4326:
             # create a pyproj transformer object to convert lat, lon to EPSG:32738
             self.transformer = pyproj.Transformer.from_crs("epsg:4326",
@@ -726,7 +723,7 @@ class JpegPatchProvider(PatchProvider):
         root_path: str,
         select: Iterable[str] = None,
         normalize: bool = False,
-        transform: Callable = None,
+        patch_transform: Callable = None,
         size: int = 128,
         dataset_stats: str = 'jpeg_patches_stats.csv',
         id_getitem: str = 'surveyId'
@@ -743,7 +740,7 @@ class JpegPatchProvider(PatchProvider):
             by default None
         normalize : bool, optional
             normalize patches, by default False
-        transform : Iterable[Callable], optional
+        patch_transform : Iterable[Callable], optional
             custom transformation function, by default None
         size : int, optional
             size of the patches to extract, by default 128
@@ -763,7 +760,7 @@ class JpegPatchProvider(PatchProvider):
             By default 'surveyId'
         """
         super().__init__(size, normalize)
-        self.transform = transform
+        self.patch_transform = patch_transform
         self.root_path = root_path
         self.ext = '.jpeg'
         self.n_rows = 0
@@ -844,8 +841,8 @@ class JpegPatchProvider(PatchProvider):
                 for depth in img:
                     list_tensor['tensors'].append(np.expand_dims(depth, axis=0))
         tensor = np.concatenate(list_tensor['tensors'])
-        if self.transform:
-            for transform in self.transform:
+        if self.patch_transform:
+            for transform in self.patch_transform:
                 tensor = transform(tensor)
         self.channels = list_tensor['order']
         self.n_rows = img.shape[1]

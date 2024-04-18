@@ -21,7 +21,7 @@ from matplotlib.figure import Figure
 from torch.utils.data import DataLoader
 from torchgeo.datasets import BoundingBox, GeoDataset
 from torchgeo.datasets.utils import download_url
-from torchgeo.samplers import GeoSampler
+from torchgeo.samplers import GeoSampler, Units
 from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
@@ -44,11 +44,10 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         inference_batch_size: int = 256,
         num_workers: int = 8,
         size: int = 200,
-        units: str = 'pixel',
+        units: Units = Units.CRS,
         crs: int = 4326,
         binary_positive_classes: list = [],
         task: str = 'classification_multiclass',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
-        dataset_kwargs: dict = {},
         download_data_sample: bool = False
     ):
         """Class constructor.
@@ -88,10 +87,6 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         task : str, optional
             machine learning task (used to format labels accordingly),
             by default 'classification_multiclass'
-        dataset_kwargs : dict, optional
-            additional keyword arguments for the dataset, by default {}
-        download_data_sample: bool, optional
-            whether to download a sample of Sentinel-2 data, by default False
         """
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
@@ -102,7 +97,6 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         self.sampler = Sentinel2GeoSampler
         self.task = task
         self.binary_positive_classes = binary_positive_classes
-        self.dataset_kwargs = dataset_kwargs
         if download_data_sample:
             self.download_data_sample()
 
@@ -133,8 +127,8 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
             split=split,
             task=self.task,
             binary_positive_classes=self.binary_positive_classes,
-            transform=transform,
-            **self.dataset_kwargs
+            transforms_data=transform,
+            **kwargs
         )
         return dataset
 
@@ -323,7 +317,7 @@ class Sentinel2GeoSampler(GeoSampler):
         size: Union[Tuple[float, float], float],
         length: Optional[int] = None,
         roi: Optional[BoundingBox] = None,
-        units: str = 'pixel',
+        units: Units = 'pixel',
         crs: str = 'crs',
     ) -> None:
         super().__init__(dataset, roi)

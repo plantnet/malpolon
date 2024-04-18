@@ -76,9 +76,10 @@ class GenericPredictionSystem(pl.LightningModule):
         if split == "train":
             log_kwargs = {"on_step": True, "on_epoch": True, "sync_dist": True}
         else:
-            log_kwargs = {}
+            log_kwargs = {"on_step": True, "on_epoch": True, "sync_dist": True}
 
-        x, y = batch
+        x, y, obs_id = batch
+        print(f'[DEBUG] {split} batch: {batch_idx} obs_id: {obs_id}')
         y_hat = self(x)
 
         loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
@@ -109,7 +110,10 @@ class GenericPredictionSystem(pl.LightningModule):
         return self._step("test", batch, batch_idx)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        x, y = batch
+        if isinstance(batch, list) and len(batch) >= 2:
+            x, y = batch
+        else:
+            x = batch
         return self(x)
 
     def configure_optimizers(self) -> torch.optim.Optimizer:
