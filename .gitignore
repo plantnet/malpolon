@@ -21,8 +21,7 @@ examples/ecologists/sentinel-2a-rgbnir_bioclim/outputs/*
 examples/inference/micro_geolifeclef*/dataset/patches
 examples/inference/micro_geolifeclef*/dataset/rasters
 examples/inference/micro_geolifeclef*/outputs/*
-examples/inference/sentinel-2a/dataset/*.tif
-examples/inference/sentinel-2a/outputs/*
+examples/inference/sentinel-2a-rgbnir/outputs/*
 
 examples/kaggle/geolifeclef2022/dataset
 
