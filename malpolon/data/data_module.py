@@ -347,12 +347,12 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             if 'multilabel' in self.task:
                 predictions_multilabel = []
                 for obs_id in df['observation_id']:
-                    predictions_multilabel.append(targets[df.index[df['observation_id'] == obs_id].values])
-                df['target_species_id'] = tuple(np.array(predictions_multilabel).astype(int).astype(str))
+                    predictions_multilabel.append(' '.join(targets[df.index[df['observation_id'] == obs_id].values].astype(str)))
+                df['target_species_id'] = predictions_multilabel  # values must already be strings since the number of targets may vary per obs_id, however pd.DataFrame expects arrays of same lengths
         if probas is not None:
             df['probas'] = tuple(probas[:, :top_k].astype(str))
         for key in ['probas', 'predictions', 'target_species_id']:
-            if len(df.loc[0, key]) >= 1:
+            if not isinstance(df.loc[0, key], str) and len(df.loc[0, key]) >= 1:
                 df[key] = df[key].apply(' '.join)
         df.to_csv(fp, index=False, sep=';', **kwargs)
         if return_csv:
