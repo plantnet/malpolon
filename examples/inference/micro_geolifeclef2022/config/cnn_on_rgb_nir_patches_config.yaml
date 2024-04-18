@@ -3,7 +3,12 @@ defaults:
 
 run:
   predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point]
-  checkpoint_path: ???
+  checkpoint_path: 'outputs_training/cnn_on_rgb_nir_patches/train_multiclass/last.ckpt'
+
+data:
+  num_classes: &num_classes 10
+  dataset_path: "dataset/"
+  train_batch_size: 32
 
 model:
   modifiers:
@@ -14,8 +19,5 @@ model:
         strategy: "red_pretraining"
         rescaling: true
     change_last_layer:
-      num_outputs: 10
+      num_outputs: *num_classes
 
-data:
-  dataset_path: "dataset/"
-  train_batch_size: 32
