@@ -42,8 +42,8 @@ def main(cfg: DictConfig) -> None:
         Summary(),
         ModelCheckpoint(
             dirpath=log_dir,
-            filename="checkpoint-{epoch:02d}-{step}-{" + f"val_{next(iter(model.metrics.keys()))}" + ":.4f}",
-            monitor=f"val_{next(iter(model.metrics.keys()))}",
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
+            monitor=f"{next(iter(model.metrics.keys()))}/val",
             mode="max",
         ),
     ]

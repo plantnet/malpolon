@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path:  # "outputs/cnn_on_rgbnir_concat/2024-04-15_17-56-41/last.ckpt"
+  checkpoint_path:  # "outputs/cnn_on_rgbnir_concat/train_multilabel/last.ckpt"
 
 data:
   num_classes: &num_classes 5
@@ -36,6 +36,7 @@ data:
               dataset_stats: 'jpeg_patches_sample_stats.csv'
               id_getitem: "surveyId"
               size: 128
+              select: ['red', 'green', 'blue', 'nir']
         item_columns: ['longitude', 'latitude', 'surveyId']
 
 task:
