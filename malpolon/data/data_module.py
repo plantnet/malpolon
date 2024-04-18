@@ -344,6 +344,11 @@ class BaseDataModule(pl.LightningDataModule, ABC):
                                'target_species_id': tuple(np.array(targets).astype(int).astype(str)),
                                'predictions': tuple(predictions[:, :top_k].astype(str)),
                                'probas': [None] * len(predictions)})
+            if 'multilabel' in self.task:
+                predictions_multilabel = []
+                for obs_id in df['observation_id']:
+                    predictions_multilabel.append(targets[df.index[df['observation_id'] == obs_id].values])
+                df['target_species_id'] = tuple(np.array(predictions_multilabel).astype(int).astype(str))
         if probas is not None:
             df['probas'] = tuple(probas[:, :top_k].astype(str))
         for key in ['probas', 'predictions', 'target_species_id']:
