@@ -13,10 +13,17 @@ docs/_build
 # Data
 examples/ecologists/micro_geolifeclef*/dataset/patches
 examples/ecologists/micro_geolifeclef*/dataset/rasters
-examples/ecologists/sentinel-2a/dataset/*.tif
+examples/ecologists/micro_geolifeclef*/outputs/*
+examples/ecologists/sentinel-2a-rgbnir/dataset/*.tif
+examples/ecologists/sentinel-2a-rgbnir/outputs/*
+examples/ecologists/sentinel-2a-rgbnir_bioclim/outputs/*
+
 examples/inference/micro_geolifeclef*/dataset/patches
 examples/inference/micro_geolifeclef*/dataset/rasters
+examples/inference/micro_geolifeclef*/outputs/*
 examples/inference/sentinel-2a/dataset/*.tif
+examples/inference/sentinel-2a/outputs/*
+
 examples/kaggle/geolifeclef2022/dataset
 
 # Packaging
