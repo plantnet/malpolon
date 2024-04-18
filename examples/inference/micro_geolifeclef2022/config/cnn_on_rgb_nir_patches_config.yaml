@@ -3,7 +3,7 @@ defaults:
 
 run:
   predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point]
-  checkpoint_path: 'outputs_training/cnn_on_rgb_nir_patches/train_multiclass/last.ckpt'
+  checkpoint_path: ???
 
 data:
   num_classes: &num_classes 10
