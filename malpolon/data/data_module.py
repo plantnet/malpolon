@@ -50,6 +50,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         self.dataset_test = None
         self.dataset_predict = None
         self.sampler = None
+        self.task = None
 
     @property
     @abstractmethod
@@ -260,11 +261,16 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         classes = torch.tensor(classes).to(device)
         probas = activation_fn(predictions)
-        probas, indices = torch.sort(probas, descending=True)
-        probas, indices = probas.to(device), indices.to(device)
-        class_preds = torch.zeros(probas.shape[0], len(classes), device=device)
-        for batch_i in range(predictions.shape[0]):
-            class_preds[batch_i] = classes[indices[batch_i]]
+        if 'binary' in self.task:
+            class_preds = probas.round()
+        else:
+            probas, indices = torch.sort(probas, descending=True)
+            probas, indices = probas.to(device), indices.to(device)
+            class_preds = torch.zeros_like(probas, device=device)
+            for batch_i in range(predictions.shape[0]):  # useful if classes don't span from 0 to n_classes-1
+                class_preds[batch_i] = classes[indices[batch_i]]
+            if 'multiclass' in self.task:
+                class_preds, probas = class_preds[:, :1], probas[:, :1]
         return class_preds.to('cpu').numpy().astype(int), probas.to('cpu').numpy()
 
     def export_predict_csv(self,
@@ -331,9 +337,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
                                'probas': tuple(probas[:, :top_k].astype(str))})
         else:
             test_ds = self.get_test_dataset()
-            targets = []
-            for _, target in enumerate(test_ds):
-                targets.append(target[1])
+            targets = test_ds.targets
             df = pd.DataFrame({'observation_id': test_ds.observation_ids,
                                'lon': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 0],
                                'lat': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 1],
@@ -343,7 +347,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         if probas is not None:
             df['probas'] = tuple(probas[:, :top_k].astype(str))
         for key in ['probas', 'predictions', 'target_species_id']:
-            if len(df.loc[0, key]) >= 2:
+            if len(df.loc[0, key]) >= 1:
                 df[key] = df[key].apply(' '.join)
         df.to_csv(fp, index=False, sep=';', **kwargs)
         if return_csv:
