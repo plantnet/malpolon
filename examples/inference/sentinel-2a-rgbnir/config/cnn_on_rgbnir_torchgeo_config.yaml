@@ -9,7 +9,7 @@ run:
 data:
   num_classes: &num_classes 5
   dataset_path: "dataset/"
-  labels_name: "sentinel2_raster_torch_geo.csv"
+  labels_name: "observations.csv"
   download_data_sample: True
   train_batch_size: 2
   inference_batch_size: 2
