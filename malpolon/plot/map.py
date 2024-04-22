@@ -150,7 +150,7 @@ def plot_observation_dataset(
         map's ax object
     """
     obs_data_columns = dict(zip(obs_data_columns.values(), obs_data_columns.keys()))
-    df.rename(columns=obs_data_columns, inplace=True)
+    df = df.rename(columns=obs_data_columns)
 
     ax = plot_map(extent=[min(df['x']) - 1, max(df['x']) + 1,
                           min(df['y']) - 1, max(df['y']) + 1])
