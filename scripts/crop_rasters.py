@@ -1,20 +1,26 @@
-import rasterio
-from rasterio.mask import mask
-from shapely.geometry import box
-import numpy as np
-from tqdm import tqdm
-import pyproj
 import os
 
-def main(fps):
+import numpy as np
+import pyproj
+import rasterio
+from pyproj import CRS, Transformer
+from rasterio.mask import mask
+from shapely.geometry import box
+from tqdm import tqdm
+
+
+def main(fps, data_crs, coords_crs):
     """Clip and export a window from raster files.
     
     Also possible to do via command line:
     `rio input_raster output_raster --bounds "xmin, ymin xmax ymax"`
     """
     # Define the coordinates of the area you want to crop
-    minx, miny = 3.78891, 43.483567  # EPSG 3035
-    maxx, maxy = 3.956451, 43.700148  # EPSG 3035
+    minx, miny = 499980.0, 4790220.0  # EPSG 32631
+    maxx, maxy = 609780.0, 4900020.0  # EPSG 32631
+    if data_crs != coords_crs:
+        transformer = Transformer.from_crs(pyproj.CRS.from_epsg(coords_crs), pyproj.CRS.from_epsg(data_crs), always_xy=True)
+        minx, miny, maxx, maxy = transformer.transform_bounds(minx, miny, maxx, maxy)
     bbox = box(minx-0.8, miny-0.8, maxx+0.8, maxy+0.8)
 
     for k, v in tqdm(fps.items()):
@@ -38,9 +44,11 @@ def main(fps):
         
 if __name__ == '__main__':
     root = './'
-    fps = {'bio_1': root + 'bio_1.tif',
-           'bio_2': root + 'bio_2.tif',
-           'bio_3': root + 'bio_3.tif',
-           'bio_4': root + 'bio_4.tif',
+    fps = {'bio_1': root + 'bio_1/bio_1_FR.tif',
+           'bio_5': root + 'bio_5/bio_5_FR.tif',
+           'bio_6': root + 'bio_6/bio_6_FR.tif',
+           'bio_12': root + 'bio_12/bio_12_FR.tif',
           }
-    main(fps)
+    data_crs = '4326'
+    coords_crs = '32631'
+    main(fps, data_crs, coords_crs)
