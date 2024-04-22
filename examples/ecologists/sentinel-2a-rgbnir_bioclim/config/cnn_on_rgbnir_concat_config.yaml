@@ -11,7 +11,7 @@ data:
   train_batch_size: 8
   inference_batch_size: 2
   num_workers: 8
-  concat_datasets:
+  dataset_kwargs:
     - callable: "RasterBioclim"
       kwargs:
         root: "dataset/bioclim_rasters/"

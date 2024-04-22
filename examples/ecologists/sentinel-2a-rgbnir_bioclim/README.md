@@ -1,11 +1,13 @@
 <a name="readme-top"></a>
 
-# Sentinel-2A rasters example (training)
+# Sentinel-2A patches + Bioclim rasters example (training)
 
-This `torchgeo` based example performs multi-label (by default), multi-class or binary classification of species using a CNN model on Sentinel-2A raster data and geolocated plant observations.
+This `torchgeo` based example performs multi-label (by default), multi-class or binary classification of species using a CNN model on a combination of Sentinel-2A pre-extracted patches + Bioclim raster data and geolocated plant observations.
 
 Sentinel-2A satellite data is hosted and available on [Microsoft Planetary Computer](https://planetarycomputer.microsoft.com/dataset/sentinel-2-l2a) (MPC).\
-By default, a data sample is downloaded from MPC, consisting of 1 tile, 4 bands (RGB-IR).
+By default, the pre-extracted patches are taken from the pre-processed tiles from [Ecodatacube](https://stac.ecodatacube.eu/) of the year 2021, and consist of 4 bands (RGB-IR).
+
+Bioclim raster data is hosted and available on [CHELSA](https://chelsa-climate.org/bioclim/). By default this example uses bioclimatic variables 1 to 4.\
 
 ## Data
 
@@ -20,6 +22,17 @@ The sample data used in this example consists of:
       <img src="../../../docs/resources/S2A_MSIL2A_20190801T104031_R008_T31TEJ_20201004T190635_preview.jpg" alt="Sentinel2A_T31TEJ_preview" width="300"></a>
       <br/>
      <figcaption>Sentinel-2A tile <code>T31TEJ</code> at 01/08/2019 (dd/mm/yy)</figcaption>
+  </figure>
+</div>
+
+- **Bioclim rasters**: bioclimatic [variables 1 to 4](https://chelsa-climate.org/bioclim/) from the CHELSA database. Each variable is a GeoTIFF file with a resolution of 30 arc-seconds (~1 km), representing the average of its values over the years 1980-2010.
+
+<div align="center">
+  <figure>
+    <a href="https://planetarycomputer.microsoft.com/explore?c=4.0129%2C43.6370&z=10.30&v=2&d=sentinel-2-l2a&m=cql%3A17367ba270405507e8f9aa7772327681&r=Natural+color&s=false%3A%3A100%3A%3Atrue&sr=desc&ae=0">
+      <img src="../../../docs/resources/bio_3_crop_montpellier.jpg" alt="Bio3_preview" width="300"></a>
+      <br/>
+     <figcaption>Bioclim variable <code>bio3</code> over the region of Montpellier (same as the Sentinel-2A tile)</figcaption>
   </figure>
 </div>
 
@@ -46,33 +59,63 @@ Species include:
 
 ### Data loading and adding more data
 
-- **Satellite images**
+This example uses the class `malpolon.data.datasets.torchgeo_concat.ConcatPatchRasterDataset` to load both pre-extracted patches (.jpeg) and geo-located rasters (.tif) together and handle them under a single class. This class then called by the datamodule `malpolon.data.datasets.torchgeo_concat.ConcatTorchGeoDataModule` which is used in the training script.
 
-The Sentinel-2A tiles are looked for in the `<path_to_example>/dataset` directory and they are loaded based on their standard naming convention, following several rules are set in `malpolon.data.datasets.torchgeo_sentinel2.RasterSentinel2`.
+Users can specify each sub-dataset's parameters in the configuration file under the section `data.dataset_kwargs`.\
+By default, 2 datasets are called:
+1. `malpolon.data.dataset.torchgeo_datasets.RasterBioclim` which will load the bioclimatic rasters
+2. `malpolon.data.dataset.geolifeclef2024.PatchesDataset` which will load the pre-extracted patches
 
-```python 
-  filename_glob = "T*_B0*_10m.tif"
-  filename_regex = r"T31TEJ_20190801T104031_(?P<band>B0[\d])"
-  date_format = "%Y%m%dT%H%M%S"
-  is_image = True
-  separate_files = True
-  all_bands = ["B02", "B03", "B04", "B08"]
-  plot_bands = ["B04", "B03", "B02"]
+```yaml
+  dataset_kwargs:
+    - callable: "RasterBioclim"
+          kwargs:
+            root: "dataset/bioclim_rasters/"
+            labels_name: "../sample_obs.csv"
+            query_units: "pixel"
+            query_crs: 4326
+            patch_size: 128
+            filename_regex: '(?P<band>bio_[\d])_crop_sample'  # single quotes are mandatory
+            bands: ["bio_1", "bio_2", "bio_3", "bio_4"]
+            obs_data_columns: {'x': 'longitude',
+                              'y': 'latitude',
+                              'index': 'surveyId',
+                              'species_id': 'speciesId',
+                              'split': 'subset'}
+        - callable: "PatchesDataset"
+          kwargs:
+            occurrences: "dataset/sample_obs.csv"
+            providers:
+              - callable: "JpegPatchProvider"
+                kwargs:
+                  root_path: "dataset/satellite_patches/"
+                  dataset_stats: 'jpeg_patches_sample_stats.csv'
+                  id_getitem: "surveyId"
+                  size: 128
+                  select: ['red', 'green', 'blue', 'nir']
+            item_columns: ['longitude', 'latitude', 'surveyId']
 ```
 
-- `filename_glob` is the glob pattern used to find the files in the directory.
-- `filename_regex` is the regular expression used to extract the band name from the file name. The argument `?P<band>` is used by `torchgeo` to identify the band name based on `all_bands`.
-- `date_format` is the date format used to extract the date from the file name.
-- `is_image` is a boolean indicating whether the file is an image or not.
-- `separate_files` is a boolean indicating whether the bands are stored in separate files or not.
-- `all_bands` is the list of all bands available in your dataset.
-- `plot_bands` is the list of bands to plot when calling `plot()` on the dataset.
+- **Bioclimatic rasters**
 
-To extend your dataset, simply drop more files in the `<path_to_example>/dataset` directory with the same naming convention, and adapt your rules to select the new bands and/or tiles.
+The bioclimatic raster files are looked for in the `<path_to_example>/dataset/bioclim_rasters` directory and they are loaded based on the naming regex rule set by the config parameter `filename_regex`.
+
+_e.g.: here the regex rule contains a [named capturing group](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Regular_expressions/Named_capturing_group) named "band" which matches the string 'bio\_' followed by any amount of digits. Then the regex rule looks if the filename ends with "\_crop_sample". So "bio_1_crop_sample.tif" will be matched and the band name will be "bio_1"._
+
+The `bands` parameter then acts as a selectio tool, telling the class to only use the specified bands.
+
+To extend your dataset, simply drop more files in the `<path_to_example>/dataset` directory with the same naming convention, and adapt your rules to select the new bands and/or tiles (see [RasterBioclim documentation](https://plantnet.github.io/malpolon/api.html#malpolon.data.datasets.torchgeo_sentinel2.RasterBioclim) for more details on the class parameters).
+
+- **Sentinel-2A pre-extracted patches**
+
+The satellite patches are looked for in the directory `<path_to_example>/dataset/satellite_patches` and are loaded based on the values of the column `surveyId` in the observations CSV file. Each patch should be located at `<root_path>/YZ/WX/<surveyId>.jpeg` with surveyId being equal to `ABCDWXYZ`.
+
+_e.g.: an observation has a surveyId of 123456789. Then it's pre-extracted patch is located at `<root_path>/89/67/123456789.jpeg`._
+
 
 - **Observations**
 
-The observations are loaded from the `<path_to_example>/dataset/observations.csv` file. The name of the file can vary so long as it matches the name specified in the configuration file.
+The observations are loaded from the `<path_to_example>/dataset/sample_obs.csv` file. The name of the file can vary so long as it matches the name specified in the configuration file.
 
 To extend your dataset, simply add more observations to the CSV file.
 
@@ -84,19 +127,19 @@ Examples are **ready-to-use scripts** that can be executed by a simple Python co
 
 ### Training
 
-To train an example's model such as `resnet18` in `cnn_on_rgbnir_torchgeo.py`, run the following command:
+To train an example's model such as `resnet18` in `cnn_on_rgbnir_concat.py`, run the following command:
 
 ```script
-python cnn_on_rgbnir_torchgeo.py
+python cnn_on_rgbnir_concat.py
 ```
 
 You can also specify any of your config parameters within your command through arguments such as:
 
 ```script
-python cnn_on_rgbnir_torchgeo.py data.dataset_path=<DATASET_PATH> trainer.gpus=1
+python cnn_on_rgbnir_concat.py data.dataset_path=<DATASET_PATH> trainer.gpus=1
 ```
 
-The model's weights, logs and metrics are saved in the `outputs/cnn_on_rgbnir_torchgeo/<date_of_run>/` directory
+The model's weights, logs and metrics are saved in the `outputs/cnn_on_rgbnir_concat/<date_of_run>/` directory
 
 Config parameters provided in this example are listed in the [Parameters](#parameters) section.
 
@@ -152,8 +195,11 @@ Hereafter is a detailed list of every sub parameters:
   - **units** _(str)_: unit system of the queries performed on the dataset. This value should be equal to the units of your observations, which can be different from you dataset's unit system. Takes any value in [`'crs'`, `'pixel'`, `'m'`, `'meter'`, `'metre'`] as input.
   - **crs** _(int)_: coordinate reference system of the queries performed on the dataset. This value should be equal to the CRS of your observations, which can be different from your dataset's CRS.
   - **dataset_kwargs**\
-    Parameters forwarded to the dataset constructor. You may add any parameter in this section belonging to your dataset's constructor. Leave empty (None) to use the dataset's default parameter value.
-    - **obs_data_columns** _(dict)_: Dictionary matching the columns of your observations CSV with the necessary attributes of the dataset.
+    Parameters forwarded to the dataset constructor. You may add any parameter in this section belonging to your dataset's constructor. Leave empty (None) to use the dataset's default parameter value.\
+    In this example, the dataset is a concatenation of two datasets: the `RasterBioclim` and the `PatchesDataset`, passed as a list of dictionaries.
+    - **item n°k**
+      - **callable** _(str)_: String containing the name of the class you want to call. Can be any class of `geolifeclef2024`, `torchgeo_datasets` or `torchgeo_sentinel2` modules.
+      - **kwargs** _(dict)_: Dictionary containing the parameters you want to pass to your callable class.
     - ...
 
 - **task**
