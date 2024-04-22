@@ -112,6 +112,26 @@ GeoLifeCLEF2023: providers
 .. autoclass:: malpolon.data.datasets.geolifeclef2023.CSVTimeSeriesProvider
 .. autoclass:: malpolon.data.datasets.geolifeclef2023.MultipleCSVTimeSeriesProvider
 
+malpolon.data.datasets.geolifeclef2024
+--------------------------------------
+
+GeoLifeCLEF2024: datasets
+^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.PatchesDataset
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.PatchesDatasetMultiLabel
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.TimeSeriesDataset
+
+GeoLifeCLEF2024: providers
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.PatchProvider
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.MetaPatchProvider
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.RasterPatchProvider
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.MultipleRasterPatchProvider
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.JpegPatchProvider
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.TimeSeriesProvider
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.MetaTimeSeriesProvider
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.CSVTimeSeriesProvider
+.. autoclass:: malpolon.data.datasets.geolifeclef2024.MultipleCSVTimeSeriesProvider
 
 malpolon.plot
 *************
