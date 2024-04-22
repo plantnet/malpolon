@@ -126,7 +126,7 @@ class ConcatPatchRasterDataset(Dataset):
 class ConcatTorchGeoDataModule(BaseDataModule):
     def __init__(
         self,
-        concat_datasets: list[dict[Dataset, Any]],
+        dataset_kwargs: list[dict[Dataset, Any]],
         dataset_path: str = 'dataset/',
         labels_name: str = 'labels.csv',
         train_batch_size: int = 32,
@@ -164,14 +164,14 @@ class ConcatTorchGeoDataModule(BaseDataModule):
             by default 'classification_multiclass'
         """
         super().__init__(train_batch_size, inference_batch_size, num_workers)
-        self.concat_datasets = OmegaConf.to_container(concat_datasets)
+        self.dataset_kwargs = OmegaConf.to_container(dataset_kwargs)
         self.dataset_path = dataset_path  # Gets overwritten by concat_datasets specific dataset_path
         self.labels_name = labels_name
         self.task = task
         self.binary_positive_classes = binary_positive_classes
 
     def get_dataset(self, split, transform=None, **kwargs) -> Dataset:
-        dataset = ConcatPatchRasterDataset(self.concat_datasets,
+        dataset = ConcatPatchRasterDataset(self.dataset_kwargs,
                                            split,
                                            transform,
                                            self.task)
