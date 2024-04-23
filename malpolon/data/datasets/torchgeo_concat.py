@@ -164,7 +164,7 @@ class ConcatTorchGeoDataModule(BaseDataModule):
             by default 'classification_multiclass'
         """
         super().__init__(train_batch_size, inference_batch_size, num_workers)
-        self.dataset_kwargs = OmegaConf.to_container(dataset_kwargs)
+        self.dataset_kwargs = OmegaConf.to_container(dataset_kwargs, resolve=True)
         self.dataset_path = dataset_path  # Gets overwritten by concat_datasets specific dataset_path
         self.labels_name = labels_name
         self.task = task
