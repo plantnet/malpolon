@@ -273,6 +273,60 @@ class BaseDataModule(pl.LightningDataModule, ABC):
                 class_preds, probas = class_preds[:, :1], probas[:, :1]
         return class_preds.to('cpu').numpy().astype(int), probas.to('cpu').numpy()
 
+    def export_predict_csv_basic(self,
+                                 predictions: Union[Tensor, np.ndarray],
+                                 targets: Union[np.ndarray, list],
+                                 probas: Union[Tensor, np.ndarray] = None,
+                                 ids: Union[np.ndarray, list] = None,
+                                 out_name: str = "predictions",
+                                 out_dir: str = './',
+                                 return_csv: bool = False,
+                                 top_k: int = None,
+                                 **kwargs: Any):
+        """Export predictions to csv file.
+
+        Exports predictions, probabilities and ids to a csv file.
+
+        Parameters
+        ----------
+        targets : Union[np.ndarray, list], optional
+            target species ids, by default None
+        predictions : Union[Tensor, np.ndarray]
+            model's predictions.
+        probas : Union[Tensor, np.ndarray], optional
+            predictions' raw logits or logits passed through an
+            activation function, by default None
+        ids : Union[np.ndarray, list], optional
+            ids of the observations, by default None
+        out_name : str, optional
+            output CSV file name, by default "predictions"
+        out_dir : str, optional
+            output directory name, by default "./"
+        return_csv : bool, optional
+            if true, the method returns the CSV as a pandas DataFrame,
+            by default False
+        top_k : int, optional
+            number of top predictions to return, by default None (max
+            number of predictions)
+
+        Returns
+        -------
+        pandas.DataFrame
+            CSV content as a pandas DataFrame if `return_csv` is True
+        """
+        predictions = [None] * len(predictions) if predictions is None else predictions
+        probas = [None] * len(probas) if probas is None else probas
+        ids = np.arange(len(predictions)) if ids is None else ids
+        df = pd.DataFrame({'ids': ids, 
+                           'predictions': tuple(predictions[:, :top_k].astype(str)),
+                           'targets': targets,
+                           'probas': tuple(probas[:, :top_k].astype(str))})
+        for key in ['probas', 'predictions']:
+            df[key] = df[key].apply(' '.join)
+        df.to_csv(Path(out_dir) / Path(out_name + ".csv"), index=False, sep=',', **kwargs)
+        if return_csv:
+            return df
+
     def export_predict_csv(self,
                            predictions: Union[Tensor, np.ndarray],
                            probas: Union[Tensor, np.ndarray] = None,
@@ -357,4 +411,4 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         df.to_csv(fp, index=False, sep=';', **kwargs)
         if return_csv:
             return df
-        return None
+
