@@ -1,0 +1,39 @@
+run:
+  predict: false
+  checkpoint_path: null
+data:
+  num_classes: 10
+  data_dir: dataset/cifar_from_torchvision
+  batch_size: 32
+  num_workers: 8
+task:
+  task: classification_multiclass
+trainer:
+  accelerator: gpu
+  devices: auto
+  max_epochs: 30
+  check_val_every_n_epoch: 1
+  log_every_n_steps: 300
+model:
+  provider_name: timm
+  model_name: resnet18
+  model_kwargs:
+    pretrained: true
+    num_classes: null
+    in_chans: null
+    output_stride: null
+    global_pool: null
+  modifiers:
+    change_first_convolutional_layer:
+      num_input_channels: 3
+    change_last_layer:
+      num_outputs: 10
+optimizer:
+  lr: 0.01
+  weight_decay: 0
+  momentum: 0.9
+  nesterov: true
+  metrics:
+    multiclass_accuracy:
+      kwargs:
+        num_classes: 10
