@@ -155,7 +155,7 @@ class Sentinel2PatchesDataModule(BaseDataModule):
         )
 
 
-@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_rgbnir_glc23_patches_train_multiclass.yaml")
+@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_rgbnir_glc23_patches_train_multilabel.yaml")
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
 
@@ -178,8 +178,8 @@ def main(cfg: DictConfig) -> None:
         Summary(),
         ModelCheckpoint(
             dirpath=log_dir,
-            filename="checkpoint-{epoch:02d}-{step}-{" + f"val_{next(iter(model.metrics.keys()))}" + ":.4f}",
-            monitor=f"val_{next(iter(model.metrics.keys()))}",
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
+            monitor=f"{next(iter(model.metrics.keys()))}/val",
             mode="max",
             save_on_train_epoch_end=True,
             save_last=True,
