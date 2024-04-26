@@ -3,11 +3,11 @@ hydra:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
 run:
-  predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point]
+  predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point']
   checkpoint_path: ???
 
 data:
-  num_classes: &num_classes 5
+  num_classes: &num_classes 10
   dataset_path: "dataset/"
   labels_name: "observations.csv"
   download_data_sample: True
@@ -34,7 +34,7 @@ trainer:
   max_epochs: 2
   # val_check_interval: 10
   check_val_every_n_epoch: 1
-                                                                                                                                       
+
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
   model_name: "resnet18"

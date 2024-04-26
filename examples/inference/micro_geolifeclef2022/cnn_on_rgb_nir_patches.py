@@ -174,7 +174,7 @@ def main(cfg: DictConfig) -> None:
         query_point = {'observation_id': test_data.observation_ids[0],
                        'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
                        'crs': 4326,
-                       'species_id': test_data[0][1]}
+                       'species_id': [test_data[0][1]]}
         test_data_point = test_data[0][0]
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
 

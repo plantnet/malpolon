@@ -7,7 +7,7 @@ run:
   checkpoint_path:
 
 data:
-  num_classes: &num_classes 5
+  num_classes: 5
   dataset_path: "dataset/"
   labels_name: "observations.csv"
   download_data_sample: True
@@ -31,7 +31,7 @@ trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
   accelerator: "gpu"
   devices: 1
-  max_epochs: 30
+  max_epochs: 3
   # val_check_interval: 2
   check_val_every_n_epoch: 1
   log_every_n_steps: 10
@@ -50,7 +50,7 @@ model:
     change_first_convolutional_layer:
       num_input_channels: 4
     change_last_layer:
-      num_outputs: *num_classes  # set to 1 for binary classification
+      num_outputs: ${data.num_classes}  # set to 1 for binary classification
 
 optimizer:
   lr: 1e-2
@@ -68,6 +68,4 @@ optimizer:
     multilabel_accuracy:
       # callable: 'Fmetrics.classification.multilabel_accuracy'
       kwargs:
-        num_labels: *num_classes
-
-
+        num_labels: ${data.num_classes}
