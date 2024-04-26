@@ -45,6 +45,10 @@ def main(cfg: DictConfig) -> None:
             filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
             monitor=f"{next(iter(model.metrics.keys()))}/val",
             mode="max",
+            save_on_train_epoch_end=True,
+            save_last=True,
+            every_n_train_steps=10,
+            verbose=True
         ),
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
@@ -66,7 +70,7 @@ def main(cfg: DictConfig) -> None:
         test_data = datamodule.get_test_dataset()
         query_point = {'observation_id': test_data.observation_ids[0],
                        'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
-                       'crs': cfg.data.concat_datasets[0].kwargs.query_crs,
+                       'crs': cfg.data.dataset_kwargs[0].kwargs.query_crs,
                        'species_id': [test_data[0][1].astype(int)]}
         test_data_point = test_data[0][0]
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)

@@ -8,7 +8,7 @@ run:
 
 data:
   num_classes: &num_classes 5
-  train_batch_size: 8
+  train_batch_size: 2
   inference_batch_size: 2
   num_workers: 8
   dataset_kwargs:
@@ -47,8 +47,9 @@ trainer:
   accelerator: "gpu"
   devices: 'auto'
   max_epochs: 5
-  # val_check_interval: 10
+  # val_check_interval: 2
   check_val_every_n_epoch: 1
+  log_every_n_steps: 10
 
 model:
   provider_name: "timm" # choose from ["timm", "torchvision"]
@@ -81,4 +82,4 @@ optimizer:
     multilabel_accuracy:
       # callable: 'Fmetrics.classification.multilabel_accuracy'
       kwargs:
-        num_labels: *num_classes  
+        num_labels: *num_classes

@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path:
+  checkpoint_path: "outputs/cnn_on_rgb_patches/train_multiclass/last.ckpt"
 
 data:
   num_classes: &num_classes 10
@@ -19,9 +19,11 @@ task:
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
   accelerator: 'gpu'
-  devices: 1
-  max_epochs: 1
-  check_val_every_n_epoch: 1
+  devices: 'auto'
+  max_epochs: 10
+  # val_check_interval: 2
+  # check_val_every_n_epoch: 1
+  # log_every_n_steps: 100
 
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
@@ -45,4 +47,3 @@ optimizer:
     multiclass_accuracy:
       kwargs:
         num_classes: *num_classes
-
