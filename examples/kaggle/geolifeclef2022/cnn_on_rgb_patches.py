@@ -8,7 +8,7 @@ Author: Titouan Lorieul <titouan.lorieul@gmail.com>
 """
 
 import hydra
-import pytorch_lightning as p
+import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torchvision import transforms

@@ -38,6 +38,7 @@ class Sentinel2PatchesDataModule(BaseDataModule):
         crs: int = 4326,
         binary_positive_classes: list = [],
         task: str = 'classification_multiclass',
+        **kwargs,
     ):
         """Class constructor.
 
@@ -155,7 +156,7 @@ class Sentinel2PatchesDataModule(BaseDataModule):
         )
 
 
-@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_rgbnir_glc23_patches_train_multilabel.yaml")
+@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_rgbnir_glc23_patches_train_multiclass.yaml")
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
 
@@ -207,7 +208,7 @@ def main(cfg: DictConfig) -> None:
         test_data = datamodule.get_test_dataset()
         test_data_point = test_data[0]
         query_point = {'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
-                       'species_id': test_data_point[1],
+                       'species_id': [test_data_point[1]],
                        'crs': 4326}
         test_data_point = test_data_point[0].resize_(1, *test_data_point[0].shape)
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
