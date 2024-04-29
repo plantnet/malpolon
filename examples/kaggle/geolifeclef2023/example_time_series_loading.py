@@ -5,13 +5,14 @@ series datasets using the framework developped for the challenge and
 incorporated in malpolon at `malpolon.data.datasets.geolifeclef2023`.
 """
 
+import argparse
 import random
 
-from malpolon.data.datasets.geolifeclef2023 import MultipleCSVTimeSeriesProvider, CSVTimeSeriesProvider
-from malpolon.data.datasets.geolifeclef2023 import TimeSeriesDataset
+from malpolon.data.datasets.geolifeclef2023 import (
+    CSVTimeSeriesProvider, MultipleCSVTimeSeriesProvider, TimeSeriesDataset)
 
 
-def main():
+def main(display: bool = True):
     """Run GLC23 time series example script."""
     data_path = 'dataset/sample_data/'  # root path of the data
     # configure providers
@@ -31,8 +32,14 @@ def main():
         label = dataset[i][1]
         print(f'Tensor type: {type(tensor)}, tensor shape: {tensor.shape}, '
               f'label: {label}')
-        dataset.plot_ts(i)
+        if display:
+            dataset.plot_ts(i)
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--plot", help="Plot patches.",
+                        nargs='*', action='store')
+    args = parser.parse_args()
+    display = args.plot is not None
+    main(display)
