@@ -23,6 +23,8 @@ import pyproj
 import rasterio
 import torch
 from PIL import Image
+from pyproj import CRS as pcrs
+from rasterio.crs import CRS as rcrs
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
@@ -575,6 +577,8 @@ class RasterPatchProvider(PatchProvider):
             self.n_rows = src.height
             self.n_cols = src.width
             self.crs = src.crs
+            if isinstance(self.crs, rcrs):
+                self.crs = pcrs.from_epsg(rcrs(self.crs).to_epsg())
         if self.nb_layers > 1:
             self.bands_names = [self.name + '_' + str(i + 1) for i in range(self.nb_layers)]
         else:
