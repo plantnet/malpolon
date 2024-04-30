@@ -22,7 +22,7 @@ SUBSET_SIZE = {
     "test": 46,
 }
 
-
+@pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
 @pytest.mark.parametrize("observation_id", (10561985, 10823364))
 def test_load_patch(observation_id):
     patches = load_patch(observation_id, DATA_PATH, return_arrays=True)
@@ -43,7 +43,7 @@ def test_load_patch(observation_id):
     assert landcover_patch.shape == (256, 256)
     assert landcover_patch.dtype == np.uint8
 
-
+@pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
 @pytest.mark.parametrize("subset", SUBSET_SIZE.keys())
 def test_dataset_load_only_patches(subset):
     dataset = GeoLifeCLEF2022Dataset(DATA_PATH, subset, use_rasters=False)
@@ -62,7 +62,7 @@ def test_dataset_load_only_patches(subset):
 
     assert len(data) == 4
 
-
+@pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
 @pytest.mark.parametrize("subset", SUBSET_SIZE.keys())
 def test_dataset_load_localisation(subset):
     dataset = GeoLifeCLEF2022Dataset(DATA_PATH, subset, use_rasters=False, use_localisation=True)
@@ -82,7 +82,7 @@ def test_dataset_load_localisation(subset):
     assert len(data) == 5
     assert len(data["localisation"]) == 2
 
-
+@pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
 @pytest.mark.parametrize("subset", SUBSET_SIZE.keys())
 def test_dataset_load_one_raster(subset):
     patch_extractor = PatchExtractor(DATA_PATH / "rasters", size=256)
@@ -106,7 +106,7 @@ def test_dataset_load_one_raster(subset):
     assert len(data) == 5
     assert len(data["environmental_patches"]) == 1
 
-
+@pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
 def test_dataset_load_all():
     subset = "train"
     dataset = GeoLifeCLEF2022Dataset(DATA_PATH, subset, use_rasters=True)
@@ -126,7 +126,7 @@ def test_dataset_load_all():
     assert len(data) == 5
     assert len(data["environmental_patches"]) == 27
 
-
+@pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
 @pytest.mark.parametrize("observation_id", (10561900, 22068100))
 def test_patch_plotting(observation_id):
     patch = load_patch(observation_id, DATA_PATH)
