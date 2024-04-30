@@ -6,6 +6,8 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 import os
 from pathlib import Path
 
+import pytest
+
 INFO = '\033[93m'
 RESET = '\033[0m'
 LINK = '\033[94m'
@@ -152,19 +154,22 @@ EXAMPLE_PATHS = {
          "hydra_args": f"{INFER_ARGS} run.predict_type=test_point"},],
 }
 
-KAGGLE_EXAMPLE_PATHS = {
-    ## GeolifeCLEF 2022 training are really long and the data folder heavy, so they are commented by default
-    # "geolifeclef2022": [
-    #     {"ref": "Kaggle, classification_multiclass, training_raw",
-    #      "path": Path('examples/kaggle/geolifeclef2022/cnn_on_rgb_patches.py'),
-    #      "hydra_args": "trainer.max_epochs=2"},
-    #     {"ref": "Kaggle, classification_multiclass, training_raw",
-    #      "path": Path('examples/kaggle/geolifeclef2022/cnn_on_rgb_temperature_patches.py'),
-    #      "hydra_args": "trainer.max_epochs=2"},
-    #     {"ref": "Kaggle, classification_multiclass, training_raw",
-    #      "path": Path('examples/kaggle/geolifeclef2022/cnn_on_temperature_patches.py'),
-    #      "hydra_args": "trainer.max_epochs=2"},
-    # ],
+GLC22_EXAMPLE_PATHS = {
+    # GeolifeCLEF 2022 training are really long and the data folder heavy, so they are commented by default
+    "geolifeclef2022": [
+        {"ref": "Kaggle, classification_multiclass, training_raw",
+         "path": Path('examples/kaggle/geolifeclef2022/cnn_on_rgb_patches.py'),
+         "hydra_args": "trainer.max_epochs=2"},
+        {"ref": "Kaggle, classification_multiclass, training_raw",
+         "path": Path('examples/kaggle/geolifeclef2022/cnn_on_rgb_temperature_patches.py'),
+         "hydra_args": "trainer.max_epochs=2"},
+        {"ref": "Kaggle, classification_multiclass, training_raw",
+         "path": Path('examples/kaggle/geolifeclef2022/cnn_on_temperature_patches.py'),
+         "hydra_args": "trainer.max_epochs=2"},
+    ],
+}
+
+GLC23_EXAMPLE_PATHS = {
     "geolifeclef2023": [
         # Multilabel classif
         ## Training (raw, transfer learning, inference)
@@ -200,6 +205,7 @@ KAGGLE_EXAMPLE_PATHS = {
     ],
 }
 
+# @pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
 def test_train_inference_examples():
     ckpt_path = ''
     for expe_name, v in EXAMPLE_PATHS.items():
@@ -244,9 +250,10 @@ def test_train_inference_examples():
         print(f'{INFO}         > {LINK}{path}{RESET}')
     print(f'\n{INFO}[INFO] Done. {RESET}')
 
-def test_kaggle_examples():
+# @pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
+def test_GLC_examples():
     ckpt_path = ''
-    for expe_name, v in KAGGLE_EXAMPLE_PATHS.items():
+    for expe_name, v in GLC23_EXAMPLE_PATHS.items():
         print(f'\n{INFO}[INFO] --- Scenarios "kaggle" --- {RESET}')
         print(f'\n{INFO}[INFO] Testing example: {expe_name}{RESET}{INFO}...{RESET}')
         for expes in v:
