@@ -48,8 +48,3 @@ def test_plot_observation_dataset() -> None:
     except Exception as e:  # pylint: disable=W0718
         print(e)
         assert False
-
-if __name__ == '__main__':
-    test_plot_map()
-    test_plot_observation_map()
-    test_plot_observation_dataset()
