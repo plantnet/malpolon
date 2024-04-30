@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 ALL_NORTHERN_EPSG_CODES = list(range(32601, 32662))
 EUROPE_EPSG_CODE = [3035]
-  
+
 class RasterTorchGeoDataset(RasterDataset):
     """Generic torchgeo based raster datasets.
 
@@ -131,6 +131,12 @@ class RasterTorchGeoDataset(RasterDataset):
         self._query_units = query_units
         self._query_crs = query_crs
         self._load_observation_data(Path(root), labels_name, split, obs_data_columns)
+        # df = self._load_observation_data(Path(root), labels_name, split)
+        # self.observation_ids = df.index
+        # self.coordinates = df[["lon", "lat"]].values
+        # self.targets = df["speciesId"].values
+        # self._query_units = query_units
+        # self._query_crs = query_crs
 
     def __len__(self) -> int:
         return len(self.observation_ids)
@@ -177,7 +183,11 @@ class RasterTorchGeoDataset(RasterDataset):
         split_key = keys['split']
 
         if any([root is None, obs_fn is None]):
-            return pd.DataFrame(columns=[x_key, y_key, species_id_key, split_key])
+            df = pd.DataFrame(columns=[x_key, y_key, species_id_key, split_key])
+            self.observation_ids = df.index
+            self.coordinates = df[["lon", "lat"]].values
+            self.targets = df["speciesId"].values
+            return df
         labels_fp = obs_fn if len(obs_fn.split('.csv')) >= 2 else f'{obs_fn}.csv'
         labels_fp = root / labels_fp
         df = pd.read_csv(
@@ -348,7 +358,6 @@ class RasterTorchGeoDataset(RasterDataset):
         if self.crs_pyproj != epsg4326:
             transformer = Transformer.from_crs(self.crs_pyproj, epsg4326)
             bounds_4326 = transformer.transform_bounds(self.bounds.minx, self.bounds.miny, self.bounds.maxx, self.bounds.maxy)
-            # bounds_4326 = (bounds_4326[1], bounds_4326[0], bounds_4326[3], bounds_4326[2])
             bounds_4326 = (bounds_4326[1], bounds_4326[3], bounds_4326[0], bounds_4326[2])
         return is_point_in_bbox(coords_4326, bounds_4326)
 

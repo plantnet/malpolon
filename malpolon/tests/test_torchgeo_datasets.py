@@ -32,7 +32,7 @@ def test_patch_query_torchgeo():
     dataset_s2, dataset_mlc = Sentinel2('./'), MicroLifeClef('./')
     patch1_s2 = dataset_s2[{'lon': 3.87075, 'lat': 43.61135, 'crs': dataset_s2.crs_pyproj.geodetic_crs, 'units': 'pixel', 'size': (100, 100)}][0][0]
     patch2_s2 = dataset_s2[{'lon': 570265.8337376957, 'lat': 4829076.115471331, 'crs': dataset_s2.crs_pyproj, 'units': 'm', 'size': 1000}][0][0]
-    mlc_center = (dataset_mlc.bounds[1]+dataset_mlc.bounds[0])/2, (dataset_mlc.bounds[3]+dataset_mlc.bounds[2])/2
+    mlc_center = (dataset_mlc.bounds[1] + dataset_mlc.bounds[0])/2, (dataset_mlc.bounds[3] + dataset_mlc.bounds[2])/2
     patch_mlc = dataset_mlc[{'lon': mlc_center[0], 'lat': mlc_center[1], 'crs': dataset_mlc.crs_pyproj, 'units': 'pixel', 'size': 200}][0][0]
     expected_patch_s2 = torch.load(DATA_PATH / 'torchgeo_sentinel2_expected.raw')
     expected_patch_mlc = torch.load(DATA_PATH / 'torchgeo_mlc_expected.raw')
@@ -44,6 +44,11 @@ def test_patch_query_torchgeo():
     np.testing.assert_allclose(patch_mlc, expected_patch_mlc)
 
 def test_load_observation_data() -> None:
+    keys = {'x': 'longitude',
+            'y': 'latitude',
+            'index': 'observation_id',
+            'species_id': 'species_id',
+            'split': 'subset'}
     class Sentinel2(RasterTorchGeoDataset):
         filename_glob = DATA_PATH / "torchgeo_sentinel2_test_sample.tif"
         is_image = True
@@ -52,7 +57,8 @@ def test_load_observation_data() -> None:
         rgb_bands = ["B08"]
     dataset_s2 = Sentinel2('./')
     df = dataset_s2._load_observation_data(root=DATA_PATH,
-                                           obs_fn='sentinel2_raster_torchgeo.csv')
+                                           obs_fn='sentinel2_raster_torchgeo.csv',
+                                           keys=keys)
     assert type(df) is pd.DataFrame
 
 def test_coords_transform() -> None:
@@ -161,7 +167,7 @@ def test_format_label_to_task() -> None:
     labels_raw = [3]
     labels_formatted = dataset_s2._format_label_to_task(labels_raw)
     assert labels_formatted == 3
-    
+
     dataset_s2.task = 'classification_multilabel'
     dataset_s2.unique_labels = [1, 2, 3, 4, 5]
     labels_raw = [1, 4]
@@ -170,3 +176,6 @@ def test_format_label_to_task() -> None:
     labels_expected[-2] = 1
     labels_formatted = dataset_s2._format_label_to_task(labels_raw)
     assert all(labels_formatted == labels_expected)
+
+if __name__ == "__main__":
+    test_patch_query_torchgeo()
