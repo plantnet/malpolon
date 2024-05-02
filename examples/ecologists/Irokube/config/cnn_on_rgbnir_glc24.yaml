@@ -13,7 +13,7 @@ trainer:
 
 run:
   predict: false
-  checkpoint_path: # "outputs/cnn_on_rgbnir_torchgeo/2024-04-04_23-24-49/last.ckpt"
+  checkpoint_path: "outputs/cnn_on_rgbnir_glc24/2024-04-30_16-39-17/last.ckpt"
 
 model:
   provider_name: "timm" # choose from ["timm", "torchvision"]
@@ -47,14 +47,20 @@ optimizer:
       callable: 'Fmetrics.classification.multilabel_recall'
       kwargs:
         num_labels: 1734
+        average: 'micro'
+        threshold: 0.1
     multilabel_precision:
       callable: 'Fmetrics.classification.multilabel_precision'
       kwargs:
         num_labels: 1734
+        average: 'micro'
+        threshold: 0.1
     multilabel_f1-score:
       callable: 'Fmetrics.classification.multilabel_f1_score'
       kwargs:
         num_labels: 1734
+        average: 'micro'
+        threshold: 0.1
     # multilabel_accuracy:
     #   # callable: 'Fmetrics.classification.multilabel_accuracy'
     #   kwargs:

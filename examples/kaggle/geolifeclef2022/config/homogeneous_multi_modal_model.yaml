@@ -5,7 +5,7 @@ hydra:
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
   accelerator: 'gpu'
-  devices: 1
+  devices: 'auto'
   max_epochs: 10
   val_check_interval: 0.2
 
@@ -18,7 +18,7 @@ model:
     modifiers:
       change_last_layer_to_identity:
   num_outputs: 100
-      
+
 optimizer:
   lr: 1e-2
   weight_decay: 0
@@ -28,7 +28,7 @@ optimizer:
     multiclass_accuracy:
       kwargs:
         num_classes: 100
-    top_30_accuracy:  # Top-30 accuracy 
+    top_30_multiclass_accuracy:  # Top-30 accuracy
       callable: "Fmetrics.classification.multiclass_accuracy"
       kwargs:
         top_k: 30
@@ -42,4 +42,4 @@ data:
   num_workers: 8
 
 task:
-  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
