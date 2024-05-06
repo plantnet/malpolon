@@ -12,6 +12,7 @@ data:
   train_batch_size: 32
   inference_batch_size: 256
   num_workers: 8
+  download: true
 
 task:
   task: 'classification_multiclass'

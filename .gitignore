@@ -11,8 +11,7 @@ checkMyCode.sh
 docs/_build
 
 # Data
-examples/ecologists/micro_geolifeclef*/dataset/patches
-examples/ecologists/micro_geolifeclef*/dataset/rasters
+examples/ecologists/micro_geolifeclef*/dataset/
 examples/ecologists/micro_geolifeclef*/outputs/*
 examples/ecologists/sentinel-2a-rgbnir/dataset/*.tif
 examples/ecologists/sentinel-2a-rgbnir/outputs/*
