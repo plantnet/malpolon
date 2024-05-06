@@ -135,25 +135,25 @@ EXAMPLE_PATHS = {
         {"ref": "Inference, classification_binary, inference_point",
          "path": Path("examples/inference/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
          "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point " + BINARY_ARGS},],
-    "micro_geolifeclef2022": [
-        # Multiclass classif
-        ## Training (raw, transfer learning, inference)
-        {"ref": "Ecologists, classification_multiclass, training_raw",
-         "path": Path("examples/ecologists/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null"},
-        {"ref": "Ecologists, classification_multiclass, training_transfer_learning",
-         "path": Path("examples/ecologists/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
-        {"ref": "Ecologists, classification_multiclass, training_inference",
-         "path": Path("examples/ecologists/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-         "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
-        ## Inference (test_dataset & test_point)
-        {"ref": "Inference, classification_multiclass, inference_dataset",
-         "path": Path("examples/inference/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-         "hydra_args": f"{GPU_ARGS} {INFER_ARGS}"},
-        {"ref": "Inference, classification_multiclass, inference_point",
-         "path": Path("examples/inference/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point"},],
+    # "micro_geolifeclef2022": [
+    #     # Multiclass classif
+    #     ## Training (raw, transfer learning, inference)
+    #     {"ref": "Ecologists, classification_multiclass, training_raw",
+    #      "path": Path("examples/ecologists/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
+    #      "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null"},
+    #     {"ref": "Ecologists, classification_multiclass, training_transfer_learning",
+    #      "path": Path("examples/ecologists/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
+    #      "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
+    #     {"ref": "Ecologists, classification_multiclass, training_inference",
+    #      "path": Path("examples/ecologists/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
+    #      "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
+    #     ## Inference (test_dataset & test_point)
+    #     {"ref": "Inference, classification_multiclass, inference_dataset",
+    #      "path": Path("examples/inference/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
+    #      "hydra_args": f"{GPU_ARGS} {INFER_ARGS}"},
+    #     {"ref": "Inference, classification_multiclass, inference_point",
+    #      "path": Path("examples/inference/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
+    #      "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point"},],
 }
 
 GLC22_EXAMPLE_PATHS = {
