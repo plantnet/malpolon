@@ -15,7 +15,7 @@ LINK = '\033[94m'
 PROJECT_ROOT_PATH = os.getcwd()
 TMP_PATHS_TO_DELETE = []
 OUT_DIR = "tmp_output"
-GPU_ARGS = "trainer.accelerator=gpu trainer.devices=auto" if torch.cuda.is_available() else "trainer.accelerator=gpu trainer.devices=auto"
+GPU_ARGS = "trainer.accelerator=gpu trainer.devices=auto" if torch.cuda.is_available() else "trainer.accelerator=cpu trainer.devices=auto"
 TRAIN_ARGS = "run.predict=False trainer.max_epochs=2"
 INFER_ARGS = f"run.predict_type=test_dataset run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"
 MULTILABEL_ARGS = "task.task=classification_multilabel data.num_classes=5 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multilabel_accuracy:{kwargs:{num_labels: ${data.num_classes}}}}'"
