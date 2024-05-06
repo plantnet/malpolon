@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 
 import pytest
+import torch
 
 INFO = '\033[93m'
 RESET = '\033[0m'
@@ -14,6 +15,7 @@ LINK = '\033[94m'
 PROJECT_ROOT_PATH = os.getcwd()
 TMP_PATHS_TO_DELETE = []
 OUT_DIR = "tmp_output"
+GPU_ARGS = "trainer.accelerator=gpu trainer.devices=auto" if torch.cuda.is_available() else "trainer.accelerator=gpu trainer.devices=auto"
 TRAIN_ARGS = "run.predict=False trainer.max_epochs=2"
 INFER_ARGS = f"run.predict_type=test_dataset run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"
 MULTILABEL_ARGS = "task.task=classification_multilabel data.num_classes=5 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multilabel_accuracy:{kwargs:{num_labels: ${data.num_classes}}}}'"
@@ -25,133 +27,133 @@ EXAMPLE_PATHS = {
         # Training (raw, transfer learning, inference)
         {"ref": "Ecologists, classification_multilabel, training_raw",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path=null " + MULTILABEL_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null " + MULTILABEL_ARGS},
         {"ref": "Ecologists, classification_multilabel, training_transfer_learning",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTILABEL_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTILABEL_ARGS},
         {"ref": "Ecologists, classification_multilabel, training_inference",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTILABEL_ARGS},
+         "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTILABEL_ARGS},
         ## Inference (test_dataset & test_point)
         {"ref": "Inference, classification_multilabel, inference_dataset",
          "path": Path("examples/inference/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{INFER_ARGS} " + MULTILABEL_ARGS},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} " + MULTILABEL_ARGS},
         {"ref": "Inference, classification_multilabel, inference_point",
          "path": Path("examples/inference/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{INFER_ARGS} run.predict_type=test_point " + MULTILABEL_ARGS},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point " + MULTILABEL_ARGS},
 
         # Multiclass classif
         ## Training (raw, transfer learning, inference)
         {"ref": "Ecologists, classification_multiclass, training_raw",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path=null " + MULTICLASS_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null " + MULTICLASS_ARGS},
         {"ref": "Ecologists, classification_multiclass, training_transfer_learning",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTICLASS_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTICLASS_ARGS},
         {"ref": "Ecologists, classification_multiclass, training_inference",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTICLASS_ARGS},
+         "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTICLASS_ARGS},
         ## Inference (test_dataset & test_point)
         {"ref": "Inference, classification_multiclass, inference_dataset",
          "path": Path("examples/inference/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{INFER_ARGS} " + MULTICLASS_ARGS},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} " + MULTICLASS_ARGS},
         {"ref": "Inference, classification_multiclass, inference_point",
          "path": Path("examples/inference/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{INFER_ARGS} run.predict_type=test_point " + MULTICLASS_ARGS},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point " + MULTICLASS_ARGS},
 
         # Binary classif
         ## Training (raw, transfer learning, inference)
         {"ref": "Ecologists, classification_binary, training_raw",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path=null " + BINARY_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null " + BINARY_ARGS},
         {"ref": "Ecologists, classification_binary, training_transfer_learning",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + BINARY_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + BINARY_ARGS},
         {"ref": "Ecologists, classification_binary, training_inference",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + BINARY_ARGS},
+         "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + BINARY_ARGS},
         ## Inference (test_dataset & test_point)
         {"ref": "Inference, classification_binary, inference_dataset",
          "path": Path("examples/inference/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{INFER_ARGS} " + BINARY_ARGS},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} " + BINARY_ARGS},
         {"ref": "Inference, classification_binary, inference_point",
          "path": Path("examples/inference/sentinel-2a-rgbnir/cnn_on_rgbnir_torchgeo.py"),
-         "hydra_args": f"{INFER_ARGS} run.predict_type=test_point " + BINARY_ARGS},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point " + BINARY_ARGS},
     ],
     'sentinel-2a-rgbnir_bioclim': [
         # Multilabel classif
         # Training (raw, transfer learning, inference)
         {"ref": "Ecologists, classification_multilabel, training_raw",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path=null " + MULTILABEL_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null " + MULTILABEL_ARGS},
         {"ref": "Ecologists, classification_multilabel, training_transfer_learning",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTILABEL_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTILABEL_ARGS},
         {"ref": "Ecologists, classification_multilabel, training_inference",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTILABEL_ARGS},
+         "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTILABEL_ARGS},
         ## Inference (test_dataset & test_point)
         {"ref": "Inference, classification_multilabel, inference_dataset",
          "path": Path("examples/inference/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{INFER_ARGS} " + MULTILABEL_ARGS},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} " + MULTILABEL_ARGS},
         {"ref": "Inference, classification_multilabel, inference_point",
          "path": Path("examples/inference/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{INFER_ARGS} run.predict_type=test_point " + MULTILABEL_ARGS},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point " + MULTILABEL_ARGS},
         # Multiclass classif
         ## Training (raw, transfer learning, inference)
         {"ref": "Ecologists, classification_multiclass, training_raw",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path=null " + MULTICLASS_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null " + MULTICLASS_ARGS},
         {"ref": "Ecologists, classification_multiclass, training_transfer_learning",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTICLASS_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTICLASS_ARGS},
         {"ref": "Ecologists, classification_multiclass, training_inference",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTICLASS_ARGS},
+         "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + MULTICLASS_ARGS},
         ## Inference (test_dataset & test_point)
         {"ref": "Inference, classification_multiclass, inference_dataset",
          "path": Path("examples/inference/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{INFER_ARGS} " + MULTICLASS_ARGS},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} " + MULTICLASS_ARGS},
         {"ref": "Inference, classification_multiclass, inference_point",
          "path": Path("examples/inference/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{INFER_ARGS} run.predict_type=test_point " + MULTICLASS_ARGS},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point " + MULTICLASS_ARGS},
         # Binary classif
         ## Training (raw, transfer learning, inference)
         {"ref": "Ecologists, classification_binary, training_raw",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path=null " + BINARY_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null " + BINARY_ARGS},
         {"ref": "Ecologists, classification_binary, training_transfer_learning",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + BINARY_ARGS},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + BINARY_ARGS},
         {"ref": "Ecologists, classification_binary, training_inference",
          "path": Path("examples/ecologists/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + BINARY_ARGS},
+         "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + BINARY_ARGS},
         ## Inference (test_dataset & test_point)
         {"ref": "Inference, classification_binary, inference_dataset",
          "path": Path("examples/inference/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{INFER_ARGS} " + BINARY_ARGS},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} " + BINARY_ARGS},
         {"ref": "Inference, classification_binary, inference_point",
          "path": Path("examples/inference/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
-         "hydra_args": f"{INFER_ARGS} run.predict_type=test_point " + BINARY_ARGS},],
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point " + BINARY_ARGS},],
     "micro_geolifeclef2022": [
         # Multiclass classif
         ## Training (raw, transfer learning, inference)
         {"ref": "Ecologists, classification_multiclass, training_raw",
          "path": Path("examples/ecologists/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path=null"},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null"},
         {"ref": "Ecologists, classification_multiclass, training_transfer_learning",
          "path": Path("examples/ecologists/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
         {"ref": "Ecologists, classification_multiclass, training_inference",
          "path": Path("examples/ecologists/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-         "hydra_args": f"run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
+         "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
         ## Inference (test_dataset & test_point)
         {"ref": "Inference, classification_multiclass, inference_dataset",
          "path": Path("examples/inference/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-         "hydra_args": f"{INFER_ARGS}"},
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS}"},
         {"ref": "Inference, classification_multiclass, inference_point",
          "path": Path("examples/inference/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-         "hydra_args": f"{INFER_ARGS} run.predict_type=test_point"},],
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point"},],
 }
 
 GLC22_EXAMPLE_PATHS = {
@@ -159,13 +161,13 @@ GLC22_EXAMPLE_PATHS = {
     "geolifeclef2022": [
         {"ref": "Kaggle, classification_multiclass, training_raw",
          "path": Path('examples/kaggle/geolifeclef2022/cnn_on_rgb_patches.py'),
-         "hydra_args": "trainer.max_epochs=2"},
+         "hydra_args": f"{GPU_ARGS} trainer.max_epochs=2"},
         {"ref": "Kaggle, classification_multiclass, training_raw",
          "path": Path('examples/kaggle/geolifeclef2022/cnn_on_rgb_temperature_patches.py'),
-         "hydra_args": "trainer.max_epochs=2"},
+         "hydra_args": f"{GPU_ARGS} trainer.max_epochs=2"},
         {"ref": "Kaggle, classification_multiclass, training_raw",
          "path": Path('examples/kaggle/geolifeclef2022/cnn_on_temperature_patches.py'),
-         "hydra_args": "trainer.max_epochs=2"},
+         "hydra_args": f"{GPU_ARGS} trainer.max_epochs=2"},
     ],
 }
 
@@ -175,25 +177,25 @@ GLC23_EXAMPLE_PATHS = {
         ## Training (raw, transfer learning, inference)
         {"ref": "Kaggle, classification_multilabel, training_raw",
          "path": Path('examples/kaggle/geolifeclef2023/cnn_on_rgbnir_glc23_patches.py'),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path=null " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample_mutilabel_dummy.csv task.task=classification_multilabel data.num_classes=96 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multilabel_accuracy:{kwargs:{num_labels: ${data.num_classes}}}}'"},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample_mutilabel_dummy.csv task.task=classification_multilabel data.num_classes=96 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multilabel_accuracy:{kwargs:{num_labels: ${data.num_classes}}}}'"},
         {"ref": "Kaggle, classification_multilabel, training_transfer_learning",
          "path": Path('examples/kaggle/geolifeclef2023/cnn_on_rgbnir_glc23_patches.py'),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample_mutilabel_dummy.csv task.task=classification_multilabel data.num_classes=96 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multilabel_accuracy:{kwargs:{num_labels: ${data.num_classes}}}}'"},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample_mutilabel_dummy.csv task.task=classification_multilabel data.num_classes=96 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multilabel_accuracy:{kwargs:{num_labels: ${data.num_classes}}}}'"},
         {"ref": "Kaggle, classification_multilabel, training_inference",
          "path": Path('examples/kaggle/geolifeclef2023/cnn_on_rgbnir_glc23_patches.py'),
-         "hydra_args": f"run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample_mutilabel_dummy.csv task.task=classification_multilabel data.num_classes=96 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multilabel_accuracy:{kwargs:{num_labels: ${data.num_classes}}}}'"},
+         "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample_mutilabel_dummy.csv task.task=classification_multilabel data.num_classes=96 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multilabel_accuracy:{kwargs:{num_labels: ${data.num_classes}}}}'"},
 
         # Multiclass classif
         ## Training (raw, transfer learning, inference)
         {"ref": "Kaggle, classification_multiclass, training_raw",
          "path": Path('examples/kaggle/geolifeclef2023/cnn_on_rgbnir_glc23_patches.py'),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path=null " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample.csv task.task=classification_multiclass data.num_classes=9827 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multiclass_accuracy:{kwargs:{num_classes: ${data.num_classes}}}}'"},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample.csv task.task=classification_multiclass data.num_classes=9827 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multiclass_accuracy:{kwargs:{num_classes: ${data.num_classes}}}}'"},
         {"ref": "Kaggle, classification_multiclass, training_transfer_learning",
          "path": Path('examples/kaggle/geolifeclef2023/cnn_on_rgbnir_glc23_patches.py'),
-         "hydra_args": f"{TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample.csv task.task=classification_multiclass data.num_classes=9827 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multiclass_accuracy:{kwargs:{num_classes: ${data.num_classes}}}}'"},
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample.csv task.task=classification_multiclass data.num_classes=9827 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multiclass_accuracy:{kwargs:{num_classes: ${data.num_classes}}}}'"},
         {"ref": "Kaggle, classification_multiclass, training_inference",
          "path": Path('examples/kaggle/geolifeclef2023/cnn_on_rgbnir_glc23_patches.py'),
-         "hydra_args": f"run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample.csv task.task=classification_multiclass data.num_classes=9827 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multiclass_accuracy:{kwargs:{num_classes: ${data.num_classes}}}}'"},
+         "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt " + "data.labels_name=dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample.csv task.task=classification_multiclass data.num_classes=9827 ~optimizer.metrics 'model.modifiers.change_last_layer.num_outputs=${data.num_classes}' '+optimizer.metrics={multiclass_accuracy:{kwargs:{num_classes: ${data.num_classes}}}}'"},
 
         # Data loading examples
         {"ref": "Kaggle, patch, data_loading",
@@ -344,8 +346,3 @@ def test_GLC23_examples():
         os.system(f'rm -rf {path}')
         print(f'{INFO}         > {LINK}{path}{RESET}')
     print(f'\n{INFO}[INFO] Done. {RESET}')
-
-if __name__ == '__main__':
-    # test_train_inference_examples()
-    test_GLC22_examples()
-    # test_GLC23_examples()
