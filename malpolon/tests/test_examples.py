@@ -1,5 +1,12 @@
 """This script tests the torchgeo datasets module.
 
+**WARNING**: these tests are slow and sometimes require the data to be available.
+Thus it is not ran by GitHub workers by default but by a manual trigger of
+workflow "dispatch-test-examples".
+Furthermore, with the current GitHub CI, tests are ran on CPU and tests
+regarding GLC22 are skipped because they require the 60GB of data to be
+downloaded manually via Kaggle.
+
 Author: Theo Larcher <theo.larcher@inria.fr>
 """
 
