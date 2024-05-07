@@ -2,11 +2,21 @@ hydra:
   run:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
+data:
+  num_classes: 96
+  dataset_path: "dataset/sample_data/"
+  labels_name: "dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample_mutilabel_dummy.csv"
+  train_batch_size: 8
+  inference_batch_size: 2
+  num_workers: 8
+  units: "pixel"
+  crs: 4326 
+
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
   accelerator: 'gpu'
   devices: 'auto'
-  max_epochs: 50
+  max_epochs: 2
   # val_check_interval: 10
   check_val_every_n_epoch: 1
 
@@ -27,7 +37,7 @@ model:
     change_first_convolutional_layer:
      num_input_channels: 4
     change_last_layer:
-      num_outputs: 96
+      num_outputs: ${data.num_classes}
 
 optimizer:
   lr: 1e-2
@@ -38,25 +48,16 @@ optimizer:
     multilabel_accuracy:
       # callable: 'Fmetrics.classification.multilabel_accuracy'
       kwargs:
-        num_labels: 96
+        num_labels: ${data.num_classes}
     multilabel_recall:
       callable: 'Fmetrics.classification.multilabel_recall'
       kwargs:
-        num_labels: 96
+        num_labels: ${data.num_classes}
     multilabel_f1_score_macro:
       callable: 'Fmetrics.classification.multilabel_f1_score'
       kwargs:
-        num_labels: 96
+        num_labels: ${data.num_classes}
         average: 'macro'
-
-data:
-  dataset_path: "dataset/sample_data/"
-  labels_name: "dataset/sample_data/Presence_only_occurrences/Presences_only_train_sample_mutilabel_dummy.csv"
-  train_batch_size: 8
-  inference_batch_size: 2
-  num_workers: 8
-  units: "pixel"
-  crs: 4326 
 
 task:
   task: 'classification_multilabel'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  

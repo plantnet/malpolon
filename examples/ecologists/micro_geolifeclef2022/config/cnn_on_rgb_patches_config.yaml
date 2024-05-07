@@ -2,6 +2,21 @@ hydra:
   run:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
+run:
+  predict: false
+  checkpoint_path: "outputs/cnn_on_rgb_patches/train_multiclass/last.ckpt"
+
+data:
+  num_classes: &num_classes 10
+  dataset_path: "dataset/"
+  train_batch_size: 32
+  inference_batch_size: 256
+  num_workers: 8
+  download: true
+
+task:
+  task: 'classification_multiclass'
+
 trainer:
   accelerator: 'gpu'
   devices: 1
@@ -25,7 +40,7 @@ model:
     global_pool:
   modifiers:
     change_last_layer:
-      num_outputs: 10
+      num_outputs: *num_classes
 
 optimizer:
   lr: 1e-2
@@ -35,10 +50,7 @@ optimizer:
   metrics:
     multiclass_accuracy:
       kwargs:
-        num_classes: 10
-
-task:
-  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+        num_classes: *num_classes
 
 data:
   dataset_path: "dataset/"

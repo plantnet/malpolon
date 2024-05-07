@@ -5,6 +5,7 @@ datasets using the framework developped for the challenge and incorporated
 in malpolon at `malpolon.data.datasets.geolifeclef2023`.
 """
 
+import argparse
 import random
 
 from malpolon.data.datasets.geolifeclef2023 import (
@@ -12,7 +13,7 @@ from malpolon.data.datasets.geolifeclef2023 import (
     PatchesDatasetMultiLabel, RasterPatchProvider)
 
 
-def main():
+def main(display: bool = True):
     """Run GLC23 patch example script."""
     data_path = 'dataset/sample_data/'  # root path of the data
 
@@ -41,8 +42,14 @@ def main():
         label_multi = dataset_multi[i][1]
         print(f'Tensor type: {type(tensor)}, tensor shape: {tensor.shape}, '
               f'label: {label}, \nlabel_multi: {label_multi}')
-        dataset.plot_patch(i)
+        if display:
+            dataset.plot_patch(i)
 
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-p", "--plot", help="Plot patches.",
+                        nargs='*', action='store')
+    args = parser.parse_args()
+    display = args.plot is not None
+    main(display)

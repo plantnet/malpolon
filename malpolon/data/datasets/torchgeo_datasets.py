@@ -2,15 +2,16 @@
 
 Author: Theo Larcher <theo.larcher@inria.fr>
 """
-
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Sequence, Union
 
 import numpy as np
 import pandas as pd
 import pyproj
+from matplotlib import pyplot as plt
 from pyproj import CRS, Transformer
 from torchgeo.datasets import BoundingBox, RasterDataset
 from torchgeo.samplers import Units
@@ -19,13 +20,11 @@ from malpolon.data.utils import is_point_in_bbox, to_one_hot_encoding
 
 if TYPE_CHECKING:
     import numpy.typing as npt
-
     Patches = npt.NDArray
     Targets = npt.NDArray[np.int64]
 
 ALL_NORTHERN_EPSG_CODES = list(range(32601, 32662))
 EUROPE_EPSG_CODE = [3035]
-
 
 class RasterTorchGeoDataset(RasterDataset):
     """Generic torchgeo based raster datasets.
@@ -42,16 +41,24 @@ class RasterTorchGeoDataset(RasterDataset):
     def __init__(
         self,
         root: str = "data",
-        split: str = None,  # 'train', 'test', 'val', 'all'
         labels_name: str = None,
-        crs: Any | None = None,
-        res: float | None = None,
-        bands: Sequence[str] | None = None,
-        transforms_data: Callable[[Dict[str, Any]], Dict[str, Any]] | None = None,
-        cache: bool = True,
+        split: str = None,  # 'train', 'test', 'val', 'all'
+        crs: Any = None,
+        res: float = None,
+        bands: Sequence[str] = None,
+        transform: Callable = None,
+        transform_target: Callable = None,
         patch_size: Union[int, float, tuple] = 256,
+        query_units: str = 'pixel',
+        query_crs: Union[int, str, CRS] = 'self',
+        obs_data_columns: dict = {'x': 'lon',
+                                  'y': 'lat',
+                                  'index': 'surveyId',
+                                  'species_id': 'speciesId',
+                                  'split': 'subset'},
         task: str = 'multiclass',  # ['binary', 'multiclass', 'multilabel']
-        binary_positive_classes: list = []
+        binary_positive_classes: list = [],
+        cache: bool = True,
     ) -> None:
         """Class constructor.
 
@@ -59,10 +66,10 @@ class RasterTorchGeoDataset(RasterDataset):
         ----------
         root : str, optional
             path to the directory containing the data and labels, by default "data"
-        split : str, optional
-            dataset subset desired for labels selection, by default None
         labels_name : str, optional
             labels file name, by default None
+        split : str, optional
+            dataset subset desired for labels selection, by default None
         crs : Any | None, optional
             `coordinate reference system (CRS)` to warp to
             (defaults to the CRS of the first file found), by default None
@@ -71,21 +78,46 @@ class RasterTorchGeoDataset(RasterDataset):
             (defaults to the resolution of the first file found), by default None
         bands : Sequence[str] | None, optional
             bands to return (defaults to all bands), by default None
-        transforms_data : Callable[[Dict[str, Any]], Dict[str, Any]] | None, optional
-            a function/transform that takes an input sample and returns
+        transform : Callable | None, optional
+            a callable function that takes an input sample and returns
             a transformed version, by default None
-        cache : bool, optional
-            if True, cache file handle to speed up repeated sampling, by default True
+        transform_target : Callable | None, optional
+            a callable function that takes an input target and returns
+            a transformed version, by default None
         patch_size : int, optional
             size of the 2D extracted patches. Patches can either be
             square (int/float value) or rectangular (tuple of int/float).
             Defaults to a square of size 256, by default 256
+        query_units : str, optional
+            unit system of the dataset's queries, by default 'pixel'
+        query_crs: Union[int, str, CRS], optional
+            CRS of the dataset's queries, by default 'self' (same as dataset's CRS)
+        obs_data_columns: dict, optional
+            this dictionary allows users to match the dataset attributes
+            with custom column names of their obs data file,
+            by default::
+
+              {'x': 'lon',
+               'y': 'lat',
+               'index': 'surveyId',
+               'species_id': 'speciesId',
+               'split': 'subset'}
+
+            Here's a description of the keys:
+
+            - 'x', 'y': coordinates of the obs points (by default 'lon', 'lat' as per the WGS84 system)
+            - 'index': obs ID over which to iterate during the training loop
+            - 'species_id': species ID (label) associated with the obs points
+            - 'split': dataset split column name
+
         task : str, optional
             machine learning task (used to format labels accordingly), by default 'multiclass'
         binary_positive_classes : list, optional
             labels' classes to consider valid in the case of binary
             classification with multi-class labels (defaults to all 0),
             by default []
+        cache : bool, optional
+            if True, cache file handle to speed up repeated sampling, by default True
         """
         super().__init__(root, crs, res, bands, None, cache)
         self.patch_size = patch_size
@@ -94,25 +126,38 @@ class RasterTorchGeoDataset(RasterDataset):
         self.training = split != "test"
         self.task = task
         self.binary_positive_classes = set(binary_positive_classes)
-        self.transforms_data = transforms_data
+        self.transform = transform
+        self.transform_target = transform_target
+        self._query_units = query_units
+        self._query_crs = query_crs
+        self._load_observation_data(Path(root), labels_name, split, obs_data_columns)
+        # df = self._load_observation_data(Path(root), labels_name, split)
+        # self.observation_ids = df.index
+        # self.coordinates = df[["lon", "lat"]].values
+        # self.targets = df["speciesId"].values
+        # self._query_units = query_units
+        # self._query_crs = query_crs
 
-        df = self._load_observation_data(Path(root), labels_name, split)
-        self.observation_ids = df.index
-        self.coordinates = df[["longitude", "latitude"]].values
-        self.targets = df["species_id"].values
+    def __len__(self) -> int:
+        return len(self.observation_ids)
 
     def _load_observation_data(
         self,
         root: Path = None,
         obs_fn: str = None,
         subsets: str = ['train', 'test', 'val'],
+        keys: dict = {'x': 'lon',
+                      'y': 'lat',
+                      'index': 'surveyId',
+                      'species_id': 'speciesId',
+                      'split': 'subset'}
     ) -> pd.DataFrame:
         """Load observation data from a CSV file.
 
         Reads values from a CSV file containing lon/lat coordinates,
         species id (labels) and dataset subset info (train/test/val).
         The associated columns must have the following values:
-        ['longitude', 'latitude', 'species_id', 'subset']
+        ['longitude', 'latitude', 'speciesId', 'subset']
 
         If no value is given to root or obs_fn, the method returns an
         empty labels DataFrame.
@@ -132,24 +177,36 @@ class RasterTorchGeoDataset(RasterDataset):
         pd.DataFrame
             labels DataFrame
         """
+        x_key, y_key = keys['x'], keys['y']
+        index_key = keys['index']
+        species_id_key = keys['species_id']
+        split_key = keys['split']
+
         if any([root is None, obs_fn is None]):
-            return pd.DataFrame(columns=['longitude', 'latitude', 'species_id', 'subset'])
+            df = pd.DataFrame(columns=[x_key, y_key, species_id_key, split_key])
+            self.observation_ids = df.index
+            self.coordinates = df[["lon", "lat"]].values
+            self.targets = df["speciesId"].values
+            return df
         labels_fp = obs_fn if len(obs_fn.split('.csv')) >= 2 else f'{obs_fn}.csv'
         labels_fp = root / labels_fp
         df = pd.read_csv(
             labels_fp,
             sep=",",
-            index_col="observation_id",
+            index_col=index_key,
         )
-        self.unique_labels = np.sort(np.unique(df['species_id']))
+        self.unique_labels = np.sort(np.unique(df[species_id_key]))
         try:
             subsets = [subsets] if isinstance(subsets, str) else subsets
-            ind = df.index[df["subset"].isin(subsets)]
+            ind = np.unique(df.index[df[split_key].isin(subsets)])
             df = df.loc[ind]
         except ValueError as e:
             print('Unrecognized subset name.\n'
                   'Please use one or several amongst: ["train", "test", "val"], as a string or list of strings.\n',
                   {e})
+        self.observation_ids = df.index
+        self.coordinates = df[[x_key, y_key]].values
+        self.targets = df[species_id_key].values
         return df
 
     def coords_transform(
@@ -301,7 +358,7 @@ class RasterTorchGeoDataset(RasterDataset):
         if self.crs_pyproj != epsg4326:
             transformer = Transformer.from_crs(self.crs_pyproj, epsg4326)
             bounds_4326 = transformer.transform_bounds(self.bounds.minx, self.bounds.miny, self.bounds.maxx, self.bounds.maxy)
-            bounds_4326 = (bounds_4326[1], bounds_4326[0], bounds_4326[3], bounds_4326[2])
+            bounds_4326 = (bounds_4326[1], bounds_4326[3], bounds_4326[0], bounds_4326[2])
         return is_point_in_bbox(coords_4326, bounds_4326)
 
     def _format_label_to_task(
@@ -312,14 +369,15 @@ class RasterTorchGeoDataset(RasterDataset):
 
         Depending on the classification task (binary, multiclass or
         multilabel), labels have to be formatted accordingly.
+
         - **Binary**: label is an `int` equal to 1 if potential labels,
         i.e. input label values, contain an elligible value (i.e. in
         self.binary_positive_classes); 0 otherwise.
         - **Multiclass**: label is an `int` which value can be any
-        class index (i.e. 'species_id'). If several label match a
+        class index (i.e. 'speciesId'). If several label match a
         coordinate set, the 1st one of the lsit is choosen.
         - **Multilabel**: label is a list of class index, containing all
-        species_id observed to a coordinate set.
+        speciesId observed to a coordinate set.
 
         Parameters
         ----------
@@ -377,9 +435,21 @@ class RasterTorchGeoDataset(RasterDataset):
             return self.targets[df.index[(df['lon'] == query_lon) & (df['lat'] == query_lat)].values]
         return self.targets[df.index[df['observation_id'] == obs_id].values]
 
+    def _default_sample_to_getitem(
+        self,
+        idx: int,
+    ) -> Dict[str, Any]:
+        coords = tuple(self.coordinates[idx])
+        obs_id = self.observation_ids[idx]
+        return {'lon': coords[0], 'lat': coords[1],
+                'crs': self._query_crs,
+                'size': self.patch_size,
+                'units': self._query_units,
+                'obs_id': obs_id}
+
     def __getitem__(
         self,
-        query: Union[dict, tuple, list, set, BoundingBox]
+        query: Union[int, dict, tuple, list, set, BoundingBox]
     ) -> Dict[str, Any]:
         """Query an item from the dataset.
 
@@ -388,13 +458,14 @@ class RasterTorchGeoDataset(RasterDataset):
         The dataset is always queried with a torchgeo BoundingBox because it is
         itself a torchgeo dataset, but the query in this getter method can be
         passed as a tuple, list, set, dict or BoundingBox.
+
         - Use case 1: query is a [list, tuple, set] of 2 elements : lon, lat.
-        Here the CRS and Units system are by default those of the dataset's.
+          Here the CRS and Units system are by default those of the dataset's.
         - Use case 2: query is a torchgeo BoundingBox.
-        Here the CRS and Units system are by default those of the dataset's.
+          Here the CRS and Units system are by default those of the dataset's.
         - Use case 3: query is a dict containing the following necessary keys: {'lon', 'lat'},
-        and optional keys: {'crs', 'units', 'size'} which values default to those of
-        the dataset's.
+          and optional keys: {'crs', 'units', 'size'} which values default to those of
+          the dataset's.
 
         In Use case 3, if the 'crs' key is registered and it is different from
         the dataset's CRS, the coordinates of the point are projected into the
@@ -417,9 +488,13 @@ class RasterTorchGeoDataset(RasterDataset):
             One can query a patch by providing a BoundingBox using
             `torchgeo.datasets.BoundingBox` constructor; or by given a center
             and a size.
+
             --- BoundingBox strategy ---
+
             Must follow : BoundingBox(minx, maxx, miny, maxy, mint, maxt)
+
             --- Point strategy ---
+
             If tuple, must follow : (lon, lat) and the CRS of the coordinates
             will be assumed to be the dataset's.
             If dict, must follow : {'lon': lon, 'lat': lat, <'crs': crs>} and
@@ -466,10 +541,73 @@ class RasterTorchGeoDataset(RasterDataset):
             label = self.get_label(df, query_lon, query_lat, query_obs_id)
             label = self._format_label_to_task(label)
             sample = patch['image']
-            if self.transforms_data is not None:
-                sample = self.transforms_data(sample)
+            if self.transform:
+                sample = self.transform(sample)
+            if self.transform_target:
+                label = self.transform_target(label)
             return sample, label
         sample = super().__getitem__(query)
-        if self.transforms_data is not None:
-            sample = self.transforms_data(sample)
+        if self.transform is not None:
+            sample = self.transform(sample)
         return sample
+
+class RasterBioclim(RasterTorchGeoDataset):
+    """Raster dataset adapted for Sentinel-2 data.
+
+    Inherits RasterTorchGeoDataset.
+    """
+    filename_glob = "bio_*.tif"
+    filename_regex = r"(?P<band>bio_[\d])"
+    date_format = "%Y%m%dT%H%M%S"
+    is_image = True
+    separate_files = True
+    all_bands = ["bio_1", "bio_2", "bio_3", "bio_4"]
+    plot_bands = 'all_bands'
+
+    def __init__(self, root: str = "data", labels_name: str = None, split: str = None, crs: Any = None, res: float = None, bands: Sequence[str] = None, transform: Callable[..., Any] = None, transform_target: Callable[..., Any] = None, patch_size: int | float | tuple = 256, query_units: str = 'pixel', query_crs: int | str | CRS = 'self', obs_data_columns: Dict = { 'x': 'lon','y': 'lat','index': 'surveyId','species_id': 'speciesId','split': 'subset' }, task: str = 'multiclass', binary_positive_classes: list = [], cache: TYPE_CHECKING = True, **kwargs) -> None:
+        super().__init__(root, labels_name, split, crs, res, bands, transform, transform_target, patch_size, query_units, query_crs, obs_data_columns, task, binary_positive_classes, cache)
+        self.__dict__.update(kwargs)
+        if self.plot_bands == 'plot_bands':
+            self.plot_bands = self.all_bands
+
+    def plot(self, sample: Patches):
+        """Plot all layers of a given patch.
+
+        A patch is selected based on a key matching the associated
+        provider's __get__() method.
+
+        Args:
+            item (dict): provider's get index.
+        """
+        nb_layers = len(self.plot_bands)
+        patch = self[sample]
+        if nb_layers == 1:
+            plt.figure(figsize=(10, 10))
+            plt.imshow(patch[0])
+        else:
+            # calculate the number of rows and columns for the subplots grid
+            rows = int(math.ceil(math.sqrt(nb_layers)))
+            cols = int(math.ceil(nb_layers / rows))
+
+            # create a figure with a grid of subplots
+            fig, axs = plt.subplots(rows, cols, figsize=(10, 10))
+
+            # flatten the subplots array to easily access the subplots
+            axs = axs.flatten()
+
+            # loop through the layers of patch data
+            for i, band_name in enumerate(self.plot_bands):
+                # display the layer on the corresponding subplot
+                axs[i].imshow(patch[i])
+                axs[i].set_title(f'layer_{i}: {band_name}')
+                axs[i].axis('off')
+
+            # remove empty subplots
+            for i in range(nb_layers, rows * cols):
+                fig.delaxes(axs[i])
+
+        plt.suptitle('Tensor for sample: ' + str(sample), fontsize=16)
+
+        # show the plot
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        plt.show()

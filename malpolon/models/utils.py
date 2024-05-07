@@ -68,7 +68,7 @@ def check_metric(metrics: OmegaConf) -> OmegaConf:
         user's metrics with their corresponding callable function
     """
     try:
-        metrics = OmegaConf.to_container(metrics)
+        metrics = OmegaConf.to_container(metrics, resolve=True)
         for k, v in metrics.items():
             if 'callable' in v:
                 metrics[k]['callable'] = eval(v['callable'])

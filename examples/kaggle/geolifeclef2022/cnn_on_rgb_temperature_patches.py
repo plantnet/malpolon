@@ -147,6 +147,8 @@ def main(cfg: DictConfig) -> None:
             filename="checkpoint-{epoch:02d}-{step}-{top_30_multiclass_accuracy/val:.4f}",
             monitor="top_30_multiclass_accuracy/val",
             mode="max",
+            save_on_train_epoch_end=True,
+            save_last=True,
         ),
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
