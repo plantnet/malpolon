@@ -291,6 +291,7 @@ class GeoLifeCLEF2022Dataset(Dataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         download: bool = False,
+        **kwargs,
     ):
         root = Path(root)
 
@@ -487,6 +488,7 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
         transform: Optional[Callable] = None,
         target_transform: Optional[Callable] = None,
         download: bool = False,
+        **kwargs,
     ):
         super().__init__(
             root,
@@ -518,7 +520,7 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
             root / "observations" / f"observations_fr_{subset_file_suffix}.csv",
             sep=";",
             index_col="observation_id",
-        )
+        )[:600]
 
         file_name = "minigeolifeclef2022_species_details.csv"
         with resources.path(DATA_MODULE, file_name) as species_file_path:
@@ -526,7 +528,7 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
                 species_file_path,
                 sep=";",
                 index_col="species_id",
-            )
+            )[:600]
 
         df = df[np.isin(df["species_id"], df_species.index)]
         value_counts = df.species_id.value_counts()
@@ -587,6 +589,7 @@ class MicroGeoLifeCLEF2022Dataset(Dataset):
         transform=None,
         target_transform=None,
         download=False,
+        **kwargs,
     ):
         root = Path(root)
 

@@ -1,4 +1,4 @@
-name: Python Test
+name: Python Test (manual)
 
 on: workflow_dispatch
 
@@ -25,4 +25,11 @@ jobs:
             - name: pip install -e .
               run: pip install -e .
             - name: Pytest
-              run: python -m pytest 
+              run: |
+                pytest malpolon/tests/test_geolifeclef2022_dataset.py
+                pytest malpolon/tests/test_environmental_raster.py
+                pytest malpolon/tests/test_data_utils.py
+                pytest malpolon/tests/test_models.py
+                pytest malpolon/tests/test_standard_prediction_systems.py
+                pytest malpolon/tests/test_torchgeo_datasets.py
+                

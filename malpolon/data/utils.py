@@ -69,14 +69,14 @@ def is_point_in_bbox(
     Returns a boolean answering the question "Is point contained inside
     bbox ?".
     Point must follow the format: [x, y]
-    Bounding boxe must follow the format: [xmin, ymin, xmax, ymax]
+    Bounding box must follow the format: [xmin, ymin, xmax, ymax]
 
     Parameters
     ----------
     point : Iterable
-        Point.
+        Point in the format [x, y].
     bbox : Iterable
-        Bounding box.
+        Bounding box in the format [xmin, xmax, ymin, ymax].
     method : str
         Method to use for comparison. Can take any value in
         ['shapely', 'manual'], by default 'shapely'.

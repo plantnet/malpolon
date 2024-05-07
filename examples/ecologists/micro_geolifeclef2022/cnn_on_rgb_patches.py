@@ -41,10 +41,13 @@ class MicroGeoLifeCLEF2022DataModule(BaseDataModule):
         inference_batch_size: int = 256,
         num_workers: int = 8,
         download: bool = True,
+        task: str = 'classification_multiclass',
+        **kwargs
     ):
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
         self.download = download
+        self.task = task
 
     @property
     def train_transform(self):
@@ -119,9 +122,12 @@ def main(cfg: DictConfig) -> None:
         Summary(),
         ModelCheckpoint(
             dirpath=log_dir,
-            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}_val" + ":.4f}",
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
             monitor=f"{next(iter(model.metrics.keys()))}/val",
             mode="max",
+            save_on_train_epoch_end=True,
+            save_last=True,
+            every_n_train_steps=100,
         ),
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
@@ -144,7 +150,7 @@ def main(cfg: DictConfig) -> None:
         query_point = {'observation_id': test_data.observation_ids[0],
                        'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
                        'crs': 4326,
-                       'species_id': test_data[0][1]}
+                       'species_id': [test_data[0][1]]}
         test_data_point = test_data[0][0]
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
 
