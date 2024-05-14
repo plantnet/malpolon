@@ -1,19 +1,31 @@
-import os
+"""This script crops a window from raster files based on coordinates and
+outputs it as a new file.
+"""
 
-import numpy as np
 import pyproj
 import rasterio
-from pyproj import CRS, Transformer
+from pyproj import Transformer
 from rasterio.mask import mask
 from shapely.geometry import box
 from tqdm import tqdm
 
 
-def main(fps, data_crs, coords_crs):
+def main(fps: dict,
+         data_crs: str,
+         coords_crs: str):
     """Clip and export a window from raster files.
-    
+
     Also possible to do via command line:
     `rio input_raster output_raster --bounds "xmin, ymin xmax ymax"`
+
+    Parameters
+    ----------
+    fps : dict
+        file paths to the rasters
+    data_crs : str
+        data CRS (destination crs)
+    coords_crs : str
+        coordinates CRS (source crs)
     """
     # Define the coordinates of the area you want to crop
     minx, miny = 499980.0, 4790220.0  # EPSG 32631
@@ -21,7 +33,7 @@ def main(fps, data_crs, coords_crs):
     if data_crs != coords_crs:
         transformer = Transformer.from_crs(pyproj.CRS.from_epsg(coords_crs), pyproj.CRS.from_epsg(data_crs), always_xy=True)
         minx, miny, maxx, maxy = transformer.transform_bounds(minx, miny, maxx, maxy)
-    bbox = box(minx-0.8, miny-0.8, maxx+0.8, maxy+0.8)
+    bbox = box(minx - 0.8, miny - 0.8, maxx + 0.8, maxy + 0.8)
 
     for k, v in tqdm(fps.items()):
         # Open the raster file
@@ -41,14 +53,14 @@ def main(fps, data_crs, coords_crs):
         # Write the cropped raster to a new file
         with rasterio.open(f'{k}_crop_sample.tif', "w", **out_meta) as dest:
             dest.write(out_image)
-        
+
 if __name__ == '__main__':
-    root = './'
-    fps = {'bio_1': root + 'bio_1/bio_1_FR.tif',
-           'bio_5': root + 'bio_5/bio_5_FR.tif',
-           'bio_6': root + 'bio_6/bio_6_FR.tif',
-           'bio_12': root + 'bio_12/bio_12_FR.tif',
+    ROOT = './'
+    FPS = {'bio_1': ROOT + 'bio_1/bio_1_FR.tif',
+           'bio_5': ROOT + 'bio_5/bio_5_FR.tif',
+           'bio_6': ROOT + 'bio_6/bio_6_FR.tif',
+           'bio_12': ROOT + 'bio_12/bio_12_FR.tif',
           }
-    data_crs = '4326'
-    coords_crs = '32631'
-    main(fps, data_crs, coords_crs)
+    DATA_CRS = '4326'
+    COORDS_CRS = '32631'
+    main(FPS, DATA_CRS, COORDS_CRS)
