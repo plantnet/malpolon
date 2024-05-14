@@ -289,10 +289,10 @@ class BaseDataModule(pl.LightningDataModule, ABC):
 
         Parameters
         ----------
-        targets : Union[np.ndarray, list], optional
-            target species ids, by default None
         predictions : Union[Tensor, np.ndarray]
             model's predictions.
+        targets : Union[np.ndarray, list], optional
+            target species ids, by default None
         probas : Union[Tensor, np.ndarray], optional
             predictions' raw logits or logits passed through an
             activation function, by default None
@@ -317,7 +317,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         predictions = [None] * len(predictions) if predictions is None else predictions
         probas = [None] * len(probas) if probas is None else probas
         ids = np.arange(len(predictions)) if ids is None else ids
-        df = pd.DataFrame({'ids': ids, 
+        df = pd.DataFrame({'ids': ids,
                            'predictions': tuple(predictions[:, :top_k].astype(str)),
                            'targets': targets,
                            'probas': tuple(probas[:, :top_k].astype(str))})
@@ -411,4 +411,3 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         df.to_csv(fp, index=False, sep=';', **kwargs)
         if return_csv:
             return df
-
