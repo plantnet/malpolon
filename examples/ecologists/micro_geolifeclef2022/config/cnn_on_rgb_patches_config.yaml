@@ -2,12 +2,28 @@ hydra:
   run:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
+run:
+  predict: false
+  checkpoint_path: "outputs/cnn_on_rgb_patches/train_multiclass/last.ckpt"
+
+data:
+  num_classes: &num_classes 10
+  dataset_path: "dataset/"
+  train_batch_size: 32
+  inference_batch_size: 256
+  num_workers: 8
+  download: true
+
+task:
+  task: 'classification_multiclass'
+
 trainer:
-  # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
   accelerator: 'gpu'
   devices: 1
-  max_epochs: 1
+  max_epochs: 5
   check_val_every_n_epoch: 1
+  val_check_interval: 10
+  log_every_n_steps: 20  # Controls the frequency of logging. For val loss & metrics: logs accumulated values every n steps. For train loss: logs once every n_steps.
 
 run:
   predict: false
@@ -24,7 +40,7 @@ model:
     global_pool:
   modifiers:
     change_last_layer:
-      num_outputs: 10
+      num_outputs: *num_classes
 
 optimizer:
   lr: 1e-2
@@ -34,13 +50,14 @@ optimizer:
   metrics:
     multiclass_accuracy:
       kwargs:
-        num_classes: 10
-
-task:
-  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+        num_classes: *num_classes
 
 data:
   dataset_path: "dataset/"
   train_batch_size: 32
   inference_batch_size: 256
   num_workers: 8
+
+loggers:
+  exp_name: "resnet18_rgb_microglc22"  # Name of your experiment
+  log_dir_name: "tensorboard_logs/"  # Name of the logs directory
