@@ -4,7 +4,7 @@ on: workflow_dispatch
 
 jobs:
     test:
-        name: Unit Test 
+        name: Unit Test
         runs-on: ubuntu-latest
         strategy:
           matrix:
@@ -27,4 +27,3 @@ jobs:
             - name: Pytest
               run: |
                 pytest malpolon/tests/test_examples.py
-                
