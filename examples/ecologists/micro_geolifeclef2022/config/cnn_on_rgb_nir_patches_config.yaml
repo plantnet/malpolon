@@ -5,6 +5,11 @@ run:
   predict: false
   checkpoint_path:
 
+data:
+  num_classes: &num_classes 10
+  dataset_path: "dataset/"
+  train_batch_size: 32
+
 model:
   modifiers:
     change_first_convolutional_layer:
@@ -14,8 +19,8 @@ model:
         strategy: "red_pretraining"
         rescaling: true
     change_last_layer:
-      num_outputs: 10
+      num_outputs: *num_classes
 
-data:
-  dataset_path: "dataset/"
-  train_batch_size: 32
+
+loggers:
+  exp_name: "resnet18_rgb-nir_microglc22"  # Name of your experiment

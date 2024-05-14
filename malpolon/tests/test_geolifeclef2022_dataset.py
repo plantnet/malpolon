@@ -131,5 +131,3 @@ def test_dataset_load_all():
 def test_patch_plotting(observation_id):
     patch = load_patch(observation_id, DATA_PATH)
     visualize_observation_patch(patch)
-
-test_patch_plotting(10561900)

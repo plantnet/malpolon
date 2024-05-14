@@ -1,0 +1,69 @@
+hydra:
+  run:
+    dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+
+run:
+  predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point']
+  checkpoint_path: ???
+
+data:
+  num_classes: &num_classes 10
+  dataset_path: "dataset/"
+  labels_name: "observations.csv"
+  download_data_sample: True
+  train_batch_size: 2
+  inference_batch_size: 2
+  num_workers: 8
+  units: "pixel"
+  crs: 4326
+  # binary_positive_classes: [1]  # For binary classification, define which classes are considered as 1. Others will be considered 0
+  dataset_kwargs:
+    obs_data_columns: {"x": "longitude",
+                       "y": "latitude",
+                       "index": "surveyId",
+                       "species_id": "speciesId",
+                       "split": "subset"}
+
+task:
+  task: 'classification_multilabel'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+
+trainer:
+  # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
+  accelerator: 'gpu'
+  devices: 'auto'
+  max_epochs: 2
+  # val_check_interval: 10
+  check_val_every_n_epoch: 1
+
+model:
+  provider_name: "timm"  # choose from ["timm", "torchvision"]
+  model_name: "resnet18"
+  model_kwargs:
+    pretrained: true  # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
+    num_classes:
+    in_chans:
+    output_stride:
+    global_pool:
+  modifiers:
+    change_first_convolutional_layer:
+     num_input_channels: 4
+    change_last_layer:
+      num_outputs: *num_classes
+
+optimizer:
+  lr: 1e-2
+  weight_decay: 0
+  momentum: 0.9
+  nesterov: true
+  metrics:
+    # binary_accuracy:
+    #   # callable: 'Fmetrics.accuracy'
+    #   kwargs: {}
+    # multiclass_accuracy:
+    #   # callable: 'Fmetrics.classification.multiclass_accuracy'
+    #   kwargs:
+    #     num_classes: *num_classes
+    multilabel_accuracy:
+      # callable: 'Fmetrics.classification.multilabel_accuracy'
+      kwargs:
+        num_labels: *num_classes

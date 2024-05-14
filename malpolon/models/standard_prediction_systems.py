@@ -74,22 +74,22 @@ class GenericPredictionSystem(pl.LightningModule):
         self, split: str, batch: tuple[Any, Any], batch_idx: int
     ) -> Union[Tensor, dict[str, Any]]:
         if split == "train":
-            log_kwargs = {"on_step": False, "on_epoch": True, "sync_dist": True}
+            log_kwargs = {"on_step": True, "on_epoch": True, "sync_dist": True}
         else:
-            log_kwargs = {}
+            log_kwargs = {"on_step": True, "on_epoch": True, "sync_dist": True}
 
         x, y = batch
         y_hat = self(x)
 
         loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
-        self.log(f"{split}_loss", loss, **log_kwargs)
+        self.log(f"loss/{split}", loss, **log_kwargs)
 
         for metric_name, metric_func in self.metrics.items():
             if isinstance(metric_func, dict):
                 score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
             else:
                 score = metric_func(y_hat, y)
-            self.log(f"{split}_{metric_name}", score, **log_kwargs)
+            self.log(f"{metric_name}/{split}", score, **log_kwargs)
 
         return loss
 
@@ -302,7 +302,7 @@ class ClassificationSystem(GenericPredictionSystem):
             momentum=self.momentum,
             nesterov=self.nesterov,
         )
-        if ('binary' or 'multilabel') in task:
+        if 'binary' in task or 'multilabel' in task:
             loss = torch.nn.BCEWithLogitsLoss()
         else:
             loss = torch.nn.CrossEntropyLoss()

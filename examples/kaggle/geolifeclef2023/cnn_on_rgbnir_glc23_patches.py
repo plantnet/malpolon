@@ -38,6 +38,7 @@ class Sentinel2PatchesDataModule(BaseDataModule):
         crs: int = 4326,
         binary_positive_classes: list = [],
         task: str = 'classification_multiclass',
+        **kwargs,
     ):
         """Class constructor.
 
@@ -178,8 +179,8 @@ def main(cfg: DictConfig) -> None:
         Summary(),
         ModelCheckpoint(
             dirpath=log_dir,
-            filename="checkpoint-{epoch:02d}-{step}-{" + f"val_{next(iter(model.metrics.keys()))}" + ":.4f}",
-            monitor=f"val_{next(iter(model.metrics.keys()))}",
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
+            monitor=f"{next(iter(model.metrics.keys()))}/val",
             mode="max",
             save_on_train_epoch_end=True,
             save_last=True,
@@ -207,7 +208,7 @@ def main(cfg: DictConfig) -> None:
         test_data = datamodule.get_test_dataset()
         test_data_point = test_data[0]
         query_point = {'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
-                       'species_id': test_data_point[1],
+                       'species_id': [test_data_point[1]],
                        'crs': 4326}
         test_data_point = test_data_point[0].resize_(1, *test_data_point[0].shape)
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
