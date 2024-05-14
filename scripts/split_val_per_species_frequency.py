@@ -1,3 +1,8 @@
+"""This script splits an obs csv in val/train based on the frequency
+of occurrences in the whole dataset.
+It does NOT perform a spatial split.
+"""
+
 from copy import deepcopy
 
 import numpy as np
@@ -5,7 +10,9 @@ import pandas as pd
 from tqdm import tqdm
 
 
-def main(input_name: str, output_name:str, val_ratio: float = 0.05):
+def main(input_name: str,
+         output_name: str,
+         val_ratio: float = 0.05):
     """Split an obs csv in val/train.
 
     Performs a split with equal proportions of classes
@@ -14,7 +21,7 @@ def main(input_name: str, output_name:str, val_ratio: float = 0.05):
     the obs file, they are not included in the val split.
 
     The val proportion is defined by the val_ratio argument.
-    
+
     Input csv is expected to have at least the following columns:
     ['speciesId']
     """
@@ -44,6 +51,6 @@ def main(input_name: str, output_name:str, val_ratio: float = 0.05):
     print(f'{indivisible_sid_n_rows} rows were not included in val due to indivisibility by {val_ratio} (too few observations to split in at least 1 obs train / 1 obs val).')
 
 if __name__ == '__main__':
-    input_name = 'sample_obs'
-    output_name = 'sample_obs'
-    main(input_name, output_name)
+    INPUT_NAME = 'sample_obs'
+    OUTPUT_NAME = 'sample_obs'
+    main(INPUT_NAME, OUTPUT_NAME)
