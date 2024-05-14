@@ -558,7 +558,7 @@ class RasterPatchProvider(PatchProvider):
             # iterate through all the layers
             for i in range(src.count):
                 # replace the NoData values with np.nan
-                self.data = self.data.astype(float)
+                self.data = self.data.astype(np.float32)
                 self.data[i] = np.where(self.data[i] == self.nodata_value[i],
                                         np.nan,
                                         self.data[i])
