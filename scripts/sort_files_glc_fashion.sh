@@ -18,11 +18,14 @@
 # Directory containing the .pt files
 SOURCE_DIR="./"
 FILE_EXT=".jpeg"
+STRING_OFFSET=0
+PARSING_CHAR="_"
+PARSING_POS=-0
 
 
 # Function to display usage information
 usage() {
-  echo "Usage: $0 [-s|--src /path/to/source] [-e|--ext file_extension] [-h|--help]"
+  echo "Usage: $0 [-s|--src /path/to/source] [-e|--ext file_extension] [-o|--offset string offset value] [--parsing_char character to parse filenames with] [--parsing_pos pick the string between parsing_char at the position provided by this argument (-0 = last position)] [-h|--help]"
   exit 1
 }
 
@@ -41,6 +44,18 @@ while [[ "$#" -gt 0 ]]; do
       FILE_EXT="$2"
       shift
       ;;
+    -o|--offset)
+      STRING_OFFSET="$2"
+      shift
+      ;;
+    --parsing_char)
+      PARSING_CHAR="$2"
+      shift
+      ;;
+    --parsing_pos)
+      PARSING_POS="$2"
+      shift
+      ;;
     *)
       echo "Invalid option: $1" >&2
       usage
@@ -53,7 +68,7 @@ done
 ## Run the file re-organization process
 # Check if the source directory exists
 if [ ! -d "$SOURCE_DIR" ]; then
-  echo "Source directory does not exist."
+  echo "Source directory does not exist."/
   exit 1
 fi
 
@@ -61,20 +76,21 @@ fi
 for file in "$SOURCE_DIR"/*"$FILE_EXT"; do
   # Extract the filename without the path and extension
   filename=$(basename "$file" "$FILE_EXT")
+  parsed_filename=$(echo "$filename" | awk -F $PARSING_CHAR '{print $(NF'"$PARSING_POS"')}')
 
   # Determine the length of the filename
-  len=${#filename}
+  len=${#parsed_filename}
 
   if [ "$len" -ge 3 ]; then
     # Extract the last 2 digits for my_folder
-    my_folder="${filename: -2}"
+    my_folder="${parsed_filename: -2-$STRING_OFFSET:2}"
 
     if [ "$len" -gt 3 ]; then
       # Extract the 2 digits preceding the last 2 digits for my_subfolder
-      my_subfolder="${filename: -4:2}"
+      my_subfolder="${parsed_filename: -4-$STRING_OFFSET:2}"
     else
       # If filename is 3 digits long, my_subfolder is the digit preceding the last 2 digits
-      my_subfolder="${filename:0:1}"
+      my_subfolder="${parsed_filename:0:1}"
     fi
 
     # Create the target directory if it does not exist
