@@ -13,9 +13,24 @@ from malpolon.plot.map import plot_observation_dataset as plot_od
 
 
 def main(input_name: str,
-         spacing: float = 20 / 60,
+         spacing: float = 10 / 60,
          plot: bool = False,
          val_size: float = 0.15):
+    """Perform a spatial train/val split on the input csv file.
+
+    Parameters
+    ----------
+    input_name : str
+        obs CSV input file's name without the .csv extension.
+    spacing : float, optional
+        size of the spatial split in degrees (or whatever unit the coordinates are in),
+        by default 10/60
+    plot : bool, optional
+        if true, plots the train/val split on a 2D map,
+        by default False
+    val_size : float, optional
+        size of the validaiton split, by default 0.15
+    """
     df = pd.read_csv(f'{input_name}.csv')
     coords, data = {}, {}
     for col in df.columns:
@@ -52,7 +67,7 @@ if __name__ == '__main__':
                         type=str)
     parser.add_argument("-s", "--spacing",
                         help="Size of the spatial split in degrees (or whatever unit the coordinates are in)",
-                        default=10/60,
+                        default=10 / 60,
                         type=float)
     parser.add_argument("--val_size",
                         help="Size of the validation subset to produce.",
