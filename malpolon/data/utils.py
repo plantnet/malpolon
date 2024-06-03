@@ -163,7 +163,7 @@ def get_files_path_recursively(path, *args, suffix='') -> list:
     return result
 
 
-def split_obs_spatially(input_name: str,
+def split_obs_spatially(input_path: str,
                         spacing: float = 10 / 60,
                         plot: bool = False,
                         val_size: float = 0.15):
@@ -171,8 +171,8 @@ def split_obs_spatially(input_name: str,
 
     Parameters
     ----------
-    input_name : str
-        obs CSV input file's name without the .csv extension.
+    input_path : str
+        obs CSV input file's path
     spacing : float, optional
         size of the spatial split in degrees (or whatever unit the coordinates are in),
         by default 10/60
@@ -182,6 +182,7 @@ def split_obs_spatially(input_name: str,
     val_size : float, optional
         size of the validaiton split, by default 0.15
     """
+    input_name = input_path[:-4] if input_path.endswith(".csv") else input_path
     df = pd.read_csv(f'{input_name}.csv')
     coords, data = {}, {}
     for col in df.columns:
@@ -203,14 +204,17 @@ def split_obs_spatially(input_name: str,
     df_train_val = pd.concat([df_train, df_val])
 
     df_train_val.to_csv(f'{input_name}_train_val-{spacing*60}min.csv', index=False)
+    print(f'Done: {input_name}_train_val-{spacing*60}min.csv')
     df_train.to_csv(f'{input_name}_train-{spacing*60}min.csv', index=False)
+    print(f'Done: {input_name}_train-{spacing*60}min.csv')
     df_val.to_csv(f'{input_name}_val-{spacing*60}min.csv', index=False)
+    print(f'Done: {input_name}_val-{spacing*60}min.csv')
 
     if plot:
         plot_od(df=df_train_val, show_map=True)
 
 
-def split_obs_per_species_frequency(input_name: str,
+def split_obs_per_species_frequency(input_path: str,
                                     output_name: str,
                                     val_ratio: float = 0.05):
     """Split an obs csv in val/train.
@@ -225,6 +229,7 @@ def split_obs_per_species_frequency(input_name: str,
     Input csv is expected to have at least the following columns:
     ['speciesId']
     """
+    input_name = input_path[:-4] if input_path.endswith(".csv") else input_path
     pa_train = pd.read_csv(f'{input_name}.csv')
     pa_train['subset'] = ['train'] * len(pa_train)
     pa_train_uniques = np.unique(pa_train['speciesId'], return_counts=True)

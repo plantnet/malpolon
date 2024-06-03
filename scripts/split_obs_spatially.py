@@ -12,7 +12,7 @@ from verde import train_test_split as spatial_tts
 from malpolon.plot.map import plot_observation_dataset as plot_od
 
 
-def main(input_name: str,
+def main(input_path: str,
          spacing: float = 10 / 60,
          plot: bool = False,
          val_size: float = 0.15):
@@ -20,8 +20,8 @@ def main(input_name: str,
 
     Parameters
     ----------
-    input_name : str
-        obs CSV input file's name without the .csv extension.
+    obs_path : str
+        obs CSV input file's path.
     spacing : float, optional
         size of the spatial split in degrees (or whatever unit the coordinates are in),
         by default 10/60
@@ -31,6 +31,7 @@ def main(input_name: str,
     val_size : float, optional
         size of the validaiton split, by default 0.15
     """
+    input_name = input_path[:-4] if input_path.endswith(".csv") else input_path
     df = pd.read_csv(f'{input_name}.csv')
     coords, data = {}, {}
     for col in df.columns:
@@ -61,8 +62,8 @@ def main(input_name: str,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input_name",
-                        help="Name of the input csv obs file without the .csv extension",
+    parser.add_argument("-i", "--input_path",
+                        help="Path to the input csv obs file.",
                         default='GLC24_PA_metadata_train',
                         type=str)
     parser.add_argument("-s", "--spacing",
@@ -77,4 +78,4 @@ if __name__ == '__main__':
                         help="If true, plot the train/val split at the end of the script.",
                         action='store_true')
     args = parser.parse_args()
-    main(args.input_name, args.spacing, plot=args.plot, val_size=args.val_size)
+    main(args.input_path, args.spacing, plot=args.plot, val_size=args.val_size)

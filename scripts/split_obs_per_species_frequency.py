@@ -10,7 +10,7 @@ import pandas as pd
 from tqdm import tqdm
 
 
-def main(input_name: str,
+def main(input_path: str,
          output_name: str,
          val_ratio: float = 0.05):
     """Split an obs csv in val/train.
@@ -25,6 +25,7 @@ def main(input_name: str,
     Input csv is expected to have at least the following columns:
     ['speciesId']
     """
+    input_name = input_path[:-4] if input_path.endswith(".csv") else input_path
     pa_train = pd.read_csv(f'{input_name}.csv')
     pa_train['subset'] = ['train'] * len(pa_train)
     pa_train_uniques = np.unique(pa_train['speciesId'], return_counts=True)
@@ -52,6 +53,6 @@ def main(input_name: str,
 
 
 if __name__ == '__main__':
-    INPUT_NAME = 'sample_obs'
+    INPUT_PATH = 'sample_obs.csv'
     OUTPUT_NAME = 'sample_obs'
-    main(INPUT_NAME, OUTPUT_NAME)
+    main(INPUT_PATH, OUTPUT_NAME)
