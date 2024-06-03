@@ -1,0 +1,106 @@
+"""This module provides a Multimodal Ensemble model for GeoLifeCLEF2024 data.
+
+Author: Lukas Picek <lukas.picek@inria.fr>
+        Theo Larcher <theo.larcher@inria.fr>
+
+License: GPLv3
+Python version: 3.10.6
+"""
+from typing import Any, Callable, Mapping, Optional, Union
+
+import torch
+import torch.nn as nn
+import torchvision.models as models
+from torch import Tensor
+
+from malpolon.models import ClassificationSystem
+
+
+class ClassificationSystemGLC24(ClassificationSystem):
+    def __init__(
+        self,
+        model: Union[torch.nn.Module, Mapping],
+        lr: float = 1e-2,
+        weight_decay: float = 0,
+        momentum: float = 0.9,
+        nesterov: bool = True,
+        metrics: Optional[dict[str, Callable]] = None,
+        task: str = 'classification_binary',
+        hparams_preprocess: bool = True
+    ):
+        super().__init__(model, lr, weight_decay, momentum, nesterov, metrics, task, hparams_preprocess)
+
+    def forward(self, x, y, z):
+        x = self.model.landsat_norm(x)
+        x = self.model.landsat_model(x)
+        x = self.model.ln1(x)
+
+        y = self.model.bioclim_norm(y)
+        y = self.model.bioclim_model(y)
+        y = self.model.ln2(y)
+
+        z = self.model.sentinel_model(z)
+
+        xyz = torch.cat((x, y, z), dim=1)
+        xyz = self.model.fc1(xyz)
+        xyz = self.model.dropout(xyz)
+        out = self.model.fc2(xyz)
+        return out
+
+    def _step(
+        self, split: str, batch: tuple[Any, Any], batch_idx: int
+    ) -> Union[Tensor, dict[str, Any]]:
+        if split == "train":
+            log_kwargs = {"on_step": True, "on_epoch": True, "sync_dist": True}
+        else:
+            log_kwargs = {"on_step": True, "on_epoch": True, "sync_dist": True}
+
+        x_landsat, x_bioclim, x_sentinel, y, species_id = batch
+        y_hat = self(x_landsat, x_bioclim, x_sentinel)
+        pos_weight = y*self.model.positive_weigh_factor  # to use, but needs **kwargs forwarding in malpolon.models.standard_prediction_system loss arguments
+
+        loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
+        self.log(f"loss/{split}", loss, **log_kwargs)
+
+        for metric_name, metric_func in self.metrics.items():
+            if isinstance(metric_func, dict):
+                score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
+            else:
+                score = metric_func(y_hat, y)
+            self.log(f"{metric_name}/{split}", score, **log_kwargs)
+
+        return loss
+
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        x_landsat, x_bioclim, x_sentinel, y, species_id = batch
+        return self(x_landsat, x_bioclim, x_sentinel)
+
+
+class MultimodalEnsemble(nn.Module):
+    def __init__(self, num_classes=11255, positive_weigh_factor=1.0, **kwargs):
+        super().__init__(**kwargs)
+        self.positive_weigh_factor = positive_weigh_factor
+
+        self.landsat_model = models.resnet18(weights=None)
+        self.landsat_norm = nn.LayerNorm([6, 4, 21])
+        # Modify the first convolutional layer to accept 6 channels instead of 3
+        self.landsat_model.conv1 = nn.Conv2d(6, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.landsat_model.maxpool = nn.Identity()
+
+        self.bioclim_model = models.resnet18(weights=None)
+        self.bioclim_norm = nn.LayerNorm([4, 19, 12])
+        # Modify the first convolutional layer to accept 4 channels instead of 3
+        self.bioclim_model.conv1 = nn.Conv2d(4, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bioclim_model.maxpool = nn.Identity()
+
+        self.sentinel_model = models.swin_t(weights="IMAGENET1K_V1")
+        # Modify the first layer to accept 4 channels instead of 3
+        self.sentinel_model.features[0][0] = nn.Conv2d(4, 96, kernel_size=(4, 4), stride=(4, 4))
+        self.sentinel_model.head = nn.Identity()
+
+        self.ln1 = nn.LayerNorm(1000)
+        self.ln2 = nn.LayerNorm(1000)
+        self.fc1 = nn.Linear(2768, 4096)
+        self.fc2 = nn.Linear(4096, num_classes)
+
+        self.dropout = nn.Dropout(p=0.1)
