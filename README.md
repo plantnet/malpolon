@@ -20,7 +20,7 @@
 
 # Malpolon
 
-Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including bioclimatic rasters, remote sensing images, land-use rasters, etc...
+Developed as part of the European GUARDEN (ID: 101060693) and MAMBO (ID: 101060639) projects, Malpolon is a framework facilitating the training and sharing of Deep Species Distribution models using various types of input covariates including bioclimatic rasters, remote sensing images, land-use rasters, etc...
 
 If you're not a deep learning or PyTorch expert but nonetheless want to use visual deep learning models on satellite and/or bioclimatic rasters to predict the presence of species on a given area, this framework is for you.
 
