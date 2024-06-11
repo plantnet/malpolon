@@ -180,7 +180,7 @@ def split_obs_spatially(input_path: str,
         if true, plots the train/val split on a 2D map,
         by default False
     val_size : float, optional
-        size of the validaiton split, by default 0.15
+        size of the validation split, by default 0.15
     """
     input_name = input_path[:-4] if input_path.endswith(".csv") else input_path
     df = pd.read_csv(f'{input_name}.csv')
