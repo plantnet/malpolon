@@ -26,9 +26,10 @@ class ClassificationSystemGLC24(ClassificationSystem):
         nesterov: bool = True,
         metrics: Optional[dict[str, Callable]] = None,
         task: str = 'classification_binary',
+        loss_kwargs: Optional[dict] = {},
         hparams_preprocess: bool = True
     ):
-        super().__init__(model, lr, weight_decay, momentum, nesterov, metrics, task, hparams_preprocess)
+        super().__init__(model, lr, weight_decay, momentum, nesterov, metrics, task, loss_kwargs, hparams_preprocess)
 
     def forward(self, x, y, z):
         x = self.model.landsat_norm(x)
@@ -57,7 +58,9 @@ class ClassificationSystemGLC24(ClassificationSystem):
 
         x_landsat, x_bioclim, x_sentinel, y, species_id = batch
         y_hat = self(x_landsat, x_bioclim, x_sentinel)
-        pos_weight = y*self.model.positive_weigh_factor  # to use, but needs **kwargs forwarding in malpolon.models.standard_prediction_system loss arguments
+
+        pos_weight = y*self.model.positive_weigh_factor
+        self.loss.pos_weight = pos_weight  # Proper way would be to forward pos_weight to loss instantiation via loss_kwargs, but pos_weight must be a tensor, i.e. have access to y -> Not possible in Malpolon as datamodule and optimizer instantiations are separate
 
         loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
         self.log(f"loss/{split}", loss, **log_kwargs)

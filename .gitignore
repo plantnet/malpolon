@@ -24,6 +24,7 @@ examples/inference/sentinel-2a-rgbnir/outputs/*
 
 examples/kaggle/geolifeclef2022/dataset
 examples/kaggle/geolifeclef2024/dataset
+examples/kaggle/geolifeclef2024_pre_extracted/dataset
 
 examples/benchmark/cifar-10/dataset/*
 examples/benchmark/cifar-10/outputs/*

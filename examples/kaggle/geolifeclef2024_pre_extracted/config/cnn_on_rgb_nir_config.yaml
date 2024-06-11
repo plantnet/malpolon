@@ -16,7 +16,7 @@ run:
   checkpoint_path:
 
 model:
-  positive_weigh_factor: 1.0
+  positive_weigh_factor: 10.0
   provider_name: "timm" # choose from ["timm", "torchvision"]
   model_name: "resnet18"
   model_kwargs:
