@@ -14,12 +14,13 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 import torch
-import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
 from torchvision.datasets.utils import extract_archive
 from torchvision.io import read_image
 
 from malpolon.data.data_module import BaseDataModule
+from malpolon.data.utils import split_obs_spatially
 
 
 def construct_patch_path(data_path, survey_id):
@@ -43,28 +44,39 @@ def load_bioclim(path, transform=None):
     bioclim_sample = torch.nan_to_num(torch.load(path))
     if isinstance(bioclim_sample, torch.Tensor):
         # bioclim_sample = bioclim_sample.permute(1, 2, 0)  # Change tensor shape from (C, H, W) to (H, W, C)
-        bioclim_sample = bioclim_sample.numpy()  # Convert tensor to numpy array
+        bioclim_sample = bioclim_sample.numpy().astype(np.float32)  # Convert tensor to numpy array
     if transform:
         bioclim_sample = transform(bioclim_sample)
     return bioclim_sample
 
 def load_sentinel(path, survey_id, transform=None):
-    rgb_sample = np.array(read_image(construct_patch_path(path, survey_id)).numpy())
-    nir_sample = np.array(read_image(construct_patch_path(path.replace("rgb", "nir").replace("RGB", "NIR"), survey_id)).numpy())
+    rgb_sample = read_image(construct_patch_path(path, survey_id)).numpy()
+    nir_sample = read_image(construct_patch_path(path.replace("rgb", "nir").replace("RGB", "NIR"), survey_id)).numpy()
     sentinel_sample = np.concatenate((rgb_sample, nir_sample), axis=0)
+    sentinel_sample = sentinel_sample.astype(np.float32)
     if transform:
         # sentinel_sample = transform(torch.tensor(sentinel_sample.astype(np.float32)))
-        sentinel_sample = transform(np.transpose(sentinel_sample, (1,2,0)))
+        sentinel_sample = transform(sentinel_sample)
     return sentinel_sample
 
 
 class TrainDataset(Dataset):
+    """Train dataset with training transform functions.
+
+    Inherits Dataset.
+
+    Returns
+    -------
+    (tuple)
+        tuple of data samples (landsat, bioclim, sentinel), label tensor (speciesId) and surveyId
+    """
     num_classes = 11255
+
     def __init__(self, metadata, num_classes=11255, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None):
         self.transform = transform
         self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
+            # transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
         ])
         # self.sentinel_transform = None
         self.num_classes = num_classes
@@ -87,15 +99,18 @@ class TrainDataset(Dataset):
 
         # Landsat data (pre-extracted time series)
         if self.landsat_data_dir is not None:
-            landsat_sample = load_landsat(os.path.join(self.landsat_data_dir, f"GLC24-PA-train-landsat-time-series_{survey_id}_cube.pt"), self.transform)
+            landsat_sample = load_landsat(os.path.join(self.landsat_data_dir, f"GLC24-PA-train-landsat-time-series_{survey_id}_cube.pt"),
+                                          transform=self.transform['landsat'])
             data_samples.append(torch.tensor(np.array(landsat_sample), dtype=torch.float32))
         # Bioclim data (pre-extractions time series)
         if self.bioclim_data_dir is not None:
-            bioclim_sample = load_bioclim(os.path.join(self.bioclim_data_dir, f"GLC24-PA-train-bioclimatic_monthly_{survey_id}_cube.pt"), self.transform)
+            bioclim_sample = load_bioclim(os.path.join(self.bioclim_data_dir, f"GLC24-PA-train-bioclimatic_monthly_{survey_id}_cube.pt"),
+                                          transform=self.transform['bioclim'])
             data_samples.append(torch.tensor(np.array(bioclim_sample), dtype=torch.float32))
         # Sentinel data (patches)
         if self.sentinel_data_dir is not None:
-            sentinel_sample = load_sentinel(self.sentinel_data_dir, survey_id, self.sentinel_transform)
+            sentinel_sample = load_sentinel(self.sentinel_data_dir, survey_id,
+                                            transform=self.transform['sentinel'])
             data_samples.append(torch.tensor(np.array(sentinel_sample), dtype=torch.float32))
 
         species_ids = self.label_dict.get(survey_id, [])  # Get list of species IDs for the survey ID
@@ -107,19 +122,23 @@ class TrainDataset(Dataset):
         return tuple(data_samples) + (label, survey_id)
 
 class TestDataset(TrainDataset):
+    """Test dataset with test transform functions.
+
+    Inherits TrainDataset.
+
+    Parameters
+    ----------
+    TrainDataset : _type_
+        _description_
+    """
     def __init__(self, metadata, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None):
         self.transform = transform
         """self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
             # transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
         ])"""
+        super().__init__(metadata, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform)
         self.sentinel_transform = None
-
-        self.bioclim_data_dir = bioclim_data_dir
-        self.landsat_data_dir = landsat_data_dir
-        self.sentinel_data_dir = sentinel_data_dir
-        self.metadata = metadata
-        self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
         self.targets = np.array([0] * len(metadata))
         self.observation_ids = metadata['surveyId']
 
@@ -273,32 +292,27 @@ class GLC24_Datamodule(BaseDataModule):
 
     @property
     def train_transform(self):
-        return transforms.Compose(
-            [
-                # transforms.ToTensor(),
-                # torchvision.ops.Permute([1, 2, 0])
-                # transforms.RandomRotation(degrees=45, fill=1),
-                # transforms.RandomCrop(size=128),
-                # transforms.RandomHorizontalFlip(),
-                # transforms.RandomVerticalFlip(),
-                # transforms.Normalize(
-                #     mean=[0.485, 0.456, 0.406, 0.2],
-                #     std=[0.229, 0.224, 0.225, 0.2]
-                # ),
-            ]
-        )
+        all_transforms = [torch.tensor]
+        landsat_transforms = [transforms.Normalize(mean=[30.071] * 6,
+                                                   std=[24.860] * 6)]
+        bioclim_transforms = [transforms.Normalize(mean=[3884.726] * 4,
+                                                   std=[2939.538] * 4)]
+        sentinel_transforms = [transforms.Normalize(mean=[78.761, 82.859, 71.288] + [146.082],
+                                                    std=[26.074, 24.484, 23.275] + [39.518])]
+
+        return {'landsat': transforms.Compose(all_transforms + landsat_transforms),
+                'bioclim': transforms.Compose(all_transforms + bioclim_transforms),
+                'sentinel': transforms.Compose(all_transforms + sentinel_transforms)}
 
     @property
     def test_transform(self):
-        return transforms.Compose(
-            [
-                # transforms.ToTensor(),
-                # torchvision.ops.Permute([1, 2, 0])
-                #transforms.CenterCrop(size=128),
-                #transforms.RandomVerticalFlip(),
-                #transforms.Normalize(
-                #    mean=[0.485, 0.456, 0.406, 0.2],
-                #    std=[0.229, 0.224, 0.225, 0.2]
-                #),
-            ]
-        )
+        all_transforms = [torch.tensor]
+        landsat_transforms = [transforms.Normalize(mean=[30.923] * 6,
+                                                   std=[25.722] * 6)]
+        bioclim_transforms = [transforms.Normalize(mean=[4004.812] * 4,
+                                                   std=[3437.992] * 4)]
+        sentinel_transforms = [transforms.Normalize(mean=[78.761, 82.859, 71.288] + [143.796],
+                                                    std=[26.074, 24.484, 23.275] + [43.626])]
+        return {'landsat': transforms.Compose(all_transforms + landsat_transforms),
+                'bioclim': transforms.Compose(all_transforms + bioclim_transforms),
+                'sentinel': transforms.Compose(all_transforms + sentinel_transforms)}

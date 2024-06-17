@@ -9,14 +9,17 @@ Python version: 3.10.6
 from typing import Any, Callable, Mapping, Optional, Union
 
 import torch
-import torch.nn as nn
-import torchvision.models as models
-from torch import Tensor
+from torch import Tensor, nn
+from torchvision import models
 
 from malpolon.models import ClassificationSystem
 
 
 class ClassificationSystemGLC24(ClassificationSystem):
+    """Classification task class for GLC24_pre-extracted.
+
+    Inherits ClassificationSystem.
+    """
     def __init__(
         self,
         model: Union[torch.nn.Module, Mapping],
@@ -30,23 +33,10 @@ class ClassificationSystemGLC24(ClassificationSystem):
         hparams_preprocess: bool = True
     ):
         super().__init__(model, lr, weight_decay, momentum, nesterov, metrics, task, loss_kwargs, hparams_preprocess)
+        print('a')
 
-    def forward(self, x, y, z):
-        x = self.model.landsat_norm(x)
-        x = self.model.landsat_model(x)
-        x = self.model.ln1(x)
-
-        y = self.model.bioclim_norm(y)
-        y = self.model.bioclim_model(y)
-        y = self.model.ln2(y)
-
-        z = self.model.sentinel_model(z)
-
-        xyz = torch.cat((x, y, z), dim=1)
-        xyz = self.model.fc1(xyz)
-        xyz = self.model.dropout(xyz)
-        out = self.model.fc2(xyz)
-        return out
+    def forward(self, x, y, z):  # noqa: D102 pylint: disable=C0116
+        return self.model(x, y, z)
 
     def _step(
         self, split: str, batch: tuple[Any, Any], batch_idx: int
@@ -59,7 +49,7 @@ class ClassificationSystemGLC24(ClassificationSystem):
         x_landsat, x_bioclim, x_sentinel, y, species_id = batch
         y_hat = self(x_landsat, x_bioclim, x_sentinel)
 
-        pos_weight = y*self.model.positive_weigh_factor
+        pos_weight = y * self.model.positive_weigh_factor
         self.loss.pos_weight = pos_weight  # Proper way would be to forward pos_weight to loss instantiation via loss_kwargs, but pos_weight must be a tensor, i.e. have access to y -> Not possible in Malpolon as datamodule and optimizer instantiations are separate
 
         loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
@@ -74,12 +64,16 @@ class ClassificationSystemGLC24(ClassificationSystem):
 
         return loss
 
-    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):  # noqa: D102 pylint: disable=C0116
         x_landsat, x_bioclim, x_sentinel, y, species_id = batch
         return self(x_landsat, x_bioclim, x_sentinel)
 
 
 class MultimodalEnsemble(nn.Module):
+    """Multimodal ensemble model processing Sentinel-2A, Landsat & Bioclimatic data.
+
+    Inherits torch nn.Module.
+    """
     def __init__(self, num_classes=11255, positive_weigh_factor=1.0, **kwargs):
         super().__init__(**kwargs)
         self.positive_weigh_factor = positive_weigh_factor
@@ -107,3 +101,20 @@ class MultimodalEnsemble(nn.Module):
         self.fc2 = nn.Linear(4096, num_classes)
 
         self.dropout = nn.Dropout(p=0.1)
+
+    def forward(self, x, y, z):  # noqa: D102 pylint: disable=C0116
+        x = self.landsat_norm(x)
+        x = self.landsat_model(x)
+        x = self.ln1(x)
+
+        y = self.bioclim_norm(y)
+        y = self.bioclim_model(y)
+        y = self.ln2(y)
+
+        z = self.sentinel_model(z)
+
+        xyz = torch.cat((x, y, z), dim=1)
+        xyz = self.fc1(xyz)
+        xyz = self.dropout(xyz)
+        out = self.fc2(xyz)
+        return out
