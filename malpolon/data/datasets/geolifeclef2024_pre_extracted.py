@@ -84,8 +84,11 @@ class TrainDataset(Dataset):
         self.bioclim_data_dir = bioclim_data_dir
         self.sentinel_data_dir = sentinel_data_dir
         self.metadata = metadata
-        self.metadata = self.metadata.dropna(subset="speciesId").reset_index(drop=True)
-        self.metadata['speciesId'] = self.metadata['speciesId'].astype(int)
+        if 'speciesId' in self.metadata.columns:
+            self.metadata = self.metadata.dropna(subset="speciesId").reset_index(drop=True)
+            self.metadata['speciesId'] = self.metadata['speciesId'].astype(int)
+        else:
+            self.metadata['speciesId'] = [None] * len(self.metadata)
         self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
         self.metadata = self.metadata.drop_duplicates(subset="surveyId").reset_index(drop=True)
 

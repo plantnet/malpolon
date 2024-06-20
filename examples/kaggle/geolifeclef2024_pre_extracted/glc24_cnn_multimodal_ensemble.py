@@ -28,7 +28,7 @@ def set_seed(seed):
         torch.backends.cudnn.benchmark = False
 
 
-@hydra.main(version_base="1.3", config_path="config/", config_name="cnn_on_rgb_nir_config")
+@hydra.main(version_base="1.3", config_path="config/", config_name="glc24_cnn_multimodal_ensemble")
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
 
@@ -40,7 +40,7 @@ def main(cfg: DictConfig) -> None:
     """
     set_seed(69)
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
-    logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="ensemble_resnet18_swin-t")
+    logger_csv = pl.loggers.CSVLogger(log_dir, name="", version=cfg.loggers.exp_name)
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name=cfg.loggers.log_dir_name, version=cfg.loggers.exp_name)
     logger_tb.log_hyperparams(cfg)
@@ -68,9 +68,10 @@ def main(cfg: DictConfig) -> None:
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
 
     if cfg.run.predict:
-        model_loaded = ClassificationSystemKaggle.load_from_checkpoint(cfg.run.checkpoint_path,
-                                                                       model=classif_system.model,
-                                                                       hparams_preprocess=False)
+        model_loaded = ClassificationSystemGLC24.load_from_checkpoint(cfg.run.checkpoint_path,
+                                                                      model=classif_system.model,
+                                                                      hparams_preprocess=False,
+                                                                      strict=False)
 
         predictions = model_loaded.predict(datamodule, trainer)
         preds, probas = datamodule.predict_logits_to_class(predictions,
