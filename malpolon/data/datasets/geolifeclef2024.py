@@ -721,6 +721,11 @@ class JpegPatchProvider(PatchProvider):
     Provides tensors of multi-modal patches from JPEG patch files
     of rasters of the GLC23 challenge.
 
+    Image patches are expected to be named by a patch ID and arranged
+    in folders and sub-folders in the following way:
+    root_path/YZ/WX/patch_id.jpeg with patch_id being the value
+    ABCDWXYZ.
+
     Attributes:
         (PatchProvider): inherits PatchProvider.
     """

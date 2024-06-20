@@ -326,6 +326,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         df.to_csv(Path(out_dir) / Path(out_name + ".csv"), index=False, sep=',', **kwargs)
         if return_csv:
             return df
+        return None
 
     def export_predict_csv(self,
                            predictions: Union[Tensor, np.ndarray],
@@ -411,3 +412,4 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         df.to_csv(fp, index=False, sep=';', **kwargs)
         if return_csv:
             return df
+        return None
