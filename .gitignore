@@ -32,3 +32,15 @@ examples/benchmark/cifar-10/outputs/*
 # Packaging
 dist/
 build/
+
+# Resources
+docs/resources/Amap_logo.png
+docs/resources/Malpolon_python_v2_image.png
+docs/resources/Malpolon_python_v2_image_transparent.png
+docs/resources/Malpolon_python_v2_text.png
+docs/resources/Malpolon_python_v2_text_transparent.png
+docs/resources/Malpolon_white.png
+
+# Debugging
+examples/ecologists/sentinel-2a-rgbnir/test.py
+examples/ecologists/sentinel-2a-rgbnir/test_bug_rasterio.md
