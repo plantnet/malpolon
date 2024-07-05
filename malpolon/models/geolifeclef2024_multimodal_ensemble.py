@@ -8,11 +8,18 @@ Python version: 3.10.6
 """
 from typing import Any, Callable, Mapping, Optional, Union
 
+import numpy as np
+import omegaconf
 import torch
+from omegaconf import OmegaConf
 from torch import Tensor, nn
+from torch.optim.lr_scheduler import CosineAnnealingLR
+from torchmetrics import Metric
 from torchvision import models
 
 from malpolon.models import ClassificationSystem
+
+from .utils import check_optimizer
 
 
 class ClassificationSystemGLC24(ClassificationSystem):
@@ -32,8 +39,21 @@ class ClassificationSystemGLC24(ClassificationSystem):
         loss_kwargs: Optional[dict] = {},
         hparams_preprocess: bool = True
     ):
+        if isinstance(loss_kwargs, omegaconf.dictconfig.DictConfig):
+            loss_kwargs = OmegaConf.to_container(loss_kwargs, resolve=True)
+        if 'pos_weight' in loss_kwargs.keys():
+            length = metrics['multilabel_f1-score'].kwargs.num_labels
+            loss_kwargs['pos_weight'] = Tensor([loss_kwargs['pos_weight']] * length)
         super().__init__(model, lr, weight_decay, momentum, nesterov, metrics, task, loss_kwargs, hparams_preprocess)
-        print('a')
+        optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+        self.optimizer = check_optimizer(optimizer)
+
+    def configure_optimizers(self):
+        scheduler = CosineAnnealingLR(self.optimizer, T_max=25, verbose=True)
+        res = {'optimizer': self.optimizer,
+               'lr_scheduler': scheduler}
+        return res
+
 
     def forward(self, x, y, z):  # noqa: D102 pylint: disable=C0116
         return self.model(x, y, z)
@@ -46,7 +66,7 @@ class ClassificationSystemGLC24(ClassificationSystem):
         else:
             log_kwargs = {"on_step": True, "on_epoch": True, "sync_dist": True}
 
-        x_landsat, x_bioclim, x_sentinel, y, species_id = batch
+        x_landsat, x_bioclim, x_sentinel, y, survey_id = batch
         y_hat = self(x_landsat, x_bioclim, x_sentinel)
 
         pos_weight = y * self.model.positive_weigh_factor
@@ -65,7 +85,7 @@ class ClassificationSystemGLC24(ClassificationSystem):
         return loss
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):  # noqa: D102 pylint: disable=C0116
-        x_landsat, x_bioclim, x_sentinel, y, species_id = batch
+        x_landsat, x_bioclim, x_sentinel, y, survey_id = batch
         return self(x_landsat, x_bioclim, x_sentinel)
 
 

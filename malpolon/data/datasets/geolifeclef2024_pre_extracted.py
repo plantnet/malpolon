@@ -44,7 +44,7 @@ def load_bioclim(path, transform=None):
     bioclim_sample = torch.nan_to_num(torch.load(path))
     if isinstance(bioclim_sample, torch.Tensor):
         # bioclim_sample = bioclim_sample.permute(1, 2, 0)  # Change tensor shape from (C, H, W) to (H, W, C)
-        bioclim_sample = bioclim_sample.numpy().astype(np.float32)  # Convert tensor to numpy array
+        bioclim_sample = bioclim_sample.numpy()  # Convert tensor to numpy array
     if transform:
         bioclim_sample = transform(bioclim_sample)
     return bioclim_sample
@@ -52,8 +52,8 @@ def load_bioclim(path, transform=None):
 def load_sentinel(path, survey_id, transform=None):
     rgb_sample = read_image(construct_patch_path(path, survey_id)).numpy()
     nir_sample = read_image(construct_patch_path(path.replace("rgb", "nir").replace("RGB", "NIR"), survey_id)).numpy()
-    sentinel_sample = np.concatenate((rgb_sample, nir_sample), axis=0)
-    sentinel_sample = sentinel_sample.astype(np.float32)
+    sentinel_sample = np.concatenate((rgb_sample, nir_sample), axis=0).astype(np.float32)
+    # sentinel_sample = np.transpose(sentinel_sample, (1, 2, 0))
     if transform:
         # sentinel_sample = transform(torch.tensor(sentinel_sample.astype(np.float32)))
         sentinel_sample = transform(sentinel_sample)
@@ -76,7 +76,7 @@ class TrainDataset(Dataset):
         self.transform = transform
         self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
-            # transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
+            transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
         ])
         # self.sentinel_transform = None
         self.num_classes = num_classes
@@ -136,12 +136,11 @@ class TestDataset(TrainDataset):
     """
     def __init__(self, metadata, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None):
         self.transform = transform
-        """self.sentinel_transform = transforms.Compose([
+        self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
-            # transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
-        ])"""
+            transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
+        ])
         super().__init__(metadata, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform)
-        self.sentinel_transform = None
         self.targets = np.array([0] * len(metadata))
         self.observation_ids = metadata['surveyId']
 
@@ -152,15 +151,18 @@ class TestDataset(TrainDataset):
 
         # Landsat data (pre-extracted time series)
         if self.landsat_data_dir is not None:
-            landsat_sample = load_landsat(os.path.join(self.landsat_data_dir, f"GLC24-PA-test-landsat_time_series_{survey_id}_cube.pt"))
+            landsat_sample = load_landsat(os.path.join(self.landsat_data_dir, f"GLC24-PA-test-landsat_time_series_{survey_id}_cube.pt"),
+                                          transform=self.transform['landsat'])
             data_samples.append(torch.tensor(np.array(landsat_sample), dtype=torch.float32))
         # Bioclim data (pre-extractions time series)
         if self.bioclim_data_dir is not None:
-            bioclim_sample = load_bioclim(os.path.join(self.bioclim_data_dir, f"GLC24-PA-test-bioclimatic_monthly_{survey_id}_cube.pt"))
+            bioclim_sample = load_bioclim(os.path.join(self.bioclim_data_dir, f"GLC24-PA-test-bioclimatic_monthly_{survey_id}_cube.pt"),
+                                          transform=self.transform['bioclim'])
             data_samples.append(torch.tensor(np.array(bioclim_sample), dtype=torch.float32))
         # Sentinel data (patches)
         if self.sentinel_data_dir is not None:
-            sentinel_sample = load_sentinel(self.sentinel_data_dir, survey_id)
+            sentinel_sample = load_sentinel(self.sentinel_data_dir, survey_id,
+                                            transform=self.transform['sentinel'])
             data_samples.append(torch.tensor(np.array(sentinel_sample), dtype=torch.float32))
 
         species_ids = self.label_dict.get(survey_id, [])  # Get list of species IDs for the survey ID
@@ -220,7 +222,7 @@ class GLC24_Datamodule(BaseDataModule):
             batch_size=self.train_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
-            shuffle=True,
+            shuffle=False,
         )
         return dataloader
 

@@ -16,10 +16,14 @@ from malpolon.models.geolifeclef2024_multimodal_ensemble import (
 
 
 def set_seed(seed):
+    import lightning.pytorch as pl
+    from lightning.pytorch import seed_everything
+
     # Set seed for Python's built-in random number generator
     torch.manual_seed(seed)
     # Set seed for numpy
     np.random.seed(seed)
+    seed_everything(seed, workers=True)
     # Set seed for CUDA if available
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
@@ -65,7 +69,7 @@ def main(cfg: DictConfig) -> None:
             every_n_train_steps=100,
         ),
     ]
-    trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
+    trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer, deterministic=True)
 
     if cfg.run.predict:
         model_loaded = ClassificationSystemGLC24.load_from_checkpoint(cfg.run.checkpoint_path,

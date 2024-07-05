@@ -13,7 +13,7 @@ trainer:
 
 run:
   predict: false
-  checkpoint_path: # "outputs/glc24_cnn_multimodal_ensemble/2024-06-17_16-15-31/last.ckpt"
+  checkpoint_path: # "outputs/glc24_cnn_multimodal_ensemble/threshold_0.5/last_torch_native.ckpt"
 
 model:
   positive_weigh_factor: 10.0
@@ -28,7 +28,7 @@ model:
       num_outputs: 11255
 
 optimizer:
-  lr: 0.001
+  lr: 0.00025
   weight_decay: 0
   momentum: 0.9
   nesterov: true
@@ -37,25 +37,25 @@ optimizer:
       # callable: 'Fmetrics.classification.multilabel_accuracy'
       kwargs:
         num_labels: 11255
-        threshold: 0.1
+        # threshold: 0.1
         average: micro
     multilabel_recall:
       callable: 'Fmetrics.classification.multilabel_recall'
       kwargs:
         num_labels: 11255
-        threshold: 0.1
+        # threshold: 0.1
         average: micro
     multilabel_precision:
       callable: 'Fmetrics.classification.multilabel_precision'
       kwargs:
         num_labels: 11255
-        threshold: 0.1
+        # threshold: 0.1
         average: micro
     multilabel_f1-score:
       callable: 'Fmetrics.classification.multilabel_f1_score'
       kwargs:
         num_labels: 11255
-        threshold: 0.1
+        # threshold: 0.1
         average: micro
 
 data:
@@ -83,5 +83,5 @@ task:
   task: "classification_multilabel" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
 
 loggers:
-  exp_name: "multimodal_resnet18_ensemble"  # Name of your experiment
+  exp_name: "multimodal_resnet18-swint_ensemble"  # Name of your experiment
   log_dir_name: "tensorboard_logs/"  # Name of the logs directory
