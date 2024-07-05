@@ -16,15 +16,16 @@ examples/custom_train/micro_geolifeclef*/outputs/*
 examples/custom_train/sentinel-2a-rgbnir/dataset/*.tif
 examples/custom_train/sentinel-2a-rgbnir/outputs/*
 examples/custom_train/sentinel-2a-rgbnir_bioclim/outputs/*
+examples/custom_train/Irokube
 
 examples/inference/micro_geolifeclef*/dataset/patches
 examples/inference/micro_geolifeclef*/dataset/rasters
 examples/inference/micro_geolifeclef*/outputs/*
 examples/inference/sentinel-2a-rgbnir/outputs/*
 
-examples/benchmarks/kaggle/geolifeclef2022/dataset
-examples/benchmarks/kaggle/geolifeclef2024/dataset
-examples/benchmarks/kaggle/geolifeclef2024_pre_extracted/dataset
+examples/benchmarks/geolifeclef/geolifeclef2022/dataset
+examples/benchmarks/geolifeclef/geolifeclef2024/dataset
+examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/dataset
 
 examples/benchmarks/cifar-10/dataset/*
 examples/benchmarks/cifar-10/outputs/*
