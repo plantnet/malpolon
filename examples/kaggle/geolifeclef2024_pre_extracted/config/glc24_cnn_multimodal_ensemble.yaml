@@ -13,7 +13,7 @@ trainer:
 
 run:
   predict: false
-  checkpoint_path: # "outputs/glc24_cnn_multimodal_ensemble/threshold_0.5/last_torch_native.ckpt"
+  checkpoint_path: # "outputs/glc24_cnn_multimodal_ensemble/runOK_2024-06-24_19-14-48/last.ckpt"
 
 model:
   positive_weigh_factor: 10.0
