@@ -195,7 +195,6 @@ class TrainDataset(Dataset):
 
         return tuple(data_samples) + (label, survey_id)
 
-
 class TestDataset(TrainDataset):
     """Test dataset with test transform functions.
 
