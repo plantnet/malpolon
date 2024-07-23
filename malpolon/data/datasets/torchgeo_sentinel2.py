@@ -41,7 +41,7 @@ class Sentinel2TorchGeoDataModule(BaseDataModule):
         dataset_path: str,
         labels_name: str = 'labels.csv',
         train_batch_size: int = 32,
-        inference_batch_size: int = 256,
+        inference_batch_size: int = 16,
         num_workers: int = 8,
         size: int = 200,
         units: str = 'pixel',

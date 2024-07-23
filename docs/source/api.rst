@@ -24,6 +24,11 @@ malpolon.models.standard_prediction_systems
 .. automodule:: malpolon.models.standard_prediction_systems
    :members:
 
+malpolon.models.geolifeclef2024_multimodal_ensemble
+===================================================
+.. automodule:: malpolon.models.geolifeclef2024_multimodal_ensemble
+   :members:
+
 malpolon.models.multi_modal
 ===========================
 .. automodule:: malpolon.models.multi_modal
@@ -70,7 +75,7 @@ malpolon.data.datasets.torchgeo_sentinel2
 -----------------------------------------
 .. automodule:: malpolon.data.datasets.torchgeo_sentinel2
    :members:
-   
+
 malpolon.data.datasets.torchgeo_concat
 ----------------------------------------
 .. automodule:: malpolon.data.datasets.torchgeo_concat
@@ -133,6 +138,12 @@ GeoLifeCLEF2024: providers
 .. autoclass:: malpolon.data.datasets.geolifeclef2024.CSVTimeSeriesProvider
 .. autoclass:: malpolon.data.datasets.geolifeclef2024.MultipleCSVTimeSeriesProvider
 
+malpolon.data.datasets.geolifeclef2024_pre_extracted
+----------------------------------------------------
+.. automodule:: malpolon.data.datasets.geolifeclef2024_pre_extracted
+   :members:
+
+
 malpolon.plot
 *************
 
@@ -158,4 +169,3 @@ malpolon.check_install
 **********************
 .. automodule:: malpolon.check_install
    :members:
-

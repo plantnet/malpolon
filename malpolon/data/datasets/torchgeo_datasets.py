@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 ALL_NORTHERN_EPSG_CODES = list(range(32601, 32662))
 EUROPE_EPSG_CODE = [3035]
 
+
 class RasterTorchGeoDataset(RasterDataset):
     """Generic torchgeo based raster datasets.
 
@@ -551,6 +552,7 @@ class RasterTorchGeoDataset(RasterDataset):
             sample = self.transform(sample)
         return sample
 
+
 class RasterBioclim(RasterTorchGeoDataset):
     """Raster dataset adapted for Sentinel-2 data.
 
@@ -564,7 +566,7 @@ class RasterBioclim(RasterTorchGeoDataset):
     all_bands = ["bio_1", "bio_2", "bio_3", "bio_4"]
     plot_bands = 'all_bands'
 
-    def __init__(self, root: str = "data", labels_name: str = None, split: str = None, crs: Any = None, res: float = None, bands: Sequence[str] = None, transform: Callable[..., Any] = None, transform_target: Callable[..., Any] = None, patch_size: int | float | tuple = 256, query_units: str = 'pixel', query_crs: int | str | CRS = 'self', obs_data_columns: Dict = { 'x': 'lon','y': 'lat','index': 'surveyId','species_id': 'speciesId','split': 'subset' }, task: str = 'multiclass', binary_positive_classes: list = [], cache: TYPE_CHECKING = True, **kwargs) -> None:
+    def __init__(self, root: str = "data", labels_name: str = None, split: str = None, crs: Any = None, res: float = None, bands: Sequence[str] = None, transform: Callable[..., Any] = None, transform_target: Callable[..., Any] = None, patch_size: int | float | tuple = 256, query_units: str = 'pixel', query_crs: int | str | CRS = 'self', obs_data_columns: Dict = { 'x': 'lon', 'y': 'lat', 'index': 'surveyId', 'species_id': 'speciesId', 'split': 'subset'}, task: str = 'multiclass', binary_positive_classes: list = [], cache: TYPE_CHECKING = True, **kwargs) -> None:
         super().__init__(root, labels_name, split, crs, res, bands, transform, transform_target, patch_size, query_units, query_crs, obs_data_columns, task, binary_positive_classes, cache)
         self.__dict__.update(kwargs)
         if self.plot_bands == 'plot_bands':

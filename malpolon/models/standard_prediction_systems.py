@@ -23,8 +23,7 @@ if TYPE_CHECKING:
 
 
 class GenericPredictionSystem(pl.LightningModule):
-    r"""
-    Generic prediction system providing standard methods.
+    """Generic prediction system providing standard methods.
 
     Parameters
     ----------
@@ -252,6 +251,7 @@ class ClassificationSystem(GenericPredictionSystem):
         nesterov: bool = True,
         metrics: Optional[dict[str, Callable]] = None,
         task: str = 'classification_binary',
+        loss_kwargs: Optional[dict] = {},
         hparams_preprocess: bool = True,
     ):
         """Class constructor.
@@ -303,9 +303,9 @@ class ClassificationSystem(GenericPredictionSystem):
             nesterov=self.nesterov,
         )
         if 'binary' in task or 'multilabel' in task:
-            loss = torch.nn.BCEWithLogitsLoss()
+            loss = torch.nn.BCEWithLogitsLoss(**loss_kwargs)
         else:
-            loss = torch.nn.CrossEntropyLoss()
+            loss = torch.nn.CrossEntropyLoss(**loss_kwargs)
 
         if metrics is None:
             metrics = {

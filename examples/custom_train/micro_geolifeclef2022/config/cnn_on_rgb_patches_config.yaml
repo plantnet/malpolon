@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path: "outputs/cnn_on_rgb_patches/train_multiclass/last.ckpt"
+  checkpoint_path: # "outputs/cnn_on_rgb_patches/train_multiclass/last.ckpt"
 
 data:
   num_classes: &num_classes 10
@@ -24,10 +24,6 @@ trainer:
   check_val_every_n_epoch: 1
   val_check_interval: 10
   log_every_n_steps: 20  # Controls the frequency of logging. For val loss & metrics: logs accumulated values every n steps. For train loss: logs once every n_steps.
-
-run:
-  predict: false
-  checkpoint_path:
 
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
@@ -51,12 +47,6 @@ optimizer:
     multiclass_accuracy:
       kwargs:
         num_classes: *num_classes
-
-data:
-  dataset_path: "dataset/"
-  train_batch_size: 32
-  inference_batch_size: 256
-  num_workers: 8
 
 loggers:
   exp_name: "resnet18_rgb_microglc22"  # Name of your experiment

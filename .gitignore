@@ -11,22 +11,37 @@ checkMyCode.sh
 docs/_build
 
 # Data
-examples/ecologists/micro_geolifeclef*/dataset/*
-examples/ecologists/micro_geolifeclef*/outputs/*
-examples/ecologists/sentinel-2a-rgbnir/dataset/*.tif
-examples/ecologists/sentinel-2a-rgbnir/outputs/*
-examples/ecologists/sentinel-2a-rgbnir_bioclim/outputs/*
+examples/custom_train/micro_geolifeclef*/dataset/*
+examples/custom_train/micro_geolifeclef*/outputs/*
+examples/custom_train/sentinel-2a-rgbnir/dataset/*.tif
+examples/custom_train/sentinel-2a-rgbnir/outputs/*
+examples/custom_train/sentinel-2a-rgbnir_bioclim/outputs/*
+examples/custom_train/Irokube
 
 examples/inference/micro_geolifeclef*/dataset/patches
 examples/inference/micro_geolifeclef*/dataset/rasters
 examples/inference/micro_geolifeclef*/outputs/*
 examples/inference/sentinel-2a-rgbnir/outputs/*
 
-examples/kaggle/geolifeclef2022/dataset
+examples/benchmarks/geolifeclef/geolifeclef2022/dataset
+examples/benchmarks/geolifeclef/geolifeclef2024/dataset
+examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/dataset
 
-examples/benchmark/cifar-10/dataset/*
-examples/benchmark/cifar-10/outputs/*
+examples/benchmarks/cifar-10/dataset/*
+examples/benchmarks/cifar-10/outputs/*
 
 # Packaging
 dist/
 build/
+
+# Resources
+docs/resources/Amap_logo.png
+docs/resources/Malpolon_python_v2_image.png
+docs/resources/Malpolon_python_v2_image_transparent.png
+docs/resources/Malpolon_python_v2_text.png
+docs/resources/Malpolon_python_v2_text_transparent.png
+docs/resources/Malpolon_white.png
+
+# Debugging
+examples/custom_train/sentinel-2a-rgbnir/test.py
+examples/custom_train/sentinel-2a-rgbnir/test_bug_rasterio.md

@@ -24,7 +24,7 @@ import rasterio
 import torch
 from PIL import Image
 from pyproj import CRS as pcrs
-from rasterio.crs import CRS as rcrs
+from rasterio.crs import CRS as rcrs  # pylint: disable=E0611
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
@@ -720,6 +720,11 @@ class JpegPatchProvider(PatchProvider):
 
     Provides tensors of multi-modal patches from JPEG patch files
     of rasters of the GLC23 challenge.
+
+    Image patches are expected to be named by a patch ID and arranged
+    in folders and sub-folders in the following way:
+    root_path/YZ/WX/patch_id.jpeg with patch_id being the value
+    ABCDWXYZ.
 
     Attributes:
         (PatchProvider): inherits PatchProvider.
