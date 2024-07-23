@@ -23,8 +23,7 @@ if TYPE_CHECKING:
 
 
 class GenericPredictionSystem(pl.LightningModule):
-    r"""
-    Generic prediction system providing standard methods.
+    """Generic prediction system providing standard methods.
 
     Parameters
     ----------
