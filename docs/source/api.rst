@@ -25,7 +25,7 @@ malpolon.models.standard_prediction_systems
    :members:
 
 malpolon.models.geolifeclef2024_multimodal_ensemble
-=============================
+===================================================
 .. automodule:: malpolon.models.geolifeclef2024_multimodal_ensemble
    :members:
 

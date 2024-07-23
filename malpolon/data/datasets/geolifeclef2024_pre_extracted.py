@@ -203,8 +203,8 @@ class TestDataset(TrainDataset):
 
     Parameters
     ----------
-    TrainDataset : _type_
-        _description_
+    TrainDataset : Dataset
+        inherits TrainDataset attributes and __len__() method
     """
     def __init__(self, metadata, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None):
         self.transform = transform

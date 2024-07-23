@@ -49,8 +49,8 @@ class ClassificationSystemGLC24(ClassificationSystem):
     def configure_optimizers(self):
         """Override default optimizer and scheduler.
 
-        By default, SGD is selected an the scheduler is handle by PyTorch
-        Lightning's default one.
+        By default, SGD is selected and the scheduler is handled by
+        PyTorch Lightning's default one.
 
         Returns
         -------
