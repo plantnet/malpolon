@@ -9,7 +9,7 @@ from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 
 from malpolon.data.datasets.geolifeclef2024_pre_extracted import \
-    GLC24_Datamodule
+    GLC24Datamodule
 from malpolon.logging import Summary
 from malpolon.models.geolifeclef2024_multimodal_ensemble import (
     ClassificationSystemGLC24, MultimodalEnsemble)
@@ -52,10 +52,10 @@ def main(cfg: DictConfig) -> None:
     logger = logging.getLogger("lightning.pytorch.core")
     logger.addHandler(logging.FileHandler(f"{log_dir}/core.log"))
 
-    datamodule = GLC24_Datamodule(**cfg.data, **cfg.task)
+    datamodule = GLC24Datamodule(**cfg.data, **cfg.task)
     model = MultimodalEnsemble(num_classes=cfg.model.modifiers.change_last_layer.num_outputs,
                                positive_weigh_factor=cfg.model.positive_weigh_factor)
-    classif_system = ClassificationSystemGLC24(model, **cfg.optimizer, **cfg.task)
+    classif_system = ClassificationSystemGLC24(model, **cfg.optimizer)  # multilabel
 
     callbacks = [
         Summary(),

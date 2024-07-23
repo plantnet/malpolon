@@ -24,7 +24,7 @@ import rasterio
 import torch
 from PIL import Image
 from pyproj import CRS as pcrs
-from rasterio.crs import CRS as rcrs
+from rasterio.crs import CRS as rcrs  # pylint: disable=E0611
 from torch.utils.data import Dataset
 from tqdm import tqdm
 
