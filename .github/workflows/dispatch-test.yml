@@ -24,10 +24,6 @@ jobs:
               run: pip install -r ./requirements_python3.10.txt
             - name: pip install -e .
               run: pip install -e .
-            - name: debug_info
-              run: |
-                pip list | grep pydantic
-                pip list | grep planetary-computer
             - name: Pytest
               run: |
                 pytest malpolon/tests/test_geolifeclef2022_dataset.py
