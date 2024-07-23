@@ -30,14 +30,15 @@ Malpolon is destined to be used by various user profiles, some more experimented
 
 Here is a list of the currently available scenarios:
 
-- [**Kaggle**](examples/kaggle/) : I am a potential kaggle participant on the GeoLifeClef challenge. I want to train a model on the provided datasets without having to worry about the data loading, starting from a plug-and-play example.
-  - [<u>GeoLifeClef2022</u>](examples/kaggle/geolifeclef2022/) : contains a fully functionnal example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction.
-  - [<u>GeoLifeClef2023</u>](examples/kaggle/geolifeclef2023/) : contains dataloaders for the GeoLifeClef2023 dataset (different from the GLC2022 dataloaders). The training and prediction scripts are not provided.
-- [**Ecologists**](examples/ecologists/) : I have a dataset of my own and I want to train a model on it. I want to be able to easily customize the training process and the model architecture.
+- [**Benchmarks**](examples/benchmarks/) : I want to compare the performance of different models on a given known dataset;\
+  or I am a potential kaggle participant on the GeoLifeClef challenge. I want to train a model on the provided datasets without having to worry about the data loading, starting from a plug-and-play example.
+  - [<u>GeoLifeClef2022</u>](examples/benchmarks/geolifeclef2022/) : contains a fully functionnal example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction.
+  - [<u>GeoLifeClef2023</u>](examples/benchmarks/geolifeclef2023/) : contains dataloaders for the GeoLifeClef2023 dataset (different from the GLC2022 dataloaders). The training and prediction scripts are not provided.
+  - [<u>GeoLifeClef2024 (pre-extracted)</u>](examples/benchmarks/geolifeclef2024_pre_extracted/) : contains a fully functional example of a multimodal ensemble model used to provide a strong baseline for the [GeoLifeClef2024 kaggle competition](https://www.kaggle.com/competitions/geolifeclef-2024). The example uses unique dataloaders and models to handle pre-extracted values from satellite patches, satellite time series and bioclimatic time series.
+- [**Train (custom datasets)**](examples/custom_train/) : I have a dataset of my own and I want to train a model on it. I want to be able to easily customize the training process and the model architecture.
   - <u>Drop and play</u> : I have an observations file (.csv) and I want to train a model on different environmental variables (rasters, satellite imagery) without having to worry about the data loading.
   - <u>Custom dataset</u> : I have my own dataset consisting of pre-extracted image patches and/or rasters and I want to train a model on it.
 - [**Inference**](examples/inference/) : I have an observations file (.csv) and I want to predict the presence of species on a given area using a model I trained previously and a selected dataset or a shapefile I would provide.
-- [**Benchmark**](examples/benchmark/) : I want to compare the performance of different models on a given known dataset, or validate the framework's backbone (every module apart from the datasets and datamodule) on a specific hardware.
 
 ## 🔧 Installation
 

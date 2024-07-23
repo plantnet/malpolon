@@ -22,7 +22,7 @@ omegaconf==2.3.0
 opencv-python==4.7.0.72
 pandas==2.2.1
 Pillow==10.3.0
-planetary-computer==0.4.9
+planetary-computer==1.0.0
 pydocstyle==6.3.0
 pyflakes==3.0.1
 pylint==2.17.1
@@ -47,4 +47,5 @@ torchgeo==0.5.0
 torchmetrics==1.2.0
 torchvision==0.16.0
 tqdm==4.66.3
+verde==1.8.0
 yarl==1.9.2
