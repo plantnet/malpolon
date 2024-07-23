@@ -215,7 +215,7 @@ class LocationEncoderCapsule(nn.Module):
         sigma : float
             Standard deviation for the Gaussian encoding.
         """
-        super(LocationEncoderCapsule, self).__init__()
+        super().__init__()
         rff_encoding = GaussianEncoding(sigma=sigma, input_size=2, encoded_size=256)
         self.capsule = nn.Sequential(
             rff_encoding,
@@ -268,7 +268,7 @@ class LocationEncoder(nn.Module):
         from_pretrained : bool, optional
             Whether to load pre-trained weights, by default True.
         """
-        super(LocationEncoder, self).__init__()
+        super().__init__()
         self.sigma = sigma
 
         for i, s in enumerate(self.sigma):
