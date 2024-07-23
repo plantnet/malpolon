@@ -8,13 +8,11 @@ Python version: 3.10.6
 """
 from typing import Any, Callable, Mapping, Optional, Union
 
-import numpy as np
 import omegaconf
 import torch
 from omegaconf import OmegaConf
 from torch import Tensor, nn
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torchmetrics import Metric
 from torchvision import models
 
 from malpolon.models import ClassificationSystem
@@ -49,11 +47,21 @@ class ClassificationSystemGLC24(ClassificationSystem):
         self.optimizer = check_optimizer(optimizer)
 
     def configure_optimizers(self):
+        """Override default optimizer and scheduler.
+
+        By default, SGD is selected an the scheduler is handle by PyTorch
+        Lightning's default one.
+
+        Returns
+        -------
+        (dict)
+            dictionary containing keys for optimizer and scheduler,
+            passed on to PyTorch Lightning
+        """
         scheduler = CosineAnnealingLR(self.optimizer, T_max=25, verbose=True)
         res = {'optimizer': self.optimizer,
                'lr_scheduler': scheduler}
         return res
-
 
     def forward(self, x, y, z):  # noqa: D102 pylint: disable=C0116
         return self.model(x, y, z)

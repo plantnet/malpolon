@@ -124,6 +124,10 @@ class ConcatPatchRasterDataset(Dataset):
 
 
 class ConcatTorchGeoDataModule(BaseDataModule):
+    """Data module to handle concatenation dataset.
+
+    Inherits BaseDataModule
+    """
     def __init__(
         self,
         dataset_kwargs: list[dict[Dataset, Any]],

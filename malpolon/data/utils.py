@@ -240,7 +240,7 @@ def split_obs_per_species_frequency(input_path: str,
     for i, v in enumerate(n_cls_val[1]):
         n_cls_val[1][i] = round(v * val_ratio)
 
-    indivisible_sid_n_rows = np.sum(n_cls_val[1][n_cls_val[1] < (1/val_ratio)])
+    indivisible_sid_n_rows = np.sum(n_cls_val[1][n_cls_val[1] < (1 / val_ratio)])
     pa_val = pd.DataFrame(columns=pa_train.columns)
     for sid, n_sid in zip(tqdm(n_cls_val[0]), n_cls_val[1]):
         if n_sid >= 1:

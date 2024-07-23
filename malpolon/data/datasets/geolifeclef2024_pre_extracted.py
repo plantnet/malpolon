@@ -24,14 +24,47 @@ from malpolon.data.utils import split_obs_spatially
 
 
 def construct_patch_path(data_path, survey_id):
-    """Construct the patch file path based on plot_id as './CD/AB/XXXXABCD.jpeg'"""
+    """Construct the patch file path.
+
+    File path is reconstructed based on plot_id as './CD/AB/XXXXABCD.jpeg'.
+
+    Parameters
+    ----------
+    data_path : str
+        root path
+    survey_id : int
+        observation id
+
+    Returns
+    -------
+    (str)
+        patch path
+    """
     path = data_path
-    for d in (str(survey_id)[-2:], str(survey_id)[-4:-2]):
-        path = os.path.join(path, d)
+    for pid in (str(survey_id)[-2:], str(survey_id)[-4:-2]):
+        path = os.path.join(path, pid)
     path = os.path.join(path, f"{survey_id}.jpeg")
     return path
 
+
 def load_landsat(path, transform=None):
+    """Load Landsat pre-extracted time series data.
+
+    Loads pre-extracted time series data from Landsat satellite
+    time series, stored as torch tensors.
+
+    Parameters
+    ----------
+    path : str
+        path to data cube
+    transform : callable, optional
+        data transform, by default None
+
+    Returns
+    -------
+    (array)
+        numpy array of loaded transformed data
+    """
     landsat_sample = torch.nan_to_num(torch.load(path))
     if isinstance(landsat_sample, torch.Tensor):
         # landsat_sample = landsat_sample.permute(1, 2, 0)  # Change tensor shape from (C, H, W) to (H, W, C)
@@ -40,7 +73,25 @@ def load_landsat(path, transform=None):
         landsat_sample = transform(landsat_sample)
     return landsat_sample
 
+
 def load_bioclim(path, transform=None):
+    """Load Bioclim pre-extracted time series data.
+
+    Loads pre-extracted time series data from bioclim environmental
+    time series, stored as torch tensors.
+
+    Parameters
+    ----------
+    path : str
+        path to data cube
+    transform : callable, optional
+        data transform, by default None
+
+    Returns
+    -------
+    (array)
+        numpy array of loaded transformed data
+    """
     bioclim_sample = torch.nan_to_num(torch.load(path))
     if isinstance(bioclim_sample, torch.Tensor):
         # bioclim_sample = bioclim_sample.permute(1, 2, 0)  # Change tensor shape from (C, H, W) to (H, W, C)
@@ -49,7 +100,27 @@ def load_bioclim(path, transform=None):
         bioclim_sample = transform(bioclim_sample)
     return bioclim_sample
 
+
 def load_sentinel(path, survey_id, transform=None):
+    """Load Sentinel-2A pre-extracted patch data.
+
+    Loads pre-extracted data from Sentinel-2A satellite image patches,
+    stored as image patches.
+
+    Parameters
+    ----------
+    path : str
+        path to data cube
+    survey_id: str
+        observation id which identifies the patch to load
+    transform : callable, optional
+        data transform, by default None
+
+    Returns
+    -------
+    (array)
+        numpy array of loaded transformed data
+    """
     rgb_sample = read_image(construct_patch_path(path, survey_id)).numpy()
     nir_sample = read_image(construct_patch_path(path.replace("rgb", "nir").replace("RGB", "NIR"), survey_id)).numpy()
     sentinel_sample = np.concatenate((rgb_sample, nir_sample), axis=0).astype(np.float32)
@@ -124,6 +195,7 @@ class TrainDataset(Dataset):
 
         return tuple(data_samples) + (label, survey_id)
 
+
 class TestDataset(TrainDataset):
     """Test dataset with test transform functions.
 
@@ -145,7 +217,6 @@ class TestDataset(TrainDataset):
         self.observation_ids = metadata['surveyId']
 
     def __getitem__(self, idx):
-
         survey_id = self.metadata.surveyId[idx]
         data_samples = []
 
@@ -172,7 +243,9 @@ class TestDataset(TrainDataset):
             label[label_id] = 1  # Set the corresponding class index to 1 for each species
         return tuple(data_samples) + (label, survey_id,)
 
-class GLC24_Datamodule(BaseDataModule):
+
+class GLC24Datamodule(BaseDataModule):
+    """Data module for GeoLifeCLEF 2024 dataset."""
     def __init__(
         self,
         data_paths: dict,
@@ -182,16 +255,42 @@ class GLC24_Datamodule(BaseDataModule):
         inference_batch_size: int = 16,
         num_workers: int = 16,
         sampler: Callable = None,
-        task: str = 'classification_multilabel',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
         dataset_kwargs: dict = {},
         download_data: bool = False,
         **kwargs,
     ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        data_paths : dict
+            a 2-level dictionary containing data paths. 1st level keys:
+            "train" and "test", each containing another dictionary with
+            keys: "landsat_data_dir", "bioclim_data_dir",
+            "sentinel_data_dir" and values: the corresponding data paths
+            as strings.
+        metadata_paths : dict
+            a dictionary containing the paths to the observations (or
+            "metadata") as values for keys "train", "test", "val"
+        num_classes : int
+            number of classes to train on.
+        train_batch_size : int, optional
+            training batch size, by default 64
+        inference_batch_size : int, optional
+            inference batch size, by default 16
+        num_workers : int, optional
+            number of PyTorch workers, by default 16
+        sampler : Callable, optional
+            dataloader sampler to use, by default None (standard
+            iteration)
+        download_data : bool, optional
+            if true, will offer to download the pre-extracted data from
+            Seafile, by default False
+        """
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.data_paths = data_paths
         self.metadata_paths = metadata_paths
         self.sampler = sampler
-        self.task = task
         self.dataset_kwargs = dataset_kwargs
         self.num_classes = num_classes
         self.root = "data/"
@@ -265,7 +364,6 @@ class GLC24_Datamodule(BaseDataModule):
             split_obs_spatially(str(self.root / "GLC24_PA_metadata_train.csv"), val_size=0.10)
             split = True
         return downloaded and split
-
 
     def download(self):
         """Download the GeolifeClef2024 dataset."""
