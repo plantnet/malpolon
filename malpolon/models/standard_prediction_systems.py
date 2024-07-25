@@ -314,3 +314,76 @@ class ClassificationSystem(GenericPredictionSystem):
             }
 
         super().__init__(model, loss, optimizer, metrics)
+
+
+class RegressionSystem(GenericPredictionSystem):
+    """Regression task class."""
+    def __init__(
+        self,
+        model: Union[torch.nn.Module, Mapping],
+        lr: float = 1e-2,
+        weight_decay: float = 0,
+        momentum: float = 0.9,
+        nesterov: bool = True,
+        metrics: Optional[dict[str, Callable]] = None,
+        task: str = 'regression',
+        hparams_preprocess: bool = True,
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        model : dict
+            model to use
+        lr : float
+            learning rate
+        weight_decay : float
+            weight decay
+        momentum : float
+            value of momentum
+        nesterov : bool
+            if True, uses Nesterov's momentum
+        metrics : dict
+            dictionnary containing the metrics to compute.
+            Keys must match metrics' names and have a subkey with each
+            metric's functional methods as value. This subkey is either
+            created from the `malpolon.models.utils.FMETRICS_CALLABLES`
+            constant or supplied, by the user directly.
+        task : str, optional
+            Machine learning task (used to format labels accordingly),
+            by default 'regression'. The value determines
+            the loss to be selected.
+        hparams_preprocess : bool, optional
+            if True performs preprocessing operations on the hyperparameters,
+            by default True
+        """
+        if hparams_preprocess:
+            assert task == 'regression', "Regression task must be specified."
+            # task = task.split('classification_')[1]
+            metrics = check_metric(metrics)
+
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.momentum = momentum
+        self.nesterov = nesterov
+
+        model = check_model(model)
+
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=self.lr,
+            weight_decay=self.weight_decay,
+            momentum=self.momentum,
+            nesterov=self.nesterov,
+        )
+        if 'regression' in task :
+            loss = torch.nn.MSELoss()
+            
+        if metrics is None:
+            
+            metrics = {
+                "accuracy": {'callable': Fmetrics.regerssion.r2_score,
+                             'kwargs': {}}
+            }
+
+        super().__init__(model, loss, optimizer, metrics)
