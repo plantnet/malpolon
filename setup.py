@@ -1,10 +1,10 @@
 from setuptools import find_packages, setup
 
 setup(name="malpolon",
-      version="1.1.0",
-      description="Malpolon v1.1.0",
-      author="Theo Larcher, Titouan Lorieul",
-      author_email="theo.larcher@inria.fr, titouan.lorieul@gmail.com",
+      version="1.2.0",
+      description="Malpolon v1.2.0",
+      author="Theo Larcher, Titouan Lorieul, Lukas Picek",
+      author_email="theo.larcher@inria.fr, titouan.lorieul@gmail.com, lukas.picek@inria.fr",
       url="https://github.com/plantnet/malpolon",
       classifiers=[
         "Development Status :: 3 - Alpha",
@@ -35,7 +35,7 @@ setup(name="malpolon",
         "omegaconf>=2.3.0",
         "pandas>=2.2.1",
         "Pillow>=10.3.0",
-        "planetary_computer>=0.4.9",
+        "planetary_computer>=1.0.0",
         "pyproj>=3.6.1",
         "pystac>=1.6.1",
         "pytest>=7.2.2",
@@ -49,7 +49,8 @@ setup(name="malpolon",
         "torchgeo>=0.5.0",
         "torchmetrics>=1.2.0",
         "torchvision>=0.16.0",
-        "tqdm>=4.66.3"
+        "tqdm>=4.66.3",
+        "verde>=1.8.0"
       ],
       project_urls={
         "Bug Reports": "https://github.com/plantnet/malpolon/issues/new?assignees=aerodynamic-sauce-pan&labels=bug&projects=&template=bug_report.md&title=%5BBUG%5D",
