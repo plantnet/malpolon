@@ -1,1 +1,4 @@
 outputs
+
+landsat_7_less
+*.tiff
