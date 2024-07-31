@@ -73,34 +73,28 @@ class MSDataset(Dataset):
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
+
+        
         row = self.dataframe.iloc[idx]
+
+        value = row.wealthpooled.astype('float')
+        
         tile_name = os.path.join(self.root_dir,
                                  str(row.country) + "_" + str(row.year),
                                  str(row.cluster) + ".tif"
                                  )
 
-        raster = gdal.Open(tile_name)
-        tile = np.empty([8, 255, 255])
-        for band in range(raster.RasterCount):
-            tile[band, :, :] = raster.GetRasterBand(band + 1).ReadAsArray()
-        value = row.wealthpooled.astype('float')
+        
+        tile = np.empty([7, 255, 255])
+
+        with rasterio.open(tile_name) as src:
+        
+            for band in src.indexes[0:-1]:
+                tile[band-1, :, :] = src.read(band)
+
         tile = torch.from_numpy(np.nan_to_num(tile))
 
-        # We only select MS bands
-        tile = tile[:7, :, :]
-
-        # Close Raster (Safety Measure)
-        raster = None
-        if self.test_flag:
-            transforms = torch.nn.Sequential(
-                torchvision.transforms.CenterCrop(224),
-            )
-
-            tile = transforms(tile)
-
-            tile = preprocess_landsat(tile, self.normalizer['landsat_+_nightlights'], jitter=None)
-            return idx, tile, value
-
+        
         transforms = torch.nn.Sequential(
             torchvision.transforms.CenterCrop(224),
             torchvision.transforms.RandomHorizontalFlip(),
