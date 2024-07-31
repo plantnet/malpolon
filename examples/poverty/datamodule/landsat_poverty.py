@@ -53,7 +53,7 @@ def preprocess_landsat(raster, normalizer, jitter=None):
 
 
 
-class RegressionDataModule(pl.LightningDataModule):
+class PovertyDataModule(pl.LightningDataModule):
     def __init__(self, csv_file, tif_dir, batch_size=32, transform=None, val_split=0.2):
         super().__init__()
         self.dataframe = pd.read_csv(csv_file)
@@ -125,7 +125,7 @@ class MSDataset(Dataset):
 
 if __name__ == "__main__":
 
-    dm = RegressionDataModule("datasets/landsat_poverty.csv", "datasets/landsat_tiles")
+    dm = PovertyDataModule("datasets/landsat_poverty.csv", "datasets/landsat_tiles")
     dm.setup()
     dl = dm.train_dataloader()
     for i, (x, y) in enumerate(dl):
