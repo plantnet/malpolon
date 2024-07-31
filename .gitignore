@@ -30,7 +30,7 @@ examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/dataset
 examples/benchmarks/cifar-10/dataset/*
 examples/benchmarks/cifar-10/outputs/*
 
-dataset/
+# dataset/
 
 # Packaging
 dist/
