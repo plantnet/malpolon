@@ -22,7 +22,8 @@ from malpolon.data.datasets.geolifeclef2022 import (GeoLifeCLEF2022Dataset,
                                                     MiniGeoLifeCLEF2022Dataset)
 from malpolon.data.environmental_raster import PatchExtractor
 from malpolon.logging import Summary
-from malpolon.models.multi_modal import HomogeneousMultiModalModel
+from malpolon.models.custom_models.multi_modal import \
+    HomogeneousMultiModalModel
 from malpolon.models.standard_prediction_systems import ClassificationSystem
 
 

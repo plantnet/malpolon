@@ -11,8 +11,10 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from malpolon.data.datasets.geolifeclef2024_pre_extracted import \
     GLC24Datamodule
 from malpolon.logging import Summary
-from malpolon.models.geolifeclef2024_multimodal_ensemble import (
-    ClassificationSystemGLC24, MultimodalEnsemble)
+from malpolon.models.custom_models.glc2024_multimodal_ensemble_model import \
+    MultimodalEnsemble
+from malpolon.models.custom_models.glc2024_pre_extracted_prediction_system import \
+    ClassificationSystemGLC24
 
 
 def set_seed(seed):
@@ -55,7 +57,7 @@ def main(cfg: DictConfig) -> None:
     datamodule = GLC24Datamodule(**cfg.data, **cfg.task)
     model = MultimodalEnsemble(num_classes=cfg.model.modifiers.change_last_layer.num_outputs,
                                positive_weigh_factor=cfg.model.positive_weigh_factor)
-    classif_system = ClassificationSystemGLC24(model, **cfg.optimizer)  # multilabel
+    classif_system = ClassificationSystemGLC24(model, **cfg.optimizer, weights_dir=log_dir)  # multilabel
 
     callbacks = [
         Summary(),
