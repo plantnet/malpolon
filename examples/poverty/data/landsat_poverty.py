@@ -2,8 +2,14 @@ import torch
 import os
 import numpy as np
 from torch.utils.data import Dataset
+from torchgeo.datasets.utils import BoundingBox
 import torchvision
 import pickle
+
+from malpolon.data.data_module import BaseDataModule
+from torchgeo.datasets import  RasterDataset
+
+import rasterio
 
 # TODO : Change gdal to read .tiff files
 
@@ -43,6 +49,9 @@ def preprocess_landsat(raster, normalizer, jitter=None):
         raster[i] = (raster[i] - normalizer[0][i]) / (normalizer[1][i])
 
     return raster
+
+
+
 
 class MSDataset(Dataset):
 
