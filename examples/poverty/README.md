@@ -1,54 +1,25 @@
 <a name="readme-top"></a>
 
-# Sentinel-2A rasters example (training)
+# Landsat rasters example (training)
 
-This `torchgeo` based example performs multi-label (by default), multi-class or binary classification of species using a CNN model on Sentinel-2A raster data and geolocated plant observations.
-
-Sentinel-2A satellite data is hosted and available on [Microsoft Planetary Computer](https://planetarycomputer.microsoft.com/dataset/sentinel-2-l2a) (MPC).\
-By default, a data sample is downloaded from MPC, consisting of 1 tile, 4 bands (RGB-IR).
+This example performs regression of poverty  using a 2-mpa model on Landsat raster and socio-climatic data.
 
 ## Data
 
 ### Sample data
 
 The sample data used in this example consists of:
-- **Satellite images**: the RGB-IR bands of the tile `T31TEJ` from the Sentinel-2A satellite (which contains the city of Montpellier, France). Each band is a GeoTIFF file with a resolution of 10m.
+- **Satellite images**: the 7 bands of the tile `XXXXXXX` from the Landsat7 satellite. Each band is a GeoTIFF file with a resolution of XXXm.
 
-<div align="center">
-  <figure>
-    <a href="https://planetarycomputer.microsoft.com/explore?c=4.0129%2C43.6370&z=10.30&v=2&d=sentinel-2-l2a&m=cql%3A17367ba270405507e8f9aa7772327681&r=Natural+color&s=false%3A%3A100%3A%3Atrue&sr=desc&ae=0">
-      <img src="../../../docs/resources/S2A_MSIL2A_20190801T104031_R008_T31TEJ_20201004T190635_preview.jpg" alt="Sentinel2A_T31TEJ_preview" width="300"></a>
-      <br/>
-     <figcaption>Sentinel-2A tile <code>T31TEJ</code> at 01/08/2019 (dd/mm/yy)</figcaption>
-  </figure>
-</div>
+- **Observations**: a CSV file containing a list of ______________________. The CSV file contains the following columns:
+  - ``XXXXX``
 
-- **Observations**: a CSV file containing a list of geolocated plant observations from the [Pl@ntNet](https://plantnet.org/) database. The CSV file contains the following columns:
-  - `survey_id`: unique identifier of the observation
-  - `species_id`: unique identifier of the plant species
-  - `GBIF_species_name`: GBIF species name
-  - `latitude`: latitude of the observation
-  - `longitude`: longitude of the observation
-  - `subset`: subset of the observation (`train`, `val` or `test`)
-
-  (The CSV is a dummie file based on the Pl@ntNet observation database so species IDs and geographic coordinates do not reflect real observations.)
-
-Species include:
-
-| Species | Himantoglossum hircinum | Mentha suaveolens | Ophrys apifera | Orchis purpurea | Stachys byzantina |
-|:-:|:-:|:-:|:-:|:-:|:-:|
-| Photo |![Himantoglossum_hircinum](../../../docs/resources/Himantoglossum_hircinum.jpg "Himantoglossum hircinum") | ![Mentha_suaveolens](../../../docs/resources/Mentha_suaveolens.jpg "Mentha suaveolens") | ![Ophrys_apifera](../../../docs/resources/Ophrys_apifera.jpg "Ophrys apifera") | ![Orchis_purpurea](../../../docs/resources/Orchis_purpurea.jpg "Orchis purpurea") | ![Stachys_byzantina](../../../docs/resources/Stachys_byzantina.jpg "Stachys byzantina") |
-| Source |[Wikipedia: Himantoglossum hircinum](https://en.wikipedia.org/wiki/Himantoglossum_hircinum) | [Wikipedia: Mentha suaveolens](https://en.wikipedia.org/wiki/Mentha_suaveolens) | [Wikipedia: Ophrys apifera](https://en.wikipedia.org/wiki/Ophrys_apifera) | [Wikipedia: Orchis purpurea](https://en.wikipedia.org/wiki/Orchis_purpurea) | [Wikipedia: Stachys byzantina](https://en.wikipedia.org/wiki/Stachys_byzantina) | 
-| Author | [Jörg Hempel](https://commons.wikimedia.org/wiki/User:LC-de) <br> (24/05/2014) | [Broly0](https://commons.wikimedia.org/wiki/User:Smithh05) <br> (12/05/2009) |  [Orchi](https://commons.wikimedia.org/wiki/User:Orchi) <br> (15/06/2005) | [Francesco Scelsa](https://commons.wikimedia.org/w/index.php?title=User:Francesco_Scelsa&action=edit&redlink=1) <br> (10/05/2020) | [Jean-Pol GRANDMONT](https://commons.wikimedia.org/wiki/User:Jean-Pol_GRANDMONT) <br> (09/06/2010) |
-| License | CC BY-SA 3.0 de | CC0 | CC BY-SA 3.0 | CC BY-SA 4.0 | CC BY-SA 3.0 |
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ### Data loading and adding more data
 
 - **Satellite images**
 
-The Sentinel-2A tiles are looked for in the `<path_to_example>/dataset` directory and they are loaded based on their standard naming convention, following several rules are set in `malpolon.data.datasets.torchgeo_sentinel2.RasterSentinel2`.
+The LandSat tiles are looked for in the `<path_to_example>/dataset` directory and they are loaded based on ``XXXXXXXXXXXXXXX``.
 
 ```python 
   filename_glob = "T*_B0*_10m.tif"
