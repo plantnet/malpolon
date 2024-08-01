@@ -15,7 +15,7 @@ import rasterio
 # TODO : Add JITTER and NORMALIZER to transfomer LightningDataModule, top remove ``preprocess_landsat`` step
 
 
-NORMALIZER = 'datasets/normalizer.pkl'
+NORMALIZER = 'dataset/normalizer.pkl'
 BANDS = ['BLUE', 'GREEN', 'RED', 'NIR', 'SWIR1', 'SWIR2', 'TEMP1', 'NIGHTLIGHTS']
 DESCRIPTOR = {
     'cluster': "float",
@@ -67,7 +67,7 @@ class PovertyDataModule(pl.LightningDataModule):
         self.val_split = val_split
 
     def setup(self, stage=None):
-        full_dataset = MSDataset(self.dataframe, self.tif_dir, transform=self.transform)
+        full_dataset = MSDataset(self.dataframe, self.tif_dir)
         
         val_size = int(len(full_dataset) * self.val_split)
         train_size = len(full_dataset) - val_size
@@ -125,7 +125,7 @@ class MSDataset(Dataset):
 
 if __name__ == "__main__":
 
-    dm = PovertyDataModule("datasets/landsat_poverty.csv", "datasets/landsat_tiles")
+    dm = PovertyDataModule("dataset/observation_2013+.csv", "dataset/landsat_tiles")
     dm.setup()
     dl = dm.train_dataloader()
     for i, (x, y) in enumerate(dl):

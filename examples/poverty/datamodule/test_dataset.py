@@ -13,33 +13,12 @@ import rasterio
 from matplotlib import pyplot
 import random
 
-
-class CustomTiffDataset(RasterDataset):
-    filename_glob = "*.tif"
-    # filename_regex = r"^.{6}_(?P<date>\d{8}T\d{6})_(?P<band>B0[\d])"
-    # date_format = "%Y%m%dT%H%M%S"
-    is_image = True
-    separate_files = True
-    all_bands = BANDS = ['BLUE', 'GREEN', 'RED', 'NIR', 'SWIR1', 'SWIR2', 'TEMP1']
-    rgb_bands = ['BLUE', 'GREEN', 'RED']
-    
-    
-    
-class PovertyTiffDataset(RasterDataset):
-
-    def __init__():
-
-        pass
-
-class PovertyDataModule(BaseDataModule):
-    def __init__():
-        pass
-
+BANDS = ['BLUE', 'GREEN', 'RED', 'NIR', 'SWIR1', 'SWIR2', 'TEMP1']
 
 if __name__ == "__main__":
 
     
-    root="examples/poverty/data/landsat_7_less/angola_2015/"
+    root="dataset/landsat_tiles/angola_2015/"
     tile = np.empty([8, 255, 255])
     
 
@@ -57,8 +36,8 @@ if __name__ == "__main__":
     fig, axs = pyplot.subplots(2, 4, figsize=(12, 6))
 
     for i, ax in enumerate(axs.flat):
-        ax.imshow(tile[i, ...], cmap='pink')
-        ax.set_title(f"Band {i+1}")
+        ax.imshow(tile[0:3, ...].transpose(1,2,0))#, cmap='pink'
+        ax.set_title(f"Band: {i}")
 
     pyplot.tight_layout()
     pyplot.show()
