@@ -1,4 +1,4 @@
 outputs
 
-landsat_7_less
-*.tiff
+landsat_tiles
+*.tif

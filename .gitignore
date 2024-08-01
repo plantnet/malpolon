@@ -50,3 +50,6 @@ docs/resources/Malpolon_white.png
 # Debugging
 examples/custom_train/sentinel-2a-rgbnir/test.py
 examples/custom_train/sentinel-2a-rgbnir/test_bug_rasterio.md
+
+*.tif
+landsat_tiles/
