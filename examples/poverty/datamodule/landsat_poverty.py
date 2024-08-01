@@ -120,8 +120,10 @@ class MSDataset(Dataset):
         return len(self.dataframe)
 
     def __getitem__(self, idx):
+
         if torch.is_tensor(idx):
             idx = idx.tolist()
+
 
         row = self.dataframe.iloc[idx]
 
@@ -145,22 +147,36 @@ class MSDataset(Dataset):
     
     def plot(self, idx, rgb=False):
 
-        tiles, values = self.__getitem__(idx)
-        tile=random.choice(tiles)
-        value=values[0]
-
+        tile, value = self.__getitem__(idx)
+        max,_= tile.max(dim=1)
+        max,_= max.max(dim=1)
+        print(max)
+        tile=tile.numpy()
+        
         if rgb:
             fig, ax = pyplot.subplots(1, 1, figsize=(6, 6))
-
-            ax.imshow(tile[0:3, ...][::-1, ... ].transpose(1,2,0))
+            img_rgb=tile[0:3, ...][::-1, ... ].transpose(1,2,0)
+            ax.imshow(img_rgb,vmax=50) #
             ax.set_title(f"Value: {value}, RGB")
         else :
+
             fig, axs = pyplot.subplots(2, 4, figsize=(12, 6))
 
-            for i, ax in enumerate(axs.flat):
-                ax.imshow(tile[i, ...].transpose(1,2,0))#, cmap='pink'
+            for i, ax in enumerate(axs.flat[0:-1]):
+
+                ax.imshow(tile[i, ...], cmap='pink')
+
                 ax.set_title(f"Band: {i}")
             fig.suptitle(f"Value: {value}")
 
             pyplot.tight_layout()
             pyplot.show()
+
+
+if __name__ == '__main__':
+    module = PovertyDataModule()
+    module.setup()
+    module.train_dataloader()
+    module.val_dataloader()
+    module.get_dataset()
+    
