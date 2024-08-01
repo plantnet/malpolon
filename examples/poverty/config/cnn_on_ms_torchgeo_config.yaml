@@ -10,20 +10,10 @@ data:
   num_classes: 1
   dataset_path: "examples/poverty/dataset/"
   labels_name: "observation_2013+.csv"
-  download_data_sample: True
-  train_batch_size: 2
-  inference_batch_size: 2
+  train_batch_size: 16
+  inference_batch_size: 16
   num_workers: 8
-  units: "pixel"
-  crs: 4326
-  # binary_positive_classes: [1]  # For binary classification, define which classes are considered as 1. Others will be considered 0
-  dataset_kwargs:
-    obs_data_columns: {"x": "longitude",
-                       "y": "latitude",
-                       "index": "surveyId",
-                       "species_id": "speciesId",
-                       "split": "subset"}
-
+  
 task:
   task: "regression" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
 
@@ -40,7 +30,7 @@ model:
   provider_name: "torchvision" # choose from ["timm", "torchvision"]
   model_name: "resnet18"
   model_kwargs:
-    pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
+    weights: 'ResNet18_Weights.DEFAULT' # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
     num_classes:
     in_chans:
     output_stride:
@@ -64,7 +54,6 @@ optimizer:
     #   # callable: 'Fmetrics.classification.multiclass_accuracy'
     #   kwargs:
     #     num_classes: *num_classes
-    multilabel_accuracy:
-      # callable: 'Fmetrics.classification.multilabel_accuracy'
-      kwargs:
-        num_labels: ${data.num_classes}
+    regression_R2score:
+      callable: 'torchmetrics.regression.R2Score'
+      kwargs: {}

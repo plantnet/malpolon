@@ -87,11 +87,11 @@ class PovertyDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
         
     def get_dataset(self):
-        dataset = MSDataset(self.dataframe, self.tif_dir)
+        dataset = MSDataset(self.dataframe, self.tif_dir,transform=self.transform)
         return dataset
 
     def setup(self, stage=None):
-        full_dataset = MSDataset(self.dataframe, self.tif_dir)
+        full_dataset = MSDataset(self.dataframe, self.tif_dir,transform=self.transform)
         
         val_size = int(len(full_dataset) * self.val_split)
         train_size = len(full_dataset) - val_size
@@ -106,7 +106,7 @@ class PovertyDataModule(pl.LightningDataModule):
 
 class MSDataset(Dataset):
 
-    def __init__(self, dataframe, root_dir):
+    def __init__(self, dataframe, root_dir,transform=None):
         """
         Args:
             dataframe (Pandas DataFrame): Pandas DataFrame containing image file names and labels.
@@ -114,6 +114,7 @@ class MSDataset(Dataset):
         """
         self.dataframe = dataframe
         self.root_dir = root_dir
+        self.transform=transform
 
     def __len__(self):
         return len(self.dataframe)
@@ -141,6 +142,7 @@ class MSDataset(Dataset):
                 tile[band-1, :, :] = src.read(band)
 
         tile = np.nan_to_num(tile)
+        tile = self.transform(torch.tensor(tile, dtype=torch.float32))
 
         return torch.tensor(tile, dtype=torch.float32), torch.tensor(value, dtype=torch.float32)
     

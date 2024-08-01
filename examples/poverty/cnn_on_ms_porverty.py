@@ -21,6 +21,9 @@ from malpolon.logging import Summary
 from malpolon.models import RegressionSystem,ClassificationSystem
 
 
+import warnings
+from rasterio.errors import NotGeoreferencedWarning
+warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
 
 
 @hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
@@ -39,7 +42,7 @@ def main(cfg: DictConfig) -> None:
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
     logger_tb.log_hyperparams(cfg)
 
-    datamodule = PovertyDataModule(**cfg.data, **cfg.task)
+    datamodule = PovertyDataModule()#**cfg.data, **cfg.task
     model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
     callbacks = [
@@ -55,11 +58,15 @@ def main(cfg: DictConfig) -> None:
         ),
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
-
-    
-
-    trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
-    trainer.validate(model, datamodule=datamodule)
+    datamodule.setup()
+    batch_1 = next(iter(datamodule.train_dataloader()))
+    print(batch_1[0].shape)
+    pred = model(batch_1[0])
+    print(pred.shape)
+    print(batch_1[1].shape)
+    print(model)
+    # trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+    # trainer.validate(model, datamodule=datamodule)
 
 
 if __name__ == "__main__":
