@@ -23,7 +23,7 @@ from malpolon.models import RegressionSystem,ClassificationSystem
 
 
 
-@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_rgbnir_torchgeo_config")
+@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
 
@@ -39,8 +39,8 @@ def main(cfg: DictConfig) -> None:
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
     logger_tb.log_hyperparams(cfg)
 
-    # datamodule = PovertyDataModule(**cfg.data, **cfg.task)
-    model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
+    datamodule = PovertyDataModule(**cfg.data, **cfg.task)
+    model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
     callbacks = [
         Summary(),
@@ -58,8 +58,8 @@ def main(cfg: DictConfig) -> None:
 
     
 
-    # trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
-    # trainer.validate(model, datamodule=datamodule)
+    trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+    trainer.validate(model, datamodule=datamodule)
 
 
 if __name__ == "__main__":

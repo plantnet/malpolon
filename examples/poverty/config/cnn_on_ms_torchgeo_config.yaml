@@ -28,7 +28,6 @@ task:
   task: "regression" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
 
 trainer:
-  # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
   accelerator: "gpu"
   devices: 1
   max_epochs: 3
