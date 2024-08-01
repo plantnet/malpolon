@@ -7,9 +7,9 @@ run:
   checkpoint_path:
 
 data:
-  num_classes: 1
-  dataset_path: "examples/poverty/dataset/"
-  labels_name: "observation_2013+.csv"
+  num_classes: 5
+  dataset_path: "dataset/"
+  labels_name: "observations.csv"
   download_data_sample: True
   train_batch_size: 2
   inference_batch_size: 2
@@ -25,7 +25,7 @@ data:
                        "split": "subset"}
 
 task:
-  task: "regression" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
+  task: "classification_multilabel" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
 
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
@@ -38,7 +38,7 @@ trainer:
 
 
 model:
-  provider_name: "torchvision" # choose from ["timm", "torchvision"]
+  provider_name: "timm" # choose from ["timm", "torchvision"]
   model_name: "resnet18"
   model_kwargs:
     pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
@@ -48,7 +48,7 @@ model:
     global_pool:
   modifiers:
     change_first_convolutional_layer:
-      num_input_channels: 7
+      num_input_channels: 4
     change_last_layer:
       num_outputs: ${data.num_classes}  # set to 1 for binary classification
 

@@ -11,18 +11,19 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 from __future__ import annotations
 
 import os
-
 import hydra
 import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from examples.poverty.datamodule.landsat_poverty import PovertyDataModule
+from malpolon.data.datasets import PovertyDataModule
 from malpolon.logging import Summary
-from malpolon.models import RegressionSystem
+from malpolon.models import RegressionSystem,ClassificationSystem
 
 
-@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
+
+
+@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_rgbnir_torchgeo_config")
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
 
@@ -38,8 +39,8 @@ def main(cfg: DictConfig) -> None:
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
     logger_tb.log_hyperparams(cfg)
 
-    datamodule = PovertyDataModule(**cfg.data, **cfg.task)
-    model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
+    # datamodule = PovertyDataModule(**cfg.data, **cfg.task)
+    model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
     callbacks = [
         Summary(),
@@ -55,40 +56,10 @@ def main(cfg: DictConfig) -> None:
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
 
-    if cfg.run.predict:
-        model_loaded = RegressionSystem.load_from_checkpoint(cfg.run.checkpoint_path,
-                                                                 model=model.model,
-                                                                 hparams_preprocess=False)
+    
 
-        # Option 1: Predict on the entire test dataset (Pytorch Lightning)
-        predictions = model_loaded.predict(datamodule, trainer)
-        preds, probas = datamodule.predict_logits_to_class(predictions,
-                                                           datamodule.get_test_dataset().unique_labels)
-        datamodule.export_predict_csv(preds, probas,
-                                      out_dir=log_dir, out_name='predictions_test_dataset', top_k=3, return_csv=True)
-        print('Test dataset prediction (extract) : ', predictions[:1])
-
-        # Option 2: Predict 1 data point (Pytorch)
-        test_data = datamodule.get_test_dataset()
-        query_point = {'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
-                       'crs': 4326,
-                       'size': datamodule.size,
-                       'units': datamodule.units,
-                       'species_id': [test_data.targets[0]]}
-        test_data_point = test_data[query_point][0]
-        test_data_point = test_data_point.resize_(1, *test_data_point.shape)
-
-        prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
-                                                test_data_point,
-                                                ['model.', ''])
-        preds, probas = datamodule.predict_logits_to_class(prediction,
-                                                           datamodule.get_test_dataset().unique_labels)
-        datamodule.export_predict_csv(preds, probas,
-                                      out_dir=log_dir, out_name='prediction_point', single_point_query=query_point, return_csv=True)
-        print('Point prediction : ', prediction.shape, prediction)
-    else:
-        trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
-        trainer.validate(model, datamodule=datamodule)
+    # trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+    # trainer.validate(model, datamodule=datamodule)
 
 
 if __name__ == "__main__":
