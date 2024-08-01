@@ -9,7 +9,7 @@ run:
 data:
   num_classes: 1
   dataset_path: "dataset/"
-  labels_name: "observations.csv"
+  labels_name: "observation_2013+.csv"
   download_data_sample: True
   train_batch_size: 2
   inference_batch_size: 2

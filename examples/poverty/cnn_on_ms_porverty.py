@@ -17,8 +17,7 @@ import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from malpolon.data.datasets.torchgeo_sentinel2 import \
-    Sentinel2TorchGeoDataModule
+from examples.poverty.datamodule.landsat_poverty import PovertyDataModule
 from malpolon.logging import Summary
 from malpolon.models import RegressionSystem
 
@@ -39,7 +38,7 @@ def main(cfg: DictConfig) -> None:
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
     logger_tb.log_hyperparams(cfg)
 
-    datamodule = Sentinel2TorchGeoDataModule(**cfg.data, **cfg.task)
+    datamodule = PovertyDataModule(**cfg.data, **cfg.task)
     model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
     callbacks = [

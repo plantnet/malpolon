@@ -1,18 +1,24 @@
-import torch
+
 import os
+import random
+
 import numpy as np
-from torch.utils.data import Dataset
-import torchvision
-import pickle
-
-import pandas as pd
-
-import pytorch_lightning as pl
-from torch.utils.data import DataLoader, random_split
-from torchvision import transforms
 import rasterio
+import pandas as pd
+from matplotlib import pyplot
 
-# TODO : Add JITTER and NORMALIZER to transfomer LightningDataModule, top remove ``preprocess_landsat`` step
+import torch
+from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, random_split
+import torchvision
+from torchvision import transforms
+import pytorch_lightning as pl
+
+
+
+
+# TODO : Add JITTER and NORMALIZER to transfomer LightningDataModule, top remove ``preprocess_landsat`` step,
+# TODO : tile = preprocess_landsat(tile, self.normalizer['landsat_+_nightlights'], JITTER)
 
 
 NORMALIZER = 'dataset/normalizer.pkl'
@@ -54,17 +60,36 @@ def preprocess_landsat(raster, normalizer, jitter=None):
 
 
 class PovertyDataModule(pl.LightningDataModule):
-    def __init__(self, csv_file, tif_dir, batch_size=32, transform=None, val_split=0.2):
+    def __init__(
+            self,  
+            tif_dir : str = 'landsat_tiles/', 
+            dataset_path: str = 'examples/poverty/dataset/',
+            labels_name: str = 'observation_2013+.csv',
+            train_batch_size: int = 32,
+            inference_batch_size: int = 16,
+            num_workers: int = 8,
+            
+            cach_data: bool = True,
+            val_split : float = 0.2,
+            # transform=None,
+            **kwargs
+        ):
         super().__init__()
-        self.dataframe = pd.read_csv(csv_file)
-        self.tif_dir = tif_dir
-        self.batch_size = batch_size
+        self.dataframe = pd.read_csv(dataset_path+labels_name)
+        self.tif_dir = dataset_path+tif_dir
+        self.train_batch_size = train_batch_size
+        self.inference_batch_size = inference_batch_size
         self.transform = torch.nn.Sequential(
             torchvision.transforms.CenterCrop(224),
             torchvision.transforms.RandomHorizontalFlip(),
             torchvision.transforms.RandomVerticalFlip()
         )
         self.val_split = val_split
+        self.num_workers = num_workers
+        
+    def get_dataset(self):
+        dataset = MSDataset(self.dataframe, self.tif_dir)
+        return dataset
 
     def setup(self, stage=None):
         full_dataset = MSDataset(self.dataframe, self.tif_dir)
@@ -74,15 +99,15 @@ class PovertyDataModule(pl.LightningDataModule):
         self.train_dataset, self.val_dataset = random_split(full_dataset, [train_size, val_size])
 
     def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True)
+        return DataLoader(self.train_dataset, batch_size=self.train_batch_size, shuffle=True, num_workers=self.num_workers)
 
     def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.batch_size)
+        return DataLoader(self.val_dataset, batch_size=self.inference_batch_size, num_workers=self.num_workers)
 
 
 class MSDataset(Dataset):
 
-    def __init__(self, dataframe, root_dir, normalizer=NORMALIZER):
+    def __init__(self, dataframe, root_dir):
         """
         Args:
             dataframe (Pandas DataFrame): Pandas DataFrame containing image file names and labels.
@@ -90,8 +115,6 @@ class MSDataset(Dataset):
         """
         self.dataframe = dataframe
         self.root_dir = root_dir
-        with open(normalizer, 'rb') as f:
-            self.normalizer = pickle.load(f)
 
     def __len__(self):
         return len(self.dataframe)
@@ -118,17 +141,26 @@ class MSDataset(Dataset):
 
         tile = np.nan_to_num(tile)
 
-        # tile = preprocess_landsat(tile, self.normalizer['landsat_+_nightlights'], JITTER)
-
         return torch.tensor(tile, dtype=torch.float32), torch.tensor(value, dtype=torch.float32)
     
+    def plot(self, idx, rgb=False):
 
-if __name__ == "__main__":
+        tiles, values = self.__getitem__(idx)
+        tile=random.choice(tiles)
+        value=values[0]
 
-    dm = PovertyDataModule("dataset/observation_2013+.csv", "dataset/landsat_tiles")
-    dm.setup()
-    dl = dm.train_dataloader()
-    for i, (x, y) in enumerate(dl):
-        print(x.shape, y.shape)
-        if i > 3:
-            break
+        if rgb:
+            fig, ax = pyplot.subplots(1, 1, figsize=(6, 6))
+
+            ax.imshow(tile[0:3, ...][::-1, ... ].transpose(1,2,0))
+            ax.set_title(f"Value: {value}, RGB")
+        else :
+            fig, axs = pyplot.subplots(2, 4, figsize=(12, 6))
+
+            for i, ax in enumerate(axs.flat):
+                ax.imshow(tile[i, ...].transpose(1,2,0))#, cmap='pink'
+                ax.set_title(f"Band: {i}")
+            fig.suptitle(f"Value: {value}")
+
+            pyplot.tight_layout()
+            pyplot.show()
