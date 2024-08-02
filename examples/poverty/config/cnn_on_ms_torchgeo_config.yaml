@@ -20,10 +20,10 @@ task:
 trainer:
   accelerator: "cpu"
   # devices: 1
-  max_epochs: 3
+  max_epochs: 1
   # val_check_interval: 2
   check_val_every_n_epoch: 1
-  log_every_n_steps: 10
+  # log_every_n_steps: 10
 
 
 model:
