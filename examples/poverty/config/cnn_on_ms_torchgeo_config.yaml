@@ -18,8 +18,8 @@ task:
   task: "regression" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
 
 trainer:
-  accelerator: "gpu"
-  devices: 1
+  accelerator: "cpu"
+  # devices: 1
   max_epochs: 3
   # val_check_interval: 2
   check_val_every_n_epoch: 1
@@ -56,4 +56,6 @@ optimizer:
     #     num_classes: *num_classes
     regression_R2score:
       callable: 'torchmetrics.regression.R2Score'
-      kwargs: {}
+      kwargs: 
+        # num_outputs : 1
+        # adjusted : 0

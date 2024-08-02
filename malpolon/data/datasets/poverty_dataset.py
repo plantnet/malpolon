@@ -143,8 +143,8 @@ class MSDataset(Dataset):
 
         tile = np.nan_to_num(tile)
         tile = self.transform(torch.tensor(tile, dtype=torch.float32))
-
-        return torch.tensor(tile, dtype=torch.float32), torch.tensor(value, dtype=torch.float32)
+        value = torch.tensor(value, dtype=torch.float32).unsqueeze(-1)
+        return tile, value
     
     def plot(self, idx, rgb=False):
 
