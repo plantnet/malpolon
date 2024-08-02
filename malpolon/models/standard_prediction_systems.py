@@ -86,10 +86,13 @@ class GenericPredictionSystem(pl.LightningModule):
         for metric_name, metric_func in self.metrics.items():
 
             if isinstance(metric_func, dict):
-                print('-----------------')
-                print(metric_func['kwargs'])
-                print('-----------------')
-                score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
+                
+                if metric_func['kwargs']:
+
+
+                    score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
+                else :
+                    score = metric_func['callable'](y_hat, y)
             else:
                 score = metric_func(y_hat, y)
             self.log(f"{metric_name}/{split}", score, **log_kwargs)
@@ -386,9 +389,11 @@ class RegressionSystem(GenericPredictionSystem):
         if metrics is None:
             
             metrics = {
-                "R2_score": {'callable': R2Score,
-                             'kwargs': {'num_outputs': 1, 'adjusted': 0}}
+                "regression_R2score": {'callable': R2Score(num_outputs=1, adjusted=0),
+                             'kwargs': {}}
             }
         print("model metrics : ",metrics)
-        metrics=R2Score(metrics['R2_score']['kwargs']['num_outputs'],metrics['R2_score']['kwargs']['adjusted'])
+
+        # arg=metrics['regression_R2score']['kwargs']
+        # metrics=R2Score(arg['num_outputs'],arg['adjusted'])
         super().__init__(model, loss, optimizer, metrics)

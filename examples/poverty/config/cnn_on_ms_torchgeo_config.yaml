@@ -54,8 +54,8 @@ optimizer:
     #   # callable: 'Fmetrics.classification.multiclass_accuracy'
     #   kwargs:
     #     num_classes: *num_classes
-    regression_R2score:
-      callable: 'torchmetrics.regression.R2Score'
-      kwargs: 
+    # regression_R2score:
+    #   callable: 'torchmetrics.regression.R2Score'
+    #   kwargs: 
         # num_outputs : 1
         # adjusted : 0
