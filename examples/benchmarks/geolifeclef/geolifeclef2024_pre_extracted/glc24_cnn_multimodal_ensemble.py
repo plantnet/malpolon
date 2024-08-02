@@ -55,9 +55,13 @@ def main(cfg: DictConfig) -> None:
     logger.addHandler(logging.FileHandler(f"{log_dir}/core.log"))
 
     datamodule = GLC24Datamodule(**cfg.data, **cfg.task)
-    model = MultimodalEnsemble(num_classes=cfg.model.modifiers.change_last_layer.num_outputs,
-                               positive_weigh_factor=cfg.model.positive_weigh_factor)
-    classif_system = ClassificationSystemGLC24(model, **cfg.optimizer, weights_dir=log_dir)  # multilabel
+    model = MultimodalEnsemble(num_classes=cfg.model.modifiers.change_last_layer.num_outputs)
+    # classif_system = ClassificationSystemGLC24(model, **cfg.optimizer,
+    #                                            download_weights=cfg.model.download_weights, weights_dir=log_dir)  # multilabel
+    classif_system = ClassificationSystemGLC24(model, **cfg.optimizer)
+
+    if cfg.model.download_weights:
+        cfg.run.checkpoint_path = f"{log_dir}/pretrained.ckpt"
 
     callbacks = [
         Summary(),
@@ -68,7 +72,7 @@ def main(cfg: DictConfig) -> None:
             mode="min",
             save_on_train_epoch_end=True,
             save_last=True,
-            every_n_train_steps=100,
+            every_n_train_steps=2,
         ),
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer, deterministic=True)

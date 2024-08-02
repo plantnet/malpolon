@@ -47,11 +47,27 @@ class ClassificationSystemGLC24(ClassificationSystem):
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
         self.optimizer = check_optimizer(optimizer)
         if download_weights:
-            self.download_weights("https://lab.plantnet.org/seafile/f/5e9fda3acdbb4561bb30/?dl=1",
+            self.download_weights("https://lab.plantnet.org/seafile/f/d780d4ab7f6b419194f9/?dl=1",
                                   weights_dir,
-                                  filename="2024-06-24_19-14-48.zip",
-                                  md5="53e17e7e09834f5bf29c8e5e11e2e304")
+                                  filename="pretrained.ckpt",
+                                  md5="69111dd8013fcd8e8f4504def774f3a5")
+        # self.register_buffer('loss_positive_weigh_factor', None)
 
+    def on_load_checkpoint(self, checkpoint: Mapping[str, Any]) -> None:
+        """Override default checkpoint loading.
+
+        By default, the model is loaded from the checkpoint.
+
+        Parameters
+        ----------
+        checkpoint : dict
+            dictionary containing the checkpoint to load
+        """
+        try:
+            del checkpoint['state_dict']['loss.positive_weight']
+        except KeyError:
+            pass
+        # self.model.load_state_dict(checkpoint['state_dict'], strict=False)
 
     def configure_optimizers(self):
         """Override default optimizer and scheduler.
@@ -84,11 +100,11 @@ class ClassificationSystemGLC24(ClassificationSystem):
         x_landsat, x_bioclim, x_sentinel, y, survey_id = batch
         y_hat = self(x_landsat, x_bioclim, x_sentinel)
 
-        pos_weight = y * self.model.positive_weigh_factor
-        self.loss.pos_weight = pos_weight  # Proper way would be to forward pos_weight to loss instantiation via loss_kwargs, but pos_weight must be a tensor, i.e. have access to y -> Not possible in Malpolon as datamodule and optimizer instantiations are separate
-
+        loss_pos_weight = self.loss.pos_weight  # save initial loss parameter value
+        self.loss.pos_weight = y * torch.Tensor([10.0]).to(y)   # Proper way would be to forward pos_weight to loss instantiation via loss_kwargs, but pos_weight must be a tensor, i.e. have access to y -> Not possible in Malpolon as datamodule and optimizer instantiations are separate
         loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
         self.log(f"loss/{split}", loss, **log_kwargs)
+        self.loss.pos_weight = loss_pos_weight  # restore initial loss parameter value to not alter lightning module state_dict
 
         for metric_name, metric_func in self.metrics.items():
             if isinstance(metric_func, dict):

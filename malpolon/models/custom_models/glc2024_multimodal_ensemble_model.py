@@ -21,10 +21,8 @@ class MultimodalEnsemble(nn.Module):
 
     Inherits torch nn.Module.
     """
-    def __init__(self, num_classes=11255, positive_weigh_factor=1.0, **kwargs):
+    def __init__(self, num_classes=11255, **kwargs):
         super().__init__(**kwargs)
-        self.positive_weigh_factor = positive_weigh_factor
-
         self.landsat_model = models.resnet18(weights=None)
         self.landsat_norm = nn.LayerNorm([6, 4, 21])
         # Modify the first convolutional layer to accept 6 channels instead of 3
