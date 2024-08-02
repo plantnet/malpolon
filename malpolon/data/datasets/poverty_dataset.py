@@ -149,8 +149,7 @@ class MSDataset(Dataset):
     def plot(self, idx, rgb=False):
 
         tile, value = self.__getitem__(idx)
-        max,_= tile.view(7, -1).max(dim=1)
-        print("Max values for each channel : ",max)
+        
         tile=tile.numpy()
         
         if rgb:

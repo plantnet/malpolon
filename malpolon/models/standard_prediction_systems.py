@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import pytorch_lightning as pl
 import torch
 import torchmetrics.functional as Fmetrics
+
 from torchmetrics.regression import R2Score
 from malpolon.models.utils import check_metric
 
@@ -389,11 +390,8 @@ class RegressionSystem(GenericPredictionSystem):
         if metrics is None:
             
             metrics = {
-                "regression_R2score": {'callable': R2Score(num_outputs=1, adjusted=0),
+                "regression_R2score": {'callable': Fmetrics.regression.r2_score,
                              'kwargs': {}}
             }
-        print("model metrics : ",metrics)
 
-        # arg=metrics['regression_R2score']['kwargs']
-        # metrics=R2Score(arg['num_outputs'],arg['adjusted'])
         super().__init__(model, loss, optimizer, metrics)

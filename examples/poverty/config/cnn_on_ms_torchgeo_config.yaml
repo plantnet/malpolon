@@ -46,16 +46,15 @@ optimizer:
   weight_decay: 0
   momentum: 0.9
   nesterov: true
-  # metrics:
-  #   # binary_accuracy:
-  #   #   # callable: 'Fmetrics.accuracy'
-  #   #   kwargs: {}
-  #   # multiclass_accuracy:
-  #   #   # callable: 'Fmetrics.classification.multiclass_accuracy'
-  #   #   kwargs:
-  #   #     num_classes: *num_classes
-  #   regression_R2score:
-  #     callable: 'torchmetrics.regression.R2Score'
-  #     kwargs: 
-  #       num_outputs : 1
-  #       adjusted : 0
+  metrics:
+    # binary_accuracy:
+    #   # callable: 'Fmetrics.accuracy'
+    #   kwargs: {}
+    # multiclass_accuracy:
+    #   # callable: 'Fmetrics.classification.multiclass_accuracy'
+    #   kwargs:
+    #     num_classes: *num_classes
+    regression_R2score:
+      callable: 'Fmetrics.regression.r2_score'
+      kwargs: 
+        

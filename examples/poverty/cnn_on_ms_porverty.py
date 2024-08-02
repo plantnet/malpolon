@@ -50,19 +50,19 @@ def main(cfg: DictConfig) -> None:
     datamodule = PovertyDataModule()#**cfg.data, **cfg.task
     model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
-    callbacks = [
-        Summary(),
-        ModelCheckpoint(
-            dirpath=log_dir,
-            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
-            monitor=f"{next(iter(model.metrics.keys()))}/val",
-            mode="max",
-            save_on_train_epoch_end=True,
-            save_last=True,
-            every_n_train_steps=10,
-        ),
-    ]
-    trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
+    # callbacks = [
+    #     Summary(),
+    #     ModelCheckpoint(
+    #         dirpath=log_dir,
+    #         # filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
+    #         # monitor=f"{next(iter(model.metrics.keys()))}/train",
+    #         mode="max",
+    #         save_on_train_epoch_end=True,
+    #         save_last=True,
+    #         every_n_train_steps=10,
+    #     ),
+    # ]
+    trainer = pl.Trainer(logger=[logger_csv, logger_tb], **cfg.trainer)#, callbacks=callbacks
     # datamodule.setup()
     # batch_1 = next(iter(datamodule.train_dataloader()))
     # print(batch_1[0].shape)
@@ -70,7 +70,7 @@ def main(cfg: DictConfig) -> None:
     # print(pred.shape)
     # print(batch_1[1].shape)
     # print(model)
-    trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+    # trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
     trainer.validate(model, datamodule=datamodule)
 
 @hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
