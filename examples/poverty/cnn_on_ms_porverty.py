@@ -111,5 +111,5 @@ def test(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    test()
+    main()
     # model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
