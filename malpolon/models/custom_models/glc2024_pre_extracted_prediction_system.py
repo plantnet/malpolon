@@ -51,23 +51,6 @@ class ClassificationSystemGLC24(ClassificationSystem):
                                   weights_dir,
                                   filename="pretrained.ckpt",
                                   md5="69111dd8013fcd8e8f4504def774f3a5")
-        # self.register_buffer('loss_positive_weigh_factor', None)
-
-    def on_load_checkpoint(self, checkpoint: Mapping[str, Any]) -> None:
-        """Override default checkpoint loading.
-
-        By default, the model is loaded from the checkpoint.
-
-        Parameters
-        ----------
-        checkpoint : dict
-            dictionary containing the checkpoint to load
-        """
-        try:
-            del checkpoint['state_dict']['loss.positive_weight']
-        except KeyError:
-            pass
-        # self.model.load_state_dict(checkpoint['state_dict'], strict=False)
 
     def configure_optimizers(self):
         """Override default optimizer and scheduler.
