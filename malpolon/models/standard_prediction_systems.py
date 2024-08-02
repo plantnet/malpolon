@@ -84,7 +84,11 @@ class GenericPredictionSystem(pl.LightningModule):
         self.log(f"loss/{split}", loss, **log_kwargs)
 
         for metric_name, metric_func in self.metrics.items():
+
             if isinstance(metric_func, dict):
+                print('-----------------')
+                print(metric_func['kwargs'])
+                print('-----------------')
                 score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
             else:
                 score = metric_func(y_hat, y)
@@ -359,8 +363,8 @@ class RegressionSystem(GenericPredictionSystem):
         """
         if hparams_preprocess:
             assert task == 'regression', "Regression task must be specified."
-            # task = task.split('classification_')[1]
             metrics = check_metric(metrics)
+        
 
         self.lr = lr
         self.weight_decay = weight_decay
@@ -382,8 +386,9 @@ class RegressionSystem(GenericPredictionSystem):
         if metrics is None:
             
             metrics = {
-                "accuracy": {'callable': R2Score,
-                             'kwargs': {}}
+                "R2_score": {'callable': R2Score,
+                             'kwargs': {'num_outputs': 1, 'adjusted': 0}}
             }
-
+        print("model metrics : ",metrics)
+        metrics=R2Score(metrics['R2_score']['kwargs']['num_outputs'],metrics['R2_score']['kwargs']['adjusted'])
         super().__init__(model, loss, optimizer, metrics)
