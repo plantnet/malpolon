@@ -19,6 +19,7 @@ import hydra
 import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
+import torch
 
 from malpolon.data.datasets import PovertyDataModule
 from malpolon.logging import Summary
@@ -72,6 +73,38 @@ def main(cfg: DictConfig) -> None:
     trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
     trainer.validate(model, datamodule=datamodule)
 
+@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
+def test(cfg: DictConfig) -> None:
+
+
+    
+    datamodule = PovertyDataModule()#**cfg.data, **cfg.task
+    model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
+
+   
+    datamodule.setup()
+
+    data_loader = iter(datamodule.train_dataloader())
+
+    
+
+    with torch.no_grad():
+
+        
+        for i in range(100):
+
+            batch = next(data_loader)
+
+            # input_containe_nan = torch.isnan(batch[0])
+            print(batch[0])
+            loss,score= model._step(split='predict', batch=batch, batch_idx=i)
+            print(loss)
+            print(score)
+        
+        
+        
+
 
 if __name__ == "__main__":
     main()
+    # model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
