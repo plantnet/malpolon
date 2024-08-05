@@ -1,5 +1,6 @@
 import os
 import random
+import json
 
 import numpy as np
 import rasterio
@@ -78,10 +79,13 @@ class PovertyDataModule(pl.LightningDataModule):
         self.tif_dir = dataset_path+tif_dir
         self.train_batch_size = train_batch_size
         self.inference_batch_size = inference_batch_size
+        self.dict_normalize = json.load(open('examples/poverty/mean_std_noramlize.json', 'r'))
         self.transform = torch.nn.Sequential(
             torchvision.transforms.CenterCrop(224),
             torchvision.transforms.RandomHorizontalFlip(),
-            torchvision.transforms.RandomVerticalFlip()
+            torchvision.transforms.RandomVerticalFlip(),
+            torchvision.transforms.Normalize(self.dict_normalize['mean'], self.dict_normalize['std'])
+
         )
         self.val_split = val_split
         self.num_workers = num_workers
