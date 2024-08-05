@@ -45,21 +45,24 @@ def main(cfg: DictConfig) -> None:
         associated with this script.
     """
     set_seed(69)
+    # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version=cfg.loggers.exp_name)
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name=cfg.loggers.log_dir_name, version=cfg.loggers.exp_name)
     logger_tb.log_hyperparams(cfg)
-
     logger = logging.getLogger("lightning.pytorch.core")
     logger.addHandler(logging.FileHandler(f"{log_dir}/core.log"))
 
+    # Datamodule & Model
     datamodule = GLC24Datamodule(**cfg.data, **cfg.task)
     model = MultimodalEnsemble(num_classes=cfg.model.modifiers.change_last_layer.num_outputs)
     classif_system = ClassificationSystemGLC24(model, **cfg.optimizer,
-                                               download_weights=cfg.model.download_weights, weights_dir=Path(log_dir)/'../runOK_2024-06-24_19-14-48/')  # multilabel
-    # classif_system = ClassificationSystemGLC24(model, **cfg.optimizer)
+                                               checkpoint_path=cfg.run.checkpoint_path,
+                                               download_weights=cfg.model.download_weights,
+                                               weights_dir=log_dir)  # multilabel
 
+    # Lightning Trainer
     callbacks = [
         Summary(),
         ModelCheckpoint(
@@ -74,8 +77,9 @@ def main(cfg: DictConfig) -> None:
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer, deterministic=True)
 
+    # Run
     if cfg.run.predict:
-        model_loaded = ClassificationSystemGLC24.load_from_checkpoint(cfg.run.checkpoint_path,
+        model_loaded = ClassificationSystemGLC24.load_from_checkpoint(classif_system.checkpoint_path,
                                                                       model=classif_system.model,
                                                                       hparams_preprocess=False,
                                                                       strict=False)

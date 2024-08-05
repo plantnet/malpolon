@@ -56,7 +56,7 @@ class GenericPredictionSystem(pl.LightningModule):
         # indefinitely after returning self.optimizer. It is unclear why.
 
         super().__init__()
-        self.checkpoint_path = None if hasattr(self, 'checkpoint_path') else self.checkpoint_path  # Avoids overwriting the attribute. This class will need to be re-written properly alongside ClassificationSystem
+        self.checkpoint_path = None if not hasattr(self, 'checkpoint_path') else self.checkpoint_path  # Avoids overwriting the attribute. This class will need to be re-written properly alongside ClassificationSystem
         self.model = check_model(model)
         self.optimizer = check_optimizer(optimizer)
         self.loss = check_loss(loss)

@@ -38,13 +38,14 @@ class ClassificationSystemGLC24(ClassificationSystem):
         hparams_preprocess: bool = True,
         download_weights: bool = None,
         weights_dir: str = 'outputs/glc24_cnn_multimodal_ensemble/',
+        checkpoint_path: Optional[str] = None
     ):
         if isinstance(loss_kwargs, omegaconf.dictconfig.DictConfig):
             loss_kwargs = OmegaConf.to_container(loss_kwargs, resolve=True)
         if 'pos_weight' in loss_kwargs.keys():
             length = metrics['multilabel_f1-score'].kwargs.num_labels
             loss_kwargs['pos_weight'] = Tensor([loss_kwargs['pos_weight']] * length)
-        super().__init__(model, lr, weight_decay, momentum, nesterov, metrics, task, loss_kwargs, hparams_preprocess)
+        super().__init__(model, lr, weight_decay, momentum, nesterov, metrics, task, loss_kwargs, hparams_preprocess, checkpoint_path)
         optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
         self.optimizer = check_optimizer(optimizer)
         if download_weights:
