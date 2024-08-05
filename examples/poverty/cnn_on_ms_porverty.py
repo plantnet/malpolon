@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import os
 import sys
+from tqdm import tqdm
+import json
 # Force work with the malpolon github package localled at the root of the project
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
@@ -47,69 +49,56 @@ def main(cfg: DictConfig) -> None:
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
     logger_tb.log_hyperparams(cfg)
 
-    datamodule = PovertyDataModule()#**cfg.data, **cfg.task
+    datamodule = PovertyDataModule(**cfg.data, **cfg.task)
     model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
     callbacks = [
-        # Summary()#,
-        # ModelCheckpoint(
-        #     dirpath=log_dir,
-        #     filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
-        #     monitor=f"{next(iter(model.metrics.keys()))}/val",
-        #     mode="max",
-        #     save_on_train_epoch_end=True,
-        #     save_last=True,
-        #     every_n_train_steps=10,
-        # ),
+        Summary(),
+        ModelCheckpoint(
+            dirpath=log_dir,
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
+            monitor=f"{next(iter(model.metrics.keys()))}/val",
+            mode="max",
+            save_on_train_epoch_end=True,
+            save_last=True,
+            every_n_train_steps=10,
+        ),
     ]
     print(cfg.trainer)
-    trainer = pl.Trainer(logger=[logger_csv, logger_tb],log_every_n_steps=1, **cfg.trainer)#, callbacks=callbacks
-    # datamodule.setup()
-    # batch_1 = next(iter(datamodule.train_dataloader()))
-    # print(batch_1[0].shape)
-    # pred = model(batch_1[0])
+    trainer = pl.Trainer(logger=[logger_csv, logger_tb],log_every_n_steps=1, callbacks=callbacks, **cfg.trainer)#
 
-    # print(pred.shape)
-    # print(batch_1[1].shape)
-    # print(model)
     trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
-    # trainer.validate(model, datamodule=datamodule)
+    trainer.validate(model, datamodule=datamodule)
 
 @hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
 def test(cfg: DictConfig) -> None:
 
 
     
-    # datamodule = PovertyDataModule()#**cfg.data, **cfg.task
-    model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
+    datamodule = PovertyDataModule()#**cfg.data, **cfg.task
 
-    x = torch.load('0.pt')
-    y = torch.randn(x.size(0)).unsqueeze(-1)
-    loss= model._step(split='val', batch=(x,y),batch_idx=0)
    
-    # datamodule.setup()
+    datamodule.setup()
 
-    # data_loader = iter(datamodule.train_dataloader())
+    data_loader = datamodule.train_dataloader()
 
+    mean = torch.zeros(7)
+    std = torch.zeros(7)
+    
+    total_images_count = 0
+    for images, _ in tqdm(data_loader):
+        batch_images_count = images.size(0)
+        images = images.view(batch_images_count, images.size(1), -1)
+        mean += images.mean(2).sum(0)
+        std += images.std(2).sum(0)
+        total_images_count += batch_images_count
     
 
-    # with torch.no_grad():
-
-        
-        # for i in range(100):
-
-        #     # batch = next(data_loader)
-
-        #     # input_containe_nan = torch.isnan(batch[0])
-        #     print(batch[0])
-        #     loss,score= model._step(split='predict', batch=batch, batch_idx=i)
-        #     print(loss)
-        #     print(score)
-        
-        
-        
+    mean /= total_images_count
+    std /= total_images_count
+    print( mean, std)
+    json.dump({'mean': mean.tolist(), 'std': std.tolist()}, open('examples/poverty/mean_std_noramlize.json', 'w'))
 
 
 if __name__ == "__main__":
     main()
-    # model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
