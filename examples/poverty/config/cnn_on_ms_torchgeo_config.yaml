@@ -18,8 +18,8 @@ task:
   task: "regression" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
 
 trainer:
-  accelerator: "cpu"
-  # devices: 1
+  accelerator: "gpu"
+  devices: 1
   max_epochs: 1
   # val_check_interval: 2
   check_val_every_n_epoch: 1
@@ -39,7 +39,7 @@ model:
     change_first_convolutional_layer:
       num_input_channels: 7
     change_last_layer:
-      num_outputs: ${data.num_classes}  # set to 1 for binary classification
+      num_outputs: ${data.num_classes}
 
 optimizer:
   lr: 1e-2
@@ -47,13 +47,6 @@ optimizer:
   momentum: 0.9
   nesterov: true
   metrics:
-    # binary_accuracy:
-    #   # callable: 'Fmetrics.accuracy'
-    #   kwargs: {}
-    # multiclass_accuracy:
-    #   # callable: 'Fmetrics.classification.multiclass_accuracy'
-    #   kwargs:
-    #     num_classes: *num_classes
     regression_R2score:
       callable: 'Fmetrics.regression.r2_score'
       kwargs: 
