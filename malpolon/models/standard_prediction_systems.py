@@ -83,8 +83,7 @@ class GenericPredictionSystem(pl.LightningModule):
 
         loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
         self.log(f"loss/{split}", loss, **log_kwargs)
-        if loss.isnan():
-            print(f"loss/{split}", loss)
+
         for metric_name, metric_func in self.metrics.items():
 
             if isinstance(metric_func, dict):
@@ -97,10 +96,10 @@ class GenericPredictionSystem(pl.LightningModule):
                     score = metric_func['callable'](y_hat, y)
             else:
                 score = metric_func(y_hat, y)
-            print(f"score: {score}",f"{metric_name}/{split} : {log_kwargs}")
+        
+            
             self.log(f"{metric_name}/{split}", score, **log_kwargs)
-        # if score.isnan():
-        #     print(f"{metric_name}/{split}", score)
+
         return loss
 
     def training_step(
