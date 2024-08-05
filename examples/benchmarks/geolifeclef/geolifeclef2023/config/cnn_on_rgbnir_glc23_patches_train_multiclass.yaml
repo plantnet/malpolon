@@ -10,7 +10,7 @@ data:
   inference_batch_size: 2
   num_workers: 8
   units: "pixel"
-  crs: 4326 
+  crs: 4326
 
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
@@ -21,9 +21,9 @@ trainer:
   check_val_every_n_epoch: 1
 
 run:
-  predict: false
-  checkpoint_path: 
-                                                                                                                                       
+  predict: true
+  checkpoint_path:  'outputs/cnn_on_rgbnir_glc23_patches/2024-08-05_10-13-52/last.ckpt'
+
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
   model_name: "resnet18"
@@ -63,4 +63,4 @@ optimizer:
     #     num_labels: ${data.num_classes}
 
 task:
-  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
