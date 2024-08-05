@@ -1,5 +1,5 @@
-
 import logging
+from pathlib import Path
 
 import hydra
 import numpy as np
@@ -56,12 +56,9 @@ def main(cfg: DictConfig) -> None:
 
     datamodule = GLC24Datamodule(**cfg.data, **cfg.task)
     model = MultimodalEnsemble(num_classes=cfg.model.modifiers.change_last_layer.num_outputs)
-    # classif_system = ClassificationSystemGLC24(model, **cfg.optimizer,
-    #                                            download_weights=cfg.model.download_weights, weights_dir=log_dir)  # multilabel
-    classif_system = ClassificationSystemGLC24(model, **cfg.optimizer)
-
-    if cfg.model.download_weights:
-        cfg.run.checkpoint_path = f"{log_dir}/pretrained.ckpt"
+    classif_system = ClassificationSystemGLC24(model, **cfg.optimizer,
+                                               download_weights=cfg.model.download_weights, weights_dir=Path(log_dir)/'../runOK_2024-06-24_19-14-48/')  # multilabel
+    # classif_system = ClassificationSystemGLC24(model, **cfg.optimizer)
 
     callbacks = [
         Summary(),
@@ -91,7 +88,7 @@ def main(cfg: DictConfig) -> None:
         print('Test dataset prediction (extract) : ', predictions[:1])
 
     else:
-        trainer.fit(classif_system, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+        trainer.fit(classif_system, datamodule=datamodule, ckpt_path=classif_system.checkpoint_path)
         trainer.validate(classif_system, datamodule=datamodule)
 
 

@@ -49,7 +49,7 @@ model:
       num_input_channels: 6
     change_last_layer:
       num_outputs: *num_classes
-  download_weights: false
+  download_weights: true
 
 optimizer:
   lr: 0.00025

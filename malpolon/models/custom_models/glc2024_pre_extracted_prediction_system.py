@@ -6,6 +6,7 @@ Author: Lukas Picek <lukas.picek@inria.fr>
 License: GPLv3
 Python version: 3.10.6
 """
+from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Union
 
 import omegaconf
