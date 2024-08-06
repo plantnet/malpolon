@@ -41,7 +41,7 @@ data:
   # binary_positive_classes: [1]  # For binary classification, define which classes are considered as 1. Others will be considered 0
 
 task:
-  task: 'classification_multilabel'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+  task: 'classification_multilabel'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
 
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
@@ -50,7 +50,7 @@ trainer:
   max_epochs: 2
   # val_check_interval: 10
   check_val_every_n_epoch: 1
-                                                                                                                                       
+
 model:
   provider_name: "timm" # choose from ["timm", "torchvision"]
   model_name: "resnet18"
