@@ -44,12 +44,13 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
         inference_batch_size: int = 256,
         num_workers: int = 8,
         download: bool = False,
+        task: str = 'classification_multiclass',
     ):
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
         self.minigeolifeclef = minigeolifeclef
         self.download = download
-        self.task = 'classification_multiclass'
+        self.task = task
 
     @property
     def train_transform(self):
@@ -106,7 +107,7 @@ def main(cfg: DictConfig) -> None:
     logger_tb.log_hyperparams(cfg)
 
     # Datamodule & Model
-    datamodule = GeoLifeCLEF2022DataModule(**cfg.data)
+    datamodule = GeoLifeCLEF2022DataModule(**cfg.data, **cfg.task)
     classif_system = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task,
                                           checkpoint_path=cfg.run.checkpoint_path)
 

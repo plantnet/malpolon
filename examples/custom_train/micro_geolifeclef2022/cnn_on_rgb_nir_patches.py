@@ -143,7 +143,8 @@ def main(cfg: DictConfig) -> None:
 
     # Datamodule & Model
     datamodule = MicroGeoLifeCLEF2022DataModule(**cfg.data)
-    classif_system = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task,
+    cfg_model = hydra.utils.instantiate(cfg.model)
+    classif_system = ClassificationSystem(cfg_model, **cfg.optimizer, **cfg.task,
                                           checkpoint_path=cfg.run.checkpoint_path)
 
     # Lightning Trainer
@@ -156,7 +157,7 @@ def main(cfg: DictConfig) -> None:
             mode="max",
             save_on_train_epoch_end=True,
             save_last=True,
-            every_n_train_steps=100,
+            every_n_train_steps=20,
         ),
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)

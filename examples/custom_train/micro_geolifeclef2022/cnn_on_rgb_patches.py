@@ -137,7 +137,7 @@ def main(cfg: DictConfig) -> None:
 
     # Run
     if cfg.run.predict:
-        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
+        model_loaded = ClassificationSystem.load_from_checkpoint(classif_system.checkpoint_path,
                                                                  model=classif_system.model,
                                                                  hparams_preprocess=False)
 
@@ -158,7 +158,7 @@ def main(cfg: DictConfig) -> None:
         test_data_point = test_data[0][0]
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
 
-        prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
+        prediction = model_loaded.predict_point(classif_system.checkpoint_path,
                                                 test_data_point,
                                                 ['model.', ''])
         preds, probas = datamodule.predict_logits_to_class(prediction,
@@ -167,7 +167,7 @@ def main(cfg: DictConfig) -> None:
                                       out_dir=log_dir, out_name='prediction_point', single_point_query=query_point, return_csv=True)
         print('Point prediction : ', prediction.shape, prediction)
     else:
-        trainer.fit(classif_system, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+        trainer.fit(classif_system, datamodule=datamodule, ckpt_path=classif_system.checkpoint_path)
         trainer.validate(classif_system, datamodule=datamodule)
 
 
