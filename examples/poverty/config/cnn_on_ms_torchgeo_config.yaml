@@ -42,7 +42,7 @@ model:
       num_outputs: ${data.num_classes}
 
 optimizer:
-  lr: 1e-2
+  lr: 1e-3
   weight_decay: 0
   momentum: 0.9
   nesterov: true

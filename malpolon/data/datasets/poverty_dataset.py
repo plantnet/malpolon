@@ -79,7 +79,7 @@ class PovertyDataModule(pl.LightningDataModule):
         self.tif_dir = dataset_path+tif_dir
         self.train_batch_size = train_batch_size
         self.inference_batch_size = inference_batch_size
-        self.dict_normalize = json.load(open('examples/poverty/mean_std_noramlize.json', 'r'))
+        self.dict_normalize = json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
         self.transform = torch.nn.Sequential(
             torchvision.transforms.CenterCrop(224),
             torchvision.transforms.RandomHorizontalFlip(),
