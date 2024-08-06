@@ -4,4 +4,5 @@ from .standard_prediction_systems import (ClassificationSystem,
 __all__ = [  # noqa: F405
     "GenericPredictionSystem",
     "ClassificationSystem",
+    "ClassificationSystem",
 ]
