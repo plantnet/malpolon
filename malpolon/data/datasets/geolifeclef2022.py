@@ -445,7 +445,7 @@ class GeoLifeCLEF2022Dataset(Dataset):
                 target = self.target_transform(target)
 
             return patches, target
-        return patches
+        return patches, -1
 
 
 class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
@@ -522,23 +522,27 @@ class MiniGeoLifeCLEF2022Dataset(GeoLifeCLEF2022Dataset):
             index_col="observation_id",
         )[:600]
 
-        file_name = "minigeolifeclef2022_species_details.csv"
-        with resources.path(DATA_MODULE, file_name) as species_file_path:
-            df_species = pd.read_csv(
-                species_file_path,
-                sep=";",
-                index_col="species_id",
-            )[:600]
+        if subset == 'test':
+            df = df.iloc[np.random.randint(0, len(df), 100)]
+            df['species_id'] = [None] * len(df)
+        else:
+            file_name = "minigeolifeclef2022_species_details.csv"
+            with resources.path(DATA_MODULE, file_name) as species_file_path:
+                df_species = pd.read_csv(
+                    species_file_path,
+                    sep=";",
+                    index_col="species_id",
+                )[:600]
 
-        df = df[np.isin(df["species_id"], df_species.index)]
-        value_counts = df.species_id.value_counts()
-        species_id = value_counts.iloc[:100].index
-        df_species = df_species.loc[species_id]
-        df = df[np.isin(df["species_id"], df_species.index)]
+            df = df[np.isin(df["species_id"], df_species.index)]
+            value_counts = df.species_id.value_counts()
+            species_id = value_counts.iloc[:100].index
+            df_species = df_species.loc[species_id]
+            df = df[np.isin(df["species_id"], df_species.index)]
 
-        label_encoder = LabelEncoder().fit(df_species.index)
-        df["species_id"] = label_encoder.transform(df["species_id"])
-        df_species.index = label_encoder.transform(df_species.index)
+            label_encoder = LabelEncoder().fit(df_species.index)
+            df["species_id"] = label_encoder.transform(df["species_id"])
+            df_species.index = label_encoder.transform(df_species.index)
 
         if subset not in ["train+val", "test"]:
             ind = df.index[df["subset"] == subset]

@@ -392,7 +392,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
                                'probas': tuple(probas[:, :top_k].astype(str))})
         else:
             test_ds = self.get_test_dataset()
-            targets = test_ds.targets
+            targets = test_ds.targets if test_ds.targets is not None else [-1] * len(predictions)
             df = pd.DataFrame({'observation_id': test_ds.observation_ids,
                                'lon': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 0],
                                'lat': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 1],
