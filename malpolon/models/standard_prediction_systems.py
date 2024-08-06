@@ -39,6 +39,8 @@ class GenericPredictionSystem(pl.LightningModule):
     metrics: dict
         Dictionary containing the metrics to monitor during the training and
         to compute at test time.
+    save_hyperparameters: bool
+        Save arguments to hparams attribute.
     """
 
     def __init__(
@@ -78,6 +80,10 @@ class GenericPredictionSystem(pl.LightningModule):
         This method is intended to be used to perform transfer learning
         or resume a model training later on and/or on a different
         machine.
+        Downloaded content can either be a single file or a pre-zipped
+        directory containing all training filee, in which case the
+        value of checkpoint_path is updated to point inside that
+        unzipped folder.
 
         Parameters
         ----------

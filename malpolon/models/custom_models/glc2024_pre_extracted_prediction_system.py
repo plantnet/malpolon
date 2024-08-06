@@ -40,6 +40,50 @@ class ClassificationSystemGLC24(ClassificationSystem):
         weights_dir: str = 'outputs/glc24_cnn_multimodal_ensemble/',
         checkpoint_path: Optional[str] = None
     ):
+        """Class constructor
+
+        Parameters
+        ----------
+        model : Union[torch.nn.Module, Mapping]
+            model to use, either a torch model object, or a mapping
+            (dictionary from config file) used to load and build
+            the model
+        lr : float, optional
+            learning rate, by default 1e-2
+        weight_decay : float, optional
+            weight decay, by default 0
+        momentum : float
+            value of momentum
+        nesterov : bool
+            if True, uses Nesterov's momentum
+        metrics : dict
+            dictionnary containing the metrics to compute.
+            Keys must match metrics' names and have a subkey with each
+            metric's functional methods as value. This subkey is either
+            created from the `malpolon.models.utils.FMETRICS_CALLABLES`
+            constant or supplied, by the user directly.
+        task : str, optional
+            Machine learning task (used to format labels accordingly),
+            by default 'classification_multiclass'. The value determines
+            the loss to be selected. if 'multilabel' or 'binary' is
+            in the task, the BCEWithLogitsLoss is selected, otherwise
+            the CrossEntropyLoss is used.
+        loss_kwargs : Optional[dict], optional
+            loss parameters, by default {}
+        hparams_preprocess : bool, optional
+            if True performs preprocessing operations on the hyperparameters,
+            by default True
+        download_weights : bool, optional
+            if True, downloads the model's weights from our remote
+            storage platform, by default None
+        weights_dir : str, optional
+            directory where to download the model weights,
+            by default 'outputs/glc24_cnn_multimodal_ensemble/'
+        checkpoint_path : Optional[str], optional
+            path to the model checkpoint to load either to resume
+            a previous training, perform transfer learning or run in
+            prediction mode (inference), by default None
+        """
         if isinstance(loss_kwargs, omegaconf.dictconfig.DictConfig):
             loss_kwargs = OmegaConf.to_container(loss_kwargs, resolve=True)
         if 'pos_weight' in loss_kwargs.keys():
