@@ -37,7 +37,7 @@ DESCRIPTOR = {
     'TEMP1': "float",
     'NIGHTLIGHTS': "float"
 }
-
+FOLD = {1 : (['A','B','C','D'], ['E']), 2 : (['A','B','C','E'], ['D']), 3 : (['A','B','D','E'], ['C']), 4 : (['A','C','D','E'], ['B']), 5 : (['B','C','D','E'], ['A'])}
 JITTER =transforms.ColorJitter(brightness=0.1, contrast=0.1)
 
 
@@ -68,14 +68,17 @@ class PovertyDataModule(pl.LightningDataModule):
             train_batch_size: int = 32,
             inference_batch_size: int = 16,
             num_workers: int = 8,
-            
+            fold: int = 1,
             cach_data: bool = True,
             val_split : float = 0.2,
             # transform=None,
             **kwargs
         ):
         super().__init__()
-        self.dataframe = pd.read_csv(dataset_path+labels_name)
+        dataframe = pd.read_csv(dataset_path+labels_name)
+        self.dataframe = dataframe
+        self.dataframe_train = dataframe[dataframe['fold'].isin(FOLD[fold][0])]
+        self.dataframe_val = dataframe[dataframe['fold'].isin(FOLD[fold][1])]
         self.tif_dir = dataset_path+tif_dir
         self.train_batch_size = train_batch_size
         self.inference_batch_size = inference_batch_size
@@ -94,12 +97,21 @@ class PovertyDataModule(pl.LightningDataModule):
         dataset = MSDataset(self.dataframe, self.tif_dir,transform=self.transform)
         return dataset
 
+    def get_train_dataset(self):
+        dataset = MSDataset(self.dataframe_train, self.tif_dir,transform=self.transform)
+        return dataset
+
+    def get_val_dataset(self):
+        dataset = MSDataset(self.dataframe_val, self.tif_dir,transform=self.transform)
+        return dataset
+
     def setup(self, stage=None):
         full_dataset = MSDataset(self.dataframe, self.tif_dir,transform=self.transform)
         
         val_size = int(len(full_dataset) * self.val_split)
         train_size = len(full_dataset) - val_size
-        self.train_dataset, self.val_dataset = random_split(full_dataset, [train_size, val_size])
+        self.train_dataset = self.get_train_dataset()
+        self.val_dataset = self.get_val_dataset()
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.train_batch_size, shuffle=True, num_workers=self.num_workers,persistent_workers=True)

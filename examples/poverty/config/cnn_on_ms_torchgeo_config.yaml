@@ -10,7 +10,7 @@ data:
   num_classes: 1
   dataset_path: "examples/poverty/dataset/"
   labels_name: "observation_2013+.csv"
-  train_batch_size: 16
+  train_batch_size: 64
   inference_batch_size: 16
   num_workers: 8
   
@@ -23,7 +23,7 @@ trainer:
   max_epochs: 1
   # val_check_interval: 2
   check_val_every_n_epoch: 1
-  # log_every_n_steps: 10
+#  log_every_n_steps: 1
 
 
 model:
@@ -42,8 +42,8 @@ model:
       num_outputs: ${data.num_classes}
 
 optimizer:
-  lr: 1e-2
-  weight_decay: 0
+  lr: 1e-4
+  weight_decay: 1e-5
   momentum: 0.9
   nesterov: true
   metrics:
