@@ -22,7 +22,7 @@ import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 import torch
-
+torch.set_float32_matmul_precision('medium')
 from malpolon.data.datasets import PovertyDataModule
 from malpolon.logging import Summary
 from malpolon.models import RegressionSystem,ClassificationSystem
@@ -71,15 +71,15 @@ def main(cfg: DictConfig) -> None:
         print(cfg.trainer)
         trainer = pl.Trainer(logger=[logger_csv, logger_tb],log_every_n_steps=1, callbacks=callbacks, **cfg.trainer)#
 
-        trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
-        trainer.validate(model, datamodule=datamodule)
+    trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+    trainer.validate(model, datamodule=datamodule)
 
 @hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
 def test(cfg: DictConfig) -> None:
 
 
     
-    datamodule = PovertyDataModule()#**cfg.data, **cfg.task
+    datamodule = PovertyDataModule(**cfg.data, **cfg.task)#
 
    
     datamodule.setup()
@@ -101,7 +101,7 @@ def test(cfg: DictConfig) -> None:
     mean /= total_images_count
     std /= total_images_count
     print( mean, std)
-    json.dump({'mean': mean.tolist(), 'std': std.tolist()}, open('examples/poverty/mean_std_noramlize.json', 'w'))
+    json.dump({'mean': mean.tolist(), 'std': std.tolist()}, open('examples/poverty/mean_std_normalize.json', 'w'))
 
 
 if __name__ == "__main__":
