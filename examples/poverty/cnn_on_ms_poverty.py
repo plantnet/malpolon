@@ -57,7 +57,7 @@ def main(cfg: DictConfig) -> None:
         model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
         callbacks = [
-            Summary(),
+            # Summary(),
             ModelCheckpoint(
                 dirpath=log_dir,
                 filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
@@ -71,8 +71,8 @@ def main(cfg: DictConfig) -> None:
         print(cfg.trainer)
         trainer = pl.Trainer(logger=[logger_csv, logger_tb],log_every_n_steps=1, callbacks=callbacks, **cfg.trainer)#
 
-    trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
-    trainer.validate(model, datamodule=datamodule)
+        trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+        trainer.validate(model, datamodule=datamodule)
 
 @hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
 def test(cfg: DictConfig) -> None:

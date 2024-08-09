@@ -11,7 +11,7 @@ data:
   dataset_path: "examples/poverty/dataset/"
   labels_name: "observation_2013+.csv"
   train_batch_size: 64
-  inference_batch_size: 16
+  inference_batch_size: 64
   num_workers: 8
   
 task:
@@ -20,7 +20,7 @@ task:
 trainer:
   accelerator: "gpu"
   devices: 1
-  max_epochs: 1
+  max_epochs: 10
   # val_check_interval: 2
   check_val_every_n_epoch: 1
 #  log_every_n_steps: 1
