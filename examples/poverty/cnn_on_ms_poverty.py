@@ -43,15 +43,16 @@ def main(cfg: DictConfig) -> None:
         hydra config dictionary created from the .yaml config file
         associated with this script.
     """
-    log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
-    logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
-    logger_csv.log_hyperparams(cfg)
-    logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
-    logger_tb.log_hyperparams(cfg)
-
     for fold in range(5):
 
         print("Training fold ", fold+1)
+
+        log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+        log_dir = os.path.join(log_dir, f"fold_{fold+1}")
+        logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
+        logger_csv.log_hyperparams(cfg)
+        logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
+        logger_tb.log_hyperparams(cfg)
 
         datamodule = PovertyDataModule(**cfg.data, **cfg.task, fold=fold+1)
         model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
