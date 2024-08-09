@@ -12,9 +12,9 @@ data:
   train_batch_size: 32
   inference_batch_size: 256
   num_workers: 8
-  
+
 task:
-  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
 
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
@@ -45,4 +45,3 @@ optimizer:
     multiclass_accuracy:
       kwargs:
         num_classes: *num_classes
-

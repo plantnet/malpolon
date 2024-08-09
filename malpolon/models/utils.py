@@ -21,7 +21,6 @@ FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.classification.binary_accuracy
                       'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
                       'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
 
-
 class CrashHandler():
     """Saves the model in case of unexpected crash or user interruption."""
     def __init__(self, trainer):

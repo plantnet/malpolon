@@ -6,11 +6,14 @@ Author: Titouan Lorieul <titouan.lorieul@gmail.com>
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytorch_lightning as pl
 import torch
 import torchmetrics.functional as Fmetrics
+from torchvision.datasets.utils import (download_and_extract_archive,
+                                        download_url, extract_archive)
 
 from malpolon.models.utils import check_metric
 
@@ -36,6 +39,8 @@ class GenericPredictionSystem(pl.LightningModule):
     metrics: dict
         Dictionary containing the metrics to monitor during the training and
         to compute at test time.
+    save_hyperparameters: bool
+        Save arguments to hparams attribute.
     """
 
     def __init__(
@@ -44,7 +49,7 @@ class GenericPredictionSystem(pl.LightningModule):
         loss: torch.nn.modules.loss._Loss,
         optimizer: torch.optim.Optimizer,
         metrics: Optional[dict[str, Callable]] = None,
-        save_hyperparameters: Optional[bool] = True
+        save_hyperparameters: Optional[bool] = True,
     ):
         if save_hyperparameters:
             self.save_hyperparameters(ignore=['model', 'loss'])
@@ -53,13 +58,71 @@ class GenericPredictionSystem(pl.LightningModule):
         # indefinitely after returning self.optimizer. It is unclear why.
 
         super().__init__()
+        self.checkpoint_path = None if not hasattr(self, 'checkpoint_path') else self.checkpoint_path  # Avoids overwriting the attribute. This class will need to be re-written properly alongside ClassificationSystem
         self.model = check_model(model)
         self.optimizer = check_optimizer(optimizer)
         self.loss = check_loss(loss)
         self.metrics = metrics or {}
 
-    def forward(self, x: Any) -> Any:
-        return self.model(x)
+    def _check_integrity(self, fp: str) -> bool:
+        return (fp).exists()
+
+    def download_weights(
+        self,
+        url: str,
+        out_path: str,
+        filename: str,
+        md5: Optional[str] = None,
+    ):
+        """Download pretrained weihgts from a remote repository.
+
+        Downloads weigths and ajusts self.checkpoint_path accordingly.
+        This method is intended to be used to perform transfer learning
+        or resume a model training later on and/or on a different
+        machine.
+        Downloaded content can either be a single file or a pre-zipped
+        directory containing all training filee, in which case the
+        value of checkpoint_path is updated to point inside that
+        unzipped folder.
+
+        Parameters
+        ----------
+        url : str
+            url to the path or directory to download
+        out_path : str
+            local root path where to to extract the downloaded content
+        filename : str
+            name of the file (in case of a single file download) or the
+            directory (in case of a zip download) on local disk
+        md5 : Optional[str], optional
+            checksum value to verify the integrity of the downloaded
+            content, by default None
+        """
+        path = self.checkpoint_path
+        if Path(filename).suffix == '.zip':
+            path = Path(out_path) / Path(filename).stem / 'pretrained.ckpt'
+            if self._check_integrity(path):
+                print("Files already downloaded and verified")
+                return
+            download_and_extract_archive(
+                url,
+                out_path,
+                filename=filename,
+                md5=md5,
+                remove_finished=True,
+            )
+        else:
+            path = Path(out_path) / 'pretrained.ckpt'
+            if self._check_integrity(path):
+                print("Files already downloaded and verified")
+                return
+            download_url(
+                url,
+                out_path,
+                filename=filename,
+                md5=md5,
+            )
+        self.checkpoint_path = path
 
     def _cast_type_to_loss(self, y):
         if isinstance(self.loss, torch.nn.CrossEntropyLoss) and len(y.shape) == 1 or\
@@ -68,6 +131,9 @@ class GenericPredictionSystem(pl.LightningModule):
         else:
             y = y.to(torch.float32)
         return y
+
+    def forward(self, x: Any) -> Any:
+        return self.model(x)
 
     def _step(
         self, split: str, batch: tuple[Any, Any], batch_idx: int
@@ -253,6 +319,7 @@ class ClassificationSystem(GenericPredictionSystem):
         task: str = 'classification_binary',
         loss_kwargs: Optional[dict] = {},
         hparams_preprocess: bool = True,
+        checkpoint_path: Optional[str] = None
     ):
         """Class constructor.
 
@@ -293,6 +360,7 @@ class ClassificationSystem(GenericPredictionSystem):
         self.momentum = momentum
         self.nesterov = nesterov
 
+        self.checkpoint_path = checkpoint_path
         model = check_model(model)
 
         optimizer = torch.optim.SGD(

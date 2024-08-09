@@ -108,22 +108,25 @@ def main(cfg: DictConfig) -> None:
         hydra config dictionary created from the .yaml config file
         associated with this script.
     """
+    # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(Path(log_dir)/Path(cfg.loggers.log_dir_name), name=cfg.loggers.exp_name, version="")
     logger_tb.log_hyperparams(cfg)
 
+    # Datamodule & Model
     datamodule = MicroGeoLifeCLEF2022DataModule(**cfg.data)
+    classif_system = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task,
+                                          checkpoint_path=cfg.run.checkpoint_path)
 
-    model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
-
+    # Lightning Trainer
     callbacks = [
         Summary(),
         ModelCheckpoint(
             dirpath=log_dir,
-            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
-            monitor=f"{next(iter(model.metrics.keys()))}/val",
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(classif_system.metrics.keys()))}/val" + ":.4f}",
+            monitor=f"{next(iter(classif_system.metrics.keys()))}/val",
             mode="max",
             save_on_train_epoch_end=True,
             save_last=True,
@@ -132,9 +135,10 @@ def main(cfg: DictConfig) -> None:
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
 
+    # Run
     if cfg.run.predict:
-        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
-                                                                 model=model.model,
+        model_loaded = ClassificationSystem.load_from_checkpoint(classif_system.checkpoint_path,
+                                                                 model=classif_system.model,
                                                                  hparams_preprocess=False)
 
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
@@ -154,7 +158,7 @@ def main(cfg: DictConfig) -> None:
         test_data_point = test_data[0][0]
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
 
-        prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
+        prediction = model_loaded.predict_point(classif_system.checkpoint_path,
                                                 test_data_point,
                                                 ['model.', ''])
         preds, probas = datamodule.predict_logits_to_class(prediction,
@@ -163,8 +167,8 @@ def main(cfg: DictConfig) -> None:
                                       out_dir=log_dir, out_name='prediction_point', single_point_query=query_point, return_csv=True)
         print('Point prediction : ', prediction.shape, prediction)
     else:
-        trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
-        trainer.validate(model, datamodule=datamodule)
+        trainer.fit(classif_system, datamodule=datamodule, ckpt_path=classif_system.checkpoint_path)
+        trainer.validate(classif_system, datamodule=datamodule)
 
 
 if __name__ == "__main__":
