@@ -33,7 +33,7 @@ class ClassificationSystemGLC24(ClassificationSystem):
         momentum: float = 0.9,
         nesterov: bool = True,
         metrics: Optional[dict[str, Callable]] = None,
-        task: str = 'classification_binary',
+        task: str = 'classification_multilabel',
         loss_kwargs: Optional[dict] = {},
         hparams_preprocess: bool = True,
         download_weights: bool = None,
