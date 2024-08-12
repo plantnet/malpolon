@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     Provider = Callable[..., nn.Module]
     Modifier = Callable[..., nn.Module]
 
-MALPOLON_MODELS = {'glc24_cnn_multimodal_ensemble': MultimodalEnsemble,}
+MALPOLON_MODELS = {'glc24_multimodal_ensemble': MultimodalEnsemble,}
 
 
 class _ModelBuilder:
@@ -157,27 +157,27 @@ def timm_model_provider(
         )
     return model
 
-# def malpolon_model_provider(
-#     model_name: str, *model_args: Any, **model_kwargs: Any
-# ) -> nn.Module:
-#     """Return a model from Malpolon's models list.
+def malpolon_model_provider(
+    model_name: str, *model_args: Any, **model_kwargs: Any
+) -> nn.Module:
+    """Return a model from Malpolon's models list.
 
-#     This method uses Malpolon's internal model listing to retrieve a
-#     model.
+    This method uses Malpolon's internal model listing to retrieve a
+    model.
 
-#     Parameters
-#     ----------
-#     model_name : str
-#         name of the model to retrieve from torchvision's library
+    Parameters
+    ----------
+    model_name : str
+        name of the model to retrieve from torchvision's library
 
-#     Returns
-#     -------
-#     nn.Module
-#         model object
-#     """
-#     model = MALPOLON_MODELS[model_name]
-#     model = model(*model_args, **model_kwargs)
-#     return model
+    Returns
+    -------
+    nn.Module
+        model object
+    """
+    model = MALPOLON_MODELS[model_name]
+    model = model(*model_args, **model_kwargs)
+    return model
 
 def _find_module_of_type(
     module: nn.Module, module_type: type, order: str
@@ -332,7 +332,7 @@ ModelBuilder = _ModelBuilder()
 
 ModelBuilder.register_provider("torchvision", torchvision_model_provider)
 ModelBuilder.register_provider("timm", timm_model_provider)
-# ModelBuilder.register_provider("malpolon", malpolon_model_provider)
+ModelBuilder.register_provider("malpolon", malpolon_model_provider)
 
 ModelBuilder.register_modifier(
     "change_first_convolutional_layer",

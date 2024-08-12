@@ -56,10 +56,8 @@ def main(cfg: DictConfig) -> None:
 
     # Datamodule & Model
     datamodule = GLC24Datamodule(**cfg.data, **cfg.task)
-    model = MultimodalEnsemble(num_classes=cfg.model.modifiers.change_last_layer.num_outputs)
-    classif_system = ClassificationSystemGLC24(model, **cfg.optimizer,
+    classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optimizer,
                                                checkpoint_path=cfg.run.checkpoint_path,
-                                               download_weights=cfg.model.download_weights,
                                                weights_dir=log_dir)  # multilabel
 
     # Lightning Trainer
@@ -72,7 +70,7 @@ def main(cfg: DictConfig) -> None:
             mode="min",
             save_on_train_epoch_end=True,
             save_last=True,
-            every_n_train_steps=2,
+            every_n_train_steps=100,
         ),
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer, deterministic=True)
@@ -86,7 +84,8 @@ def main(cfg: DictConfig) -> None:
 
         predictions = model_loaded.predict(datamodule, trainer)
         preds, probas = datamodule.predict_logits_to_class(predictions,
-                                                           np.arange(cfg.data.num_classes))
+                                                           np.arange(cfg.data.num_classes),
+                                                           activation_fn=torch.nn.Sigmoid())
         datamodule.export_predict_csv(preds, probas,
                                       out_dir=log_dir, out_name='predictions_test_dataset', top_k=25, return_csv=True)
         print('Test dataset prediction (extract) : ', predictions[:1])

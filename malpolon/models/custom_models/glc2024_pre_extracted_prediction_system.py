@@ -36,7 +36,6 @@ class ClassificationSystemGLC24(ClassificationSystem):
         task: str = 'classification_multilabel',
         loss_kwargs: Optional[dict] = {},
         hparams_preprocess: bool = True,
-        download_weights: bool = None,
         weights_dir: str = 'outputs/glc24_cnn_multimodal_ensemble/',
         checkpoint_path: Optional[str] = None
     ):
@@ -73,9 +72,6 @@ class ClassificationSystemGLC24(ClassificationSystem):
         hparams_preprocess : bool, optional
             if True performs preprocessing operations on the hyperparameters,
             by default True
-        download_weights : bool, optional
-            if True, downloads the model's weights from our remote
-            storage platform, by default None
         weights_dir : str, optional
             directory where to download the model weights,
             by default 'outputs/glc24_cnn_multimodal_ensemble/'
@@ -90,9 +86,9 @@ class ClassificationSystemGLC24(ClassificationSystem):
             length = metrics['multilabel_f1-score'].kwargs.num_labels
             loss_kwargs['pos_weight'] = Tensor([loss_kwargs['pos_weight']] * length)
         super().__init__(model, lr, weight_decay, momentum, nesterov, metrics, task, loss_kwargs, hparams_preprocess, checkpoint_path)
-        optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+        optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr)
         self.optimizer = check_optimizer(optimizer)
-        if download_weights:
+        if self.model.pretrained and not self.checkpoint_path:
             self.download_weights("https://lab.plantnet.org/seafile/f/d780d4ab7f6b419194f9/?dl=1",
                                   weights_dir,
                                   filename="pretrained.ckpt",
@@ -130,7 +126,7 @@ class ClassificationSystemGLC24(ClassificationSystem):
         y_hat = self(x_landsat, x_bioclim, x_sentinel)
 
         loss_pos_weight = self.loss.pos_weight  # save initial loss parameter value
-        self.loss.pos_weight = y * torch.Tensor([10.0]).to(y)   # Proper way would be to forward pos_weight to loss instantiation via loss_kwargs, but pos_weight must be a tensor, i.e. have access to y -> Not possible in Malpolon as datamodule and optimizer instantiations are separate
+        self.loss.pos_weight = y * torch.Tensor(self.loss.pos_weight).to(y)   # Proper way would be to forward pos_weight to loss instantiation via loss_kwargs, but pos_weight must be a tensor, i.e. have access to y -> Not possible in Malpolon as datamodule and optimizer instantiations are separate
         loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
         self.log(f"loss/{split}", loss, **log_kwargs)
         self.loss.pos_weight = loss_pos_weight  # restore initial loss parameter value to not alter lightning module state_dict

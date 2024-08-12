@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path: #  "outputs/glc24_cnn_multimodal_ensemble/runOK_2024-06-24_19-14-48/last.ckpt"
+  checkpoint_path: # "outputs/glc24_cnn_multimodal_ensemble/runOK_2024-08-12_11-50-01/last.ckpt"
 
 data:
   root: "dataset/geolifeclef-2024/"
@@ -20,7 +20,7 @@ data:
   metadata_paths:
     train:  "${data.root}GLC24_PA_metadata_train_train-10.0min.csv"
     val:  "${data.root}GLC24_PA_metadata_train_val-10.0min.csv"
-    test:  "${data.root}GLC24_PA_metadata_test.csv"  # "${data.root}GLC24_PA_metadata_test-10.0min.csv"
+    test:  "${data.root}GLC24_PA_metadata_test.csv"
   num_classes: &num_classes 11255
   download_data: True
   train_batch_size: 64
@@ -35,7 +35,7 @@ trainer:
   accelerator: "gpu"
   devices: 'auto'
   max_epochs: 20
-  val_check_interval: 2
+  val_check_interval: 100
   check_val_every_n_epoch: 1
   # log_every_n_steps: 100
 
@@ -45,11 +45,8 @@ model:
   model_kwargs:
     pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
   modifiers:
-    change_first_convolutional_layer:
-      num_input_channels: 6
     change_last_layer:
       num_outputs: *num_classes
-  download_weights: true
 
 optimizer:
   lr: 0.00025
