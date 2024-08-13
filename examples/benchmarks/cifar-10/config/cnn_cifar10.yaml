@@ -3,8 +3,8 @@ hydra:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
 run:
-  predict: false
-  checkpoint_path: # "outputs/cnn_cifar10/30_epochs_no_pretrained/last.ckpt"
+  predict: true
+  checkpoint_path: "outputs/cnn_cifar10/30_epochs_pretrained/last.ckpt"
 
 data:
   num_classes: &num_classes 10

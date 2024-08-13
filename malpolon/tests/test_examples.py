@@ -142,25 +142,25 @@ EXAMPLE_PATHS = {
         {"ref": "Inference, classification_binary, inference_point",
          "path": Path("examples/inference/sentinel-2a-rgbnir_bioclim/cnn_on_rgbnir_concat.py"),
          "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point " + BINARY_ARGS},],
-    # "micro_geolifeclef2022": [
-    #     # Multiclass classif
-    #     ## Training (raw, transfer learning, inference)
-    #     {"ref": "Train (custom dataset), classification_multiclass, training_raw",
-    #      "path": Path("examples/custom_train/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-    #      "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null"},
-    #     {"ref": "Train (custom dataset), classification_multiclass, training_transfer_learning",
-    #      "path": Path("examples/custom_train/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-    #      "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
-    #     {"ref": "Train (custom dataset), classification_multiclass, training_inference",
-    #      "path": Path("examples/custom_train/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-    #      "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
-    #     ## Inference (test_dataset & test_point)
-    #     {"ref": "Inference, classification_multiclass, inference_dataset",
-    #      "path": Path("examples/inference/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-    #      "hydra_args": f"{GPU_ARGS} {INFER_ARGS}"},
-    #     {"ref": "Inference, classification_multiclass, inference_point",
-    #      "path": Path("examples/inference/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
-    #      "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point"},],
+    "micro_geolifeclef2022": [
+        # Multiclass classif
+        ## Training (raw, transfer learning, inference)
+        {"ref": "Train (custom dataset), classification_multiclass, training_raw",
+         "path": Path("examples/custom_train/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null"},
+        {"ref": "Train (custom dataset), classification_multiclass, training_transfer_learning",
+         "path": Path("examples/custom_train/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
+        {"ref": "Train (custom dataset), classification_multiclass, training_inference",
+         "path": Path("examples/custom_train/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
+         "hydra_args": f"{GPU_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt"},
+        ## Inference (test_dataset & test_point)
+        {"ref": "Inference, classification_multiclass, inference_dataset",
+         "path": Path("examples/inference/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS}"},
+        {"ref": "Inference, classification_multiclass, inference_point",
+         "path": Path("examples/inference/micro_geolifeclef2022/cnn_on_rgb_nir_patches.py"),
+         "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point"},],
 }
 
 GLC22_EXAMPLE_PATHS = {
@@ -213,7 +213,7 @@ GLC23_EXAMPLE_PATHS = {
          "hydra_args": ""},
     ],
 }
-
+@pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
 def test_train_inference_examples():
     ckpt_path = ''
     for expe_name, v in EXAMPLE_PATHS.items():
@@ -258,7 +258,7 @@ def test_train_inference_examples():
         print(f'{INFO}         > {LINK}{path}{RESET}')
     print(f'\n{INFO}[INFO] Done. {RESET}')
 
-@pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
+
 def test_GLC22_examples():
     ckpt_path = ''
     for expe_name, v in GLC22_EXAMPLE_PATHS.items():
@@ -306,7 +306,7 @@ def test_GLC22_examples():
         print(f'{INFO}         > {LINK}{path}{RESET}')
     print(f'\n{INFO}[INFO] Done. {RESET}')
 
-
+@pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
 def test_GLC23_examples():
     ckpt_path = ''
     for expe_name, v in GLC23_EXAMPLE_PATHS.items():

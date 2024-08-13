@@ -51,13 +51,13 @@ def test_dataset_load_only_patches(subset):
     assert len(dataset) == SUBSET_SIZE[subset]
 
     result = dataset[0]
+    assert len(result) == 2
+
+    data, target = result
 
     if subset == "test":
-        assert len(result) > 2
-        data = result
+        assert target == -1
     else:
-        assert len(result) == 2
-        data, target = result
         assert type(target) == np.int64
 
     assert len(data) == 4
@@ -71,12 +71,13 @@ def test_dataset_load_localisation(subset):
 
     result = dataset[0]
 
+    assert len(result) == 2
+
+    data, target = result
+
     if subset == "test":
-        assert len(result) > 2
-        data = result
+        assert target == -1
     else:
-        assert len(result) == 2
-        data, target = result
         assert type(target) == np.int64
 
     assert len(data) == 5
@@ -95,12 +96,13 @@ def test_dataset_load_one_raster(subset):
 
     result = dataset[0]
 
+    assert len(result) == 2
+
+    data, target = result
+
     if subset == "test":
-        assert len(result) > 2
-        data = result
+        assert target == -1
     else:
-        assert len(result) == 2
-        data, target = result
         assert type(target) == np.int64
 
     assert len(data) == 5

@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path:
+  checkpoint_path: 'outputs/cnn_on_rgbnir_concat/train_multilabel/last.ckpt'
 
 data:
   num_classes: &num_classes 5
