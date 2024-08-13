@@ -13,7 +13,7 @@ from pytorch_lightning.strategies import SingleDeviceStrategy, StrategyRegistry
 from pytorch_lightning.utilities import move_data_to_device
 from torch import nn
 
-from .utils import check_model
+from malpolon.models.utils import check_model
 
 if TYPE_CHECKING:
     from typing import Any, Mapping, Optional, Union

@@ -260,7 +260,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         """
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         classes = torch.tensor(classes).to(device)
-        probas = activation_fn(predictions)
+        probas = activation_fn(predictions) if activation_fn is not None else predictions
         if 'binary' in self.task:
             class_preds = probas.round()
         else:
@@ -392,7 +392,8 @@ class BaseDataModule(pl.LightningDataModule, ABC):
                                'probas': tuple(probas[:, :top_k].astype(str))})
         else:
             test_ds = self.get_test_dataset()
-            targets = test_ds.targets
+            targets = test_ds.targets if test_ds.targets is not None else [-1] * len(predictions)
+            print('Constructing predictions CSV file...')
             df = pd.DataFrame({'observation_id': test_ds.observation_ids,
                                'lon': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 0],
                                'lat': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 1],
@@ -409,6 +410,7 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         for key in ['probas', 'predictions', 'target_species_id']:
             if not isinstance(df.loc[0, key], str) and len(df.loc[0, key]) >= 1:
                 df[key] = df[key].apply(' '.join)
+        print('Writing predictions CSV file...')
         df.to_csv(fp, index=False, sep=';', **kwargs)
         if return_csv:
             return df

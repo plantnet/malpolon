@@ -10,6 +10,7 @@ Author: Titouan Lorieul <titouan.lorieul@gmail.com>
 from pathlib import Path
 
 import hydra
+import numpy as np
 import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -43,11 +44,13 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
         inference_batch_size: int = 256,
         num_workers: int = 8,
         download: bool = False,
+        task: str = 'classification_multiclass',
     ):
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.dataset_path = dataset_path
         self.minigeolifeclef = minigeolifeclef
         self.download = download
+        self.task = task
 
     @property
     def train_transform(self):
@@ -96,17 +99,19 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
 
 @hydra.main(version_base="1.3", config_path="config", config_name="mono_modal_3_channels_model")
 def main(cfg: DictConfig) -> None:
-
+    # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(Path(log_dir)/Path(cfg.loggers.log_dir_name), name=cfg.loggers.exp_name, version="")
     logger_tb.log_hyperparams(cfg)
 
-    datamodule = GeoLifeCLEF2022DataModule(**cfg.data)
+    # Datamodule & Model
+    datamodule = GeoLifeCLEF2022DataModule(**cfg.data, **cfg.task)
+    classif_system = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task,
+                                          checkpoint_path=cfg.run.checkpoint_path)
 
-    model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
-
+    # Lightning Trainer
     callbacks = [
         Summary(),
         ModelCheckpoint(
@@ -119,9 +124,23 @@ def main(cfg: DictConfig) -> None:
         ),
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
-    trainer.fit(model, datamodule=datamodule)
 
-    trainer.validate(model, datamodule=datamodule)
+    # Run
+    if cfg.run.predict:
+        model_loaded = ClassificationSystem.load_from_checkpoint(classif_system.checkpoint_path,
+                                                                 model=classif_system.model,
+                                                                 hparams_preprocess=False)
+
+        # Option 1: Predict on the entire test dataset (Pytorch Lightning)
+        predictions = model_loaded.predict(datamodule, trainer)
+        preds, probas = datamodule.predict_logits_to_class(predictions,
+                                                           np.arange(datamodule.get_test_dataset().n_classes))
+        datamodule.export_predict_csv(preds, probas,
+                                      out_dir=log_dir, out_name='predictions_test_dataset', top_k=3, return_csv=True)
+        print('Test dataset prediction (extract) : ', predictions[:1])
+    else:
+        trainer.fit(classif_system, datamodule=datamodule, ckpt_path=classif_system.checkpoint_path)
+        trainer.validate(classif_system, datamodule=datamodule)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
-
 import logging
+from pathlib import Path
 
 import hydra
 import numpy as np
@@ -11,8 +11,10 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from malpolon.data.datasets.geolifeclef2024_pre_extracted import \
     GLC24Datamodule
 from malpolon.logging import Summary
-from malpolon.models.geolifeclef2024_multimodal_ensemble import (
-    ClassificationSystemGLC24, MultimodalEnsemble)
+from malpolon.models.custom_models.glc2024_multimodal_ensemble_model import \
+    MultimodalEnsemble
+from malpolon.models.custom_models.glc2024_pre_extracted_prediction_system import \
+    ClassificationSystemGLC24
 
 
 def set_seed(seed):
@@ -43,20 +45,22 @@ def main(cfg: DictConfig) -> None:
         associated with this script.
     """
     set_seed(69)
+    # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version=cfg.loggers.exp_name)
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name=cfg.loggers.log_dir_name, version=cfg.loggers.exp_name)
     logger_tb.log_hyperparams(cfg)
-
     logger = logging.getLogger("lightning.pytorch.core")
     logger.addHandler(logging.FileHandler(f"{log_dir}/core.log"))
 
+    # Datamodule & Model
     datamodule = GLC24Datamodule(**cfg.data, **cfg.task)
-    model = MultimodalEnsemble(num_classes=cfg.model.modifiers.change_last_layer.num_outputs,
-                               positive_weigh_factor=cfg.model.positive_weigh_factor)
-    classif_system = ClassificationSystemGLC24(model, **cfg.optimizer)  # multilabel
+    classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optimizer,
+                                               checkpoint_path=cfg.run.checkpoint_path,
+                                               weights_dir=log_dir)  # multilabel
 
+    # Lightning Trainer
     callbacks = [
         Summary(),
         ModelCheckpoint(
@@ -71,21 +75,23 @@ def main(cfg: DictConfig) -> None:
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer, deterministic=True)
 
+    # Run
     if cfg.run.predict:
-        model_loaded = ClassificationSystemGLC24.load_from_checkpoint(cfg.run.checkpoint_path,
+        model_loaded = ClassificationSystemGLC24.load_from_checkpoint(classif_system.checkpoint_path,
                                                                       model=classif_system.model,
                                                                       hparams_preprocess=False,
                                                                       strict=False)
 
         predictions = model_loaded.predict(datamodule, trainer)
         preds, probas = datamodule.predict_logits_to_class(predictions,
-                                                           np.arange(cfg.data.num_classes))
+                                                           np.arange(cfg.data.num_classes),
+                                                           activation_fn=torch.nn.Sigmoid())
         datamodule.export_predict_csv(preds, probas,
                                       out_dir=log_dir, out_name='predictions_test_dataset', top_k=25, return_csv=True)
         print('Test dataset prediction (extract) : ', predictions[:1])
 
     else:
-        trainer.fit(classif_system, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+        trainer.fit(classif_system, datamodule=datamodule, ckpt_path=classif_system.checkpoint_path)
         trainer.validate(classif_system, datamodule=datamodule)
 
 
