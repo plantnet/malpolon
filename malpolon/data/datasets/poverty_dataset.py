@@ -17,8 +17,8 @@ import pytorch_lightning as pl
 
 
 
-# TODO : Add JITTER and NORMALIZER to transfomer LightningDataModule, top remove ``preprocess_landsat`` step,
-# TODO : tile = preprocess_landsat(tile, self.normalizer['landsat_+_nightlights'], JITTER)
+# TODO : CHECK JITTER WORKS
+# TODO : REPRODUICE Mathieu 2-mpa Results
 
 
 NORMALIZER = 'dataset/normalizer.pkl'
@@ -38,25 +38,21 @@ DESCRIPTOR = {
     'NIGHTLIGHTS': "float"
 }
 FOLD = {1 : (['A','B','C','D'], ['E']), 2 : (['A','B','C','E'], ['D']), 3 : (['A','B','D','E'], ['C']), 4 : (['A','C','D','E'], ['B']), 5 : (['B','C','D','E'], ['A'])}
-JITTER =transforms.ColorJitter(brightness=0.1, contrast=0.1)
 
+class JitterCustom:
 
-def preprocess_landsat(raster, normalizer, jitter=None):
-    for i in range(7):
+    def __init__(self, brightness=0.1, contrast=0.1):
+        
+        self.jitter = transforms.ColorJitter(brightness=brightness, contrast=contrast)
+    
+    def __call__(self, img):
 
-        # Color Jittering transform
-        tmp_shape = raster[i].shape
-        if jitter:
-            raster[i] = torch.reshape(
-                jitter(raster[i][None, :, :]),
-                tmp_shape
-            )
+        for i in range(7):
 
-        # Dataset normalization
-        raster[i] = (raster[i] - normalizer[0][i]) / (normalizer[1][i])
+            img[i] = self.jitter(img[i].unsqueeze(0)).squeeze(0)
 
-    return raster
-
+        return img
+        
 
 
 class PovertyDataModule(pl.LightningDataModule):
@@ -83,11 +79,12 @@ class PovertyDataModule(pl.LightningDataModule):
         self.train_batch_size = train_batch_size
         self.inference_batch_size = inference_batch_size
         self.dict_normalize = json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
-        self.transform = torch.nn.Sequential(
+        self.transform = torchvision.transforms.Compose(
             torchvision.transforms.CenterCrop(224),
             torchvision.transforms.RandomHorizontalFlip(),
             torchvision.transforms.RandomVerticalFlip(),
-            torchvision.transforms.Normalize(self.dict_normalize['mean'], self.dict_normalize['std'])
+            JitterCustom(),
+            torchvision.transforms.Normalize(mean=self.dict_normalize['mean'], std=self.dict_normalize['std'])
 
         )
         self.val_split = val_split
