@@ -7,12 +7,14 @@ Author: Theo Larcher <theo.larcher@inria.fr>
         Auguste Verdier <auguste.verdier@umontpellier.fr>
 """
 # TODO : implement data ajustment for Poverty / Regression task
+# TODO : CHECK WHY BAND 6 IS NANA AFTER JITTER
 
 from __future__ import annotations
 
 import os
 import sys
 from tqdm import tqdm
+import random
 import json
 # Force work with the malpolon github package localled at the root of the project
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -24,9 +26,12 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 import torch
 torch.set_float32_matmul_precision('medium')
 from malpolon.data.datasets import PovertyDataModule
+from malpolon.data.datasets.poverty_dataset import MSDataset
 from malpolon.logging import Summary
 from malpolon.models import RegressionSystem,ClassificationSystem
 
+import torchvision
+from torchvision import transforms
 
 import warnings
 from rasterio.errors import NotGeoreferencedWarning
@@ -76,7 +81,7 @@ def main(cfg: DictConfig) -> None:
         trainer.validate(model, datamodule=datamodule)
 
 @hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
-def test(cfg: DictConfig) -> None:
+def calcul_mean_std(cfg: DictConfig) -> None:
 
 
     
@@ -104,6 +109,27 @@ def test(cfg: DictConfig) -> None:
     print( mean, std)
     json.dump({'mean': mean.tolist(), 'std': std.tolist()}, open('examples/poverty/mean_std_normalize.json', 'w'))
 
+@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
+def test(cfg: DictConfig) -> None:
+    dict_normalize=json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
+    transform = torchvision.transforms.Compose([
+            torchvision.transforms.CenterCrop(224),
+            # torchvision.transforms.RandomHorizontalFlip(),
+            # torchvision.transforms.RandomVerticalFlip(),
+            torchvision.transforms.Normalize(mean=dict_normalize['mean'], std=dict_normalize['std'])
+        ]
+        )
+    dataM_jitter = PovertyDataModule(**cfg.data, **cfg.task,)
+    dataM_no_jitter = PovertyDataModule(**cfg.data, **cfg.task, transform=transform)
+    dataM_jitter.setup()
+    dataM_no_jitter.setup()
+    
+    datasetJ = dataM_jitter.train_dataset
+    datasetNJ = dataM_no_jitter.train_dataset
+    idx = random.randint(0, len(datasetJ))
+    datasetJ.plot(idx)
+    datasetNJ.plot(idx)
+
 
 if __name__ == "__main__":
-    main()
+    test()

@@ -14,6 +14,7 @@ import torchvision
 from torchvision import transforms
 import pytorch_lightning as pl
 
+import datetime
 
 
 
@@ -67,7 +68,7 @@ class PovertyDataModule(pl.LightningDataModule):
             fold: int = 1,
             cach_data: bool = True,
             val_split : float = 0.2,
-            # transform=None,
+            transform=None,
             **kwargs
         ):
         super().__init__()
@@ -79,14 +80,14 @@ class PovertyDataModule(pl.LightningDataModule):
         self.train_batch_size = train_batch_size
         self.inference_batch_size = inference_batch_size
         self.dict_normalize = json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
-        self.transform = torchvision.transforms.Compose(
+        self.transform = torchvision.transforms.Compose([
             torchvision.transforms.CenterCrop(224),
             torchvision.transforms.RandomHorizontalFlip(),
             torchvision.transforms.RandomVerticalFlip(),
             JitterCustom(),
-            torchvision.transforms.Normalize(mean=self.dict_normalize['mean'], std=self.dict_normalize['std'])
-
-        )
+            torchvision.transforms.Normalize(mean=self.dict_normalize['mean'], std=self.dict_normalize['std']),
+        ]
+        ) if transform is None else transform
         self.val_split = val_split
         self.num_workers = num_workers
         
@@ -159,7 +160,7 @@ class MSDataset(Dataset):
         value = torch.tensor(value, dtype=torch.float32).unsqueeze(-1)
         return tile, value
     
-    def plot(self, idx, rgb=False):
+    def plot(self, idx, rgb=False, save=True):
 
         tile, value = self.__getitem__(idx)
         
@@ -179,7 +180,11 @@ class MSDataset(Dataset):
                 ax.imshow(tile[i, ...], cmap='pink')
 
                 ax.set_title(f"Band: {i}")
-            fig.suptitle(f"Value: {value}")
 
-            pyplot.tight_layout()
-            pyplot.show()
+        fig.suptitle(f"Value: {value}")
+        if save :
+            fig.savefig(f'examples/poverty/plot_{idx}_{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}.png')
+        
+        pyplot.tight_layout()
+        pyplot.show()
+        return tile
