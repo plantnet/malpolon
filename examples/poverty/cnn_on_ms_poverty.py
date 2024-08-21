@@ -17,6 +17,7 @@ import sys
 from tqdm import tqdm
 import random
 import json
+
 # Force work with the malpolon github package localled at the root of the project
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
@@ -25,17 +26,19 @@ import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 import torch
+
 torch.set_float32_matmul_precision('medium')
 from malpolon.data.datasets import PovertyDataModule
 from malpolon.data.datasets.poverty_dataset import MSDataset
 from malpolon.logging import Summary
-from malpolon.models import RegressionSystem,ClassificationSystem
+from malpolon.models import RegressionSystem, ClassificationSystem
 
 import torchvision
 from torchvision import transforms
 
 import warnings
 from rasterio.errors import NotGeoreferencedWarning
+
 warnings.filterwarnings("ignore", category=NotGeoreferencedWarning)
 
 
@@ -50,17 +53,16 @@ def main(cfg: DictConfig) -> None:
         associated with this script.
     """
     for fold in range(5):
-
-        print("Training fold ", fold+1)
+        print("Training fold ", fold + 1)
 
         log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
-        log_dir = os.path.join(log_dir, f"fold_{fold+1}")
+        log_dir = os.path.join(log_dir, f"fold_{fold + 1}")
         logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
         logger_csv.log_hyperparams(cfg)
         logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
         logger_tb.log_hyperparams(cfg)
 
-        datamodule = PovertyDataModule(**cfg.data, **cfg.task, fold=fold+1)
+        datamodule = PovertyDataModule(**cfg.data, **cfg.task, fold=fold + 1)
         model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
         callbacks = [
@@ -76,26 +78,24 @@ def main(cfg: DictConfig) -> None:
             ),
         ]
         print(cfg.trainer)
-        trainer = pl.Trainer(logger=[logger_csv, logger_tb],log_every_n_steps=1, callbacks=callbacks, **cfg.trainer)#
+        trainer = pl.Trainer(logger=[logger_csv, logger_tb], log_every_n_steps=999999, callbacks=callbacks,
+                             **cfg.trainer)  #
 
         trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
         trainer.validate(model, datamodule=datamodule)
 
+
 @hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
 def calcul_mean_std(cfg: DictConfig) -> None:
+    datamodule = PovertyDataModule(**cfg.data, **cfg.task)  #
 
-
-    
-    datamodule = PovertyDataModule(**cfg.data, **cfg.task)#
-
-   
     datamodule.setup()
 
     data_loader = datamodule.train_dataloader()
 
     mean = torch.zeros(7)
     std = torch.zeros(7)
-    
+
     total_images_count = 0
     for images, _ in tqdm(data_loader):
         batch_images_count = images.size(0)
@@ -103,28 +103,28 @@ def calcul_mean_std(cfg: DictConfig) -> None:
         mean += images.mean(2).sum(0)
         std += images.std(2).sum(0)
         total_images_count += batch_images_count
-    
 
     mean /= total_images_count
     std /= total_images_count
-    print( mean, std)
+    print(mean, std)
     json.dump({'mean': mean.tolist(), 'std': std.tolist()}, open('examples/poverty/mean_std_normalize.json', 'w'))
+
 
 @hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
 def test(cfg: DictConfig) -> None:
-    dict_normalize=json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
+    dict_normalize = json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
     transform = torchvision.transforms.Compose([
-            torchvision.transforms.CenterCrop(224),
-            # torchvision.transforms.RandomHorizontalFlip(),
-            # torchvision.transforms.RandomVerticalFlip(),
-            torchvision.transforms.Normalize(mean=dict_normalize['mean'], std=dict_normalize['std'])
-        ]
-        )
-    dataM_jitter = PovertyDataModule(**cfg.data, **cfg.task,)
+        torchvision.transforms.CenterCrop(224),
+        # torchvision.transforms.RandomHorizontalFlip(),
+        # torchvision.transforms.RandomVerticalFlip(),
+        torchvision.transforms.Normalize(mean=dict_normalize['mean'], std=dict_normalize['std'])
+    ]
+    )
+    dataM_jitter = PovertyDataModule(**cfg.data, **cfg.task, )
     dataM_no_jitter = PovertyDataModule(**cfg.data, **cfg.task, transform=transform)
     dataM_jitter.setup()
     dataM_no_jitter.setup()
-    
+
     datasetJ = dataM_jitter.train_dataset
     datasetNJ = dataM_no_jitter.train_dataset
     idx = random.randint(0, len(datasetJ))
