@@ -9,6 +9,10 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 from __future__ import annotations
 
 import os
+import sys
+
+# Force work with the malpolon github package localled at the root of the project
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
 
 import hydra
 import pytorch_lightning as pl
@@ -37,7 +41,7 @@ def main(cfg: DictConfig) -> None:
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
     logger_tb.log_hyperparams(cfg)
 
-    # datamodule = Sentinel2TorchGeoDataModule(**cfg.data, **cfg.task)
+    datamodule = Sentinel2TorchGeoDataModule(**cfg.data, **cfg.task)
     model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
 
     callbacks = [
@@ -54,40 +58,40 @@ def main(cfg: DictConfig) -> None:
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
 
-    # if cfg.run.predict:
-    #     model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
-    #                                                              model=model.model,
-    #                                                              hparams_preprocess=False)
+    if cfg.run.predict:
+        model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
+                                                                 model=model.model,
+                                                                 hparams_preprocess=False)
 
-    #     # Option 1: Predict on the entire test dataset (Pytorch Lightning)
-    #     predictions = model_loaded.predict(datamodule, trainer)
-    #     preds, probas = datamodule.predict_logits_to_class(predictions,
-    #                                                        datamodule.get_test_dataset().unique_labels)
-    #     datamodule.export_predict_csv(preds, probas,
-    #                                   out_dir=log_dir, out_name='predictions_test_dataset', top_k=3, return_csv=True)
-    #     print('Test dataset prediction (extract) : ', predictions[:1])
+        # Option 1: Predict on the entire test dataset (Pytorch Lightning)
+        predictions = model_loaded.predict(datamodule, trainer)
+        preds, probas = datamodule.predict_logits_to_class(predictions,
+                                                           datamodule.get_test_dataset().unique_labels)
+        datamodule.export_predict_csv(preds, probas,
+                                      out_dir=log_dir, out_name='predictions_test_dataset', top_k=3, return_csv=True)
+        print('Test dataset prediction (extract) : ', predictions[:1])
 
-    #     # Option 2: Predict 1 data point (Pytorch)
-    #     test_data = datamodule.get_test_dataset()
-    #     query_point = {'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
-    #                    'crs': 4326,
-    #                    'size': datamodule.size,
-    #                    'units': datamodule.units,
-    #                    'species_id': [test_data.targets[0]]}
-    #     test_data_point = test_data[query_point][0]
-    #     test_data_point = test_data_point.resize_(1, *test_data_point.shape)
+        # Option 2: Predict 1 data point (Pytorch)
+        test_data = datamodule.get_test_dataset()
+        query_point = {'lon': test_data.coordinates[0][0], 'lat': test_data.coordinates[0][1],
+                       'crs': 4326,
+                       'size': datamodule.size,
+                       'units': datamodule.units,
+                       'species_id': [test_data.targets[0]]}
+        test_data_point = test_data[query_point][0]
+        test_data_point = test_data_point.resize_(1, *test_data_point.shape)
 
-    #     prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
-    #                                             test_data_point,
-    #                                             ['model.', ''])
-    #     preds, probas = datamodule.predict_logits_to_class(prediction,
-    #                                                        datamodule.get_test_dataset().unique_labels)
-    #     datamodule.export_predict_csv(preds, probas,
-    #                                   out_dir=log_dir, out_name='prediction_point', single_point_query=query_point, return_csv=True)
-    #     print('Point prediction : ', prediction.shape, prediction)
-    # else:
-    #     trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
-    #     trainer.validate(model, datamodule=datamodule)
+        prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
+                                                test_data_point,
+                                                ['model.', ''])
+        preds, probas = datamodule.predict_logits_to_class(prediction,
+                                                           datamodule.get_test_dataset().unique_labels)
+        datamodule.export_predict_csv(preds, probas,
+                                      out_dir=log_dir, out_name='prediction_point', single_point_query=query_point, return_csv=True)
+        print('Point prediction : ', prediction.shape, prediction)
+    else:
+        trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+        trainer.validate(model, datamodule=datamodule)
 
 
 if __name__ == "__main__":

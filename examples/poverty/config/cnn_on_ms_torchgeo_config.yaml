@@ -20,7 +20,7 @@ task:
 trainer:
   accelerator: "gpu"
   devices: 1
-  max_epochs: 10
+  max_epochs: 100
   # val_check_interval: 2
   check_val_every_n_epoch: 1
 #  log_every_n_steps: 1
@@ -42,7 +42,7 @@ model:
       num_outputs: ${data.num_classes}
 
 optimizer:
-  lr: 1e-4
+  lr: 1e-6
   weight_decay: 1e-5
   momentum: 0.9
   nesterov: true
