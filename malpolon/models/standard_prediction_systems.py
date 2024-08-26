@@ -379,13 +379,20 @@ class RegressionSystem(GenericPredictionSystem):
 
         model = check_model(model)
 
-        optimizer = torch.optim.SGD(
-            model.parameters(),
-            lr=self.lr,
-            weight_decay=self.weight_decay,
-            momentum=self.momentum,
-            nesterov=self.nesterov,
-        )
+        # optimizer = torch.optim.SGD(
+        #     model.parameters(),
+        #     lr=self.lr,
+        #     weight_decay=self.weight_decay,
+        #     momentum=self.momentum,
+        #     nesterov=self.nesterov,
+        # )
+
+        optimizer = torch.optim.AdamW(model.parameters(),
+                                      lr=lr,
+                                      weight_decay=weight_decay)
+
+        print(optimizer)
+
         if 'regression' in task :
             loss = torch.nn.MSELoss()
             
@@ -397,3 +404,20 @@ class RegressionSystem(GenericPredictionSystem):
             }
 
         super().__init__(model, loss, optimizer, metrics)
+
+    def configure_optimizers(self) -> torch.optim.Optimizer:
+        optimizer = torch.optim.AdamW(self.model.parameters(),
+                                      lr=self.lr,
+                                      weight_decay=self.weight_decay)
+
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.1,
+                                                               patience=4, threshold=0.0001, threshold_mode='rel',
+                                                               cooldown=0, min_lr=0, eps=1e-08)
+        return {
+        "optimizer": optimizer,
+        "lr_scheduler": {
+            "scheduler": scheduler,
+            "monitor": 'loss/val_epoch',
+            "frequency": 1,
+        },
+    }
