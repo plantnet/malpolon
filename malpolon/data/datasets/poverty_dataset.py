@@ -14,8 +14,10 @@ import torchvision
 from torchvision import transforms
 import pytorch_lightning as pl
 
-# TODO : Add JITTER and NORMALIZER to transfomer LightningDataModule, top remove ``preprocess_landsat`` step,
-# TODO : tile = preprocess_landsat(tile, self.normalizer['landsat_+_nightlights'], JITTER)
+import datetime
+
+# TODO : CHECK JITTER WORKS
+# TODO : REPRODUICE Mathieu 2-mpa Results
 
 
 NORMALIZER = 'dataset/normalizer.pkl'
@@ -34,25 +36,20 @@ DESCRIPTOR = {
     'TEMP1': "float",
     'NIGHTLIGHTS': "float"
 }
+FOLD = {1: (['A', 'B', 'C'], ['D'], ['E']), 2: (['B', 'C', 'D'], ['E'], ['A']), 3: (['C', 'D', 'E'], ['A'], ['B']),
+        4: (['D', 'E', 'A'], ['B'], ['C']), 5: (['E', 'A', 'B'], ['C'], ['D'])}
 
-JITTER = transforms.ColorJitter(brightness=0.1, contrast=0.1)
 
+class JitterCustom:
 
-def preprocess_landsat(raster, normalizer, jitter=None):
-    for i in range(7):
+    def __init__(self, brightness=0.1, contrast=0.1):
+        self.jitter = transforms.ColorJitter(brightness=brightness, contrast=contrast)
 
-        # Color Jittering transform
-        tmp_shape = raster[i].shape
-        if jitter:
-            raster[i] = torch.reshape(
-                jitter(raster[i][None, :, :]),
-                tmp_shape
-            )
+    def __call__(self, img):
+        for i in range(7):
+            img[i] = self.jitter(img[i].unsqueeze(0)).squeeze(0)
 
-        # Dataset normalization
-        raster[i] = (raster[i] - normalizer[0][i]) / (normalizer[1][i])
-
-    return raster
+        return img
 
 
 class PovertyDataModule(pl.LightningDataModule):
@@ -64,38 +61,74 @@ class PovertyDataModule(pl.LightningDataModule):
             train_batch_size: int = 32,
             inference_batch_size: int = 16,
             num_workers: int = 8,
-
+            fold: int = 1,
             cach_data: bool = True,
-            val_split: float = 0.5,
-            # transform=None,
+            val_split: float = 0.2,
+            test_split: float = 0.2,
+            dhs_folds: bool = False,
+            transform=None,
             **kwargs
     ):
         super().__init__()
-        self.dataframe = pd.read_csv(dataset_path + labels_name)
+        dataframe = pd.read_csv(dataset_path + labels_name)
+        self.dataframe = dataframe
+        self.dataframe_train = dataframe[dataframe['fold'].isin(FOLD[fold][0])]
+        self.dataframe_val = dataframe[dataframe['fold'].isin(FOLD[fold][1])]
+        self.dataframe_test = dataframe[dataframe['fold'].isin(FOLD[fold][2])]
         self.tif_dir = dataset_path + tif_dir
         self.train_batch_size = train_batch_size
         self.inference_batch_size = inference_batch_size
         self.dict_normalize = json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
-        self.transform = torch.nn.Sequential(
+        self.transform = torchvision.transforms.Compose([
             torchvision.transforms.CenterCrop(224),
             torchvision.transforms.RandomHorizontalFlip(),
             torchvision.transforms.RandomVerticalFlip(),
-            torchvision.transforms.Normalize(self.dict_normalize['mean'], self.dict_normalize['std'])
-
-        )
+            JitterCustom(),
+            torchvision.transforms.Normalize(mean=self.dict_normalize['mean'], std=self.dict_normalize['std']),
+        ]
+        ) if transform is None else transform
         self.val_split = val_split
+        self.test_split = test_split
+        self.dhs_folds = dhs_folds
         self.num_workers = num_workers
 
     def get_dataset(self):
         dataset = MSDataset(self.dataframe, self.tif_dir, transform=self.transform)
         return dataset
 
-    def setup(self, stage=None):
-        full_dataset = MSDataset(self.dataframe, self.tif_dir, transform=self.transform)
+    def get_train_dataset(self):
+        dataset = MSDataset(self.dataframe_train, self.tif_dir, transform=self.transform)
+        return dataset
 
-        val_size = int(len(full_dataset) * self.val_split)
-        train_size = len(full_dataset) - val_size
-        self.train_dataset, self.val_dataset = random_split(full_dataset, [train_size, val_size])
+    def get_val_dataset(self):
+        dataset = MSDataset(self.dataframe_val, self.tif_dir, transform=self.transform)
+        return dataset
+
+    def get_test_dataset(self):
+        test_transform = torchvision.transforms.Compose([
+            torchvision.transforms.CenterCrop(224),
+            torchvision.transforms.Normalize(mean=self.dict_normalize['mean'], std=self.dict_normalize['std']),
+        ]
+        )
+        dataset = MSDataset(self.dataframe_test, self.tif_dir, transform=self.transform)
+        return dataset
+
+    def setup(self, stage=None):
+        if self.dhs_folds:
+            print('DHS Folds')
+            self.train_dataset = self.get_train_dataset()
+            self.val_dataset = self.get_val_dataset()
+            self.test_dataset = self.get_test_dataset()
+
+        else:
+            print('Random Split')
+            full_dataset = MSDataset(self.dataframe, self.tif_dir, transform=self.transform)
+            val_size = int(len(full_dataset) * self.val_split)
+            print(val_size)
+            test_size = int(len(full_dataset) * self.test_split)
+            train_size = len(full_dataset) - val_size - test_size
+            self.train_dataset, self.val_dataset, self.test_dataset = random_split(full_dataset,
+                                                                                   [train_size, val_size, test_size])
 
     def train_dataloader(self):
         return DataLoader(self.train_dataset, batch_size=self.train_batch_size, shuffle=True,
@@ -103,6 +136,10 @@ class PovertyDataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(self.val_dataset, batch_size=self.inference_batch_size, num_workers=self.num_workers,
+                          persistent_workers=True)
+
+    def test_dataloader(self):
+        return DataLoader(self.test_dataset, batch_size=self.inference_batch_size, num_workers=self.num_workers,
                           persistent_workers=True)
 
 
@@ -147,7 +184,7 @@ class MSDataset(Dataset):
         value = torch.tensor(value, dtype=torch.float32).unsqueeze(-1)
         return tile, value
 
-    def plot(self, idx, rgb=False):
+    def plot(self, idx, rgb=False, save=True):
 
         tile, value = self.__getitem__(idx)
 
@@ -166,7 +203,11 @@ class MSDataset(Dataset):
                 ax.imshow(tile[i, ...], cmap='pink')
 
                 ax.set_title(f"Band: {i}")
-            fig.suptitle(f"Value: {value}")
 
-            pyplot.tight_layout()
-            pyplot.show()
+        fig.suptitle(f"Value: {value}")
+        if save:
+            fig.savefig(f'examples/poverty/plot_{idx}_{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}.png')
+
+        pyplot.tight_layout()
+        pyplot.show()
+        return tile

@@ -13,6 +13,9 @@ data:
   train_batch_size: 64
   inference_batch_size: 64
   num_workers: 8
+  val_split: 0.2
+  test_split: 0.2
+  dhs_folds: True
 
 task:
   task: regression
@@ -20,7 +23,7 @@ task:
 trainer:
   accelerator: gpu
   devices: 1
-  max_epochs: 100
+  max_epochs: 50
   check_val_every_n_epoch: 1
 
 model:
@@ -50,8 +53,6 @@ optimizer:
 
 
 miscellaneous:
-  train_dataset : random 0.5
-  val_dataset : train_dataset
   optimizer : Adam
   lr_scheduler : ReduceLROnPlateau
         

@@ -7,10 +7,12 @@ Author: Titouan Lorieul <titouan.lorieul@gmail.com>
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+import json
 
 import pytorch_lightning as pl
 import torch
 import torchmetrics.functional as Fmetrics
+import torchvision.models
 
 from torchmetrics.regression import R2Score
 from malpolon.models.utils import check_metric
@@ -330,7 +332,7 @@ class RegressionSystem(GenericPredictionSystem):
     """Regression task class."""
     def __init__(
         self,
-        model: Union[torch.nn.Module, Mapping],
+        model: Union[torch.nn.Module, Mapping] = json.load(open('examples/poverty/model.json', 'r')),
         lr: float = 1e-2,
         weight_decay: float = 0,
         momentum: float = 0.9,
@@ -379,33 +381,24 @@ class RegressionSystem(GenericPredictionSystem):
 
         model = check_model(model)
 
-        # optimizer = torch.optim.SGD(
-        #     model.parameters(),
-        #     lr=self.lr,
-        #     weight_decay=self.weight_decay,
-        #     momentum=self.momentum,
-        #     nesterov=self.nesterov,
-        # )
-
         optimizer = torch.optim.AdamW(model.parameters(),
                                       lr=lr,
                                       weight_decay=weight_decay)
 
         print(optimizer)
 
-        if 'regression' in task :
+        if 'regression' in task:
             loss = torch.nn.MSELoss()
-            
+
         if metrics is None:
-            
             metrics = {
                 "regression_R2score": {'callable': Fmetrics.regression.r2_score,
-                             'kwargs': {}}
+                                       'kwargs': {}}
             }
 
         super().__init__(model, loss, optimizer, metrics)
 
-    def configure_optimizers(self) -> torch.optim.Optimizer:
+    def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.model.parameters(),
                                       lr=self.lr,
                                       weight_decay=self.weight_decay)
@@ -414,10 +407,10 @@ class RegressionSystem(GenericPredictionSystem):
                                                                patience=4, threshold=0.0001, threshold_mode='rel',
                                                                cooldown=0, min_lr=0, eps=1e-08)
         return {
-        "optimizer": optimizer,
-        "lr_scheduler": {
-            "scheduler": scheduler,
-            "monitor": 'loss/val_epoch',
-            "frequency": 1,
-        },
-    }
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": 'loss/val_epoch',
+                "frequency": 1,
+            },
+        }
