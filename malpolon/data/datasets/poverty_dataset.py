@@ -83,7 +83,7 @@ class PovertyDataModule(pl.LightningDataModule):
             torchvision.transforms.CenterCrop(224),
             torchvision.transforms.RandomHorizontalFlip(),
             torchvision.transforms.RandomVerticalFlip(),
-            JitterCustom(),
+            # JitterCustom(),
             torchvision.transforms.Normalize(mean=self.dict_normalize['mean'], std=self.dict_normalize['std']),
         ]
         ) if transform is None else transform
@@ -110,18 +110,16 @@ class PovertyDataModule(pl.LightningDataModule):
             torchvision.transforms.Normalize(mean=self.dict_normalize['mean'], std=self.dict_normalize['std']),
         ]
         )
-        dataset = MSDataset(self.dataframe_test, self.tif_dir, transform=self.transform)
+        dataset = MSDataset(self.dataframe_test, self.tif_dir, transform=test_transform)
         return dataset
 
     def setup(self, stage=None):
         if self.dhs_folds:
-            print('DHS Folds')
             self.train_dataset = self.get_train_dataset()
             self.val_dataset = self.get_val_dataset()
             self.test_dataset = self.get_test_dataset()
 
         else:
-            print('Random Split')
             full_dataset = MSDataset(self.dataframe, self.tif_dir, transform=self.transform)
             val_size = int(len(full_dataset) * self.val_split)
             print(val_size)

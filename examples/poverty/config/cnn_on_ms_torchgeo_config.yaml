@@ -53,6 +53,6 @@ optimizer:
 
 
 miscellaneous:
-  optimizer : Adam
-  lr_scheduler : ReduceLROnPlateau
+  optimizer : AdamW
+  lr_scheduler : CyclicLR
         

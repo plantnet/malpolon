@@ -403,9 +403,12 @@ class RegressionSystem(GenericPredictionSystem):
                                       lr=self.lr,
                                       weight_decay=self.weight_decay)
 
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.1,
-                                                               patience=4, threshold=0.0001, threshold_mode='rel',
-                                                               cooldown=0, min_lr=0, eps=1e-08)
+        scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer=optimizer, max_lr=self.lr * 5,
+                                                      base_lr=self.lr, cycle_momentum=False)
+
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.1,
+        #                                                        patience=4, threshold=0.0001, threshold_mode='rel',
+        #                                                        cooldown=0, min_lr=0, eps=1e-08)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
