@@ -120,24 +120,20 @@ def test(cfg: DictConfig) -> None:
         torchvision.transforms.Normalize(mean=dict_normalize['mean'], std=dict_normalize['std'])
     ]
     )
-    dataM_jitter = PovertyDataModule(**cfg.data, **cfg.task, )
-    dataM_no_jitter = PovertyDataModule(**cfg.data, **cfg.task, transform=transform)
-    dataM_jitter.setup()
-    dataM_no_jitter.setup()
+    dataM = PovertyDataModule(**cfg.data, **cfg.task, )
+    dataM.setup()
 
-    model = RegressionSystem.load_from_checkpoint(checkpoint_path='outputs/cnn_on_ms_poverty/2024-08-27_12-21-15'
-                                                                  '/fold_1/checkpoint-epoch=48-step=9940'
-                                                                  '-regression_R2score/val=0.4035.ckpt')
+    model = RegressionSystem.load_from_checkpoint(checkpoint_path='outputs/cnn_on_ms_poverty/val=0.3845.ckpt')
     trainer = pl.Trainer(logger=False, log_every_n_steps=1, **cfg.trainer)
-    trainer.test(model, datamodule=dataM_jitter)
-    trainer.test(model, datamodule=dataM_no_jitter, )
+    # trainer.test(model, datamodule=dataM_jitter)
+    # trainer.test(model, datamodule=dataM_no_jitter)
 
-    datasetJ = dataM_jitter.train_dataset
-    datasetNJ = dataM_no_jitter.train_dataset
-    idx = random.randint(0, len(datasetJ))
-    datasetJ.plot(idx)
-    datasetNJ.plot(idx)
+    predictions = model.predict(dataM, trainer)
+    log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    dataM.export_predict_csv(predictions,
+                             out_dir=log_dir, out_name='predictions_test_dataset', top_k=3, return_csv=True)
+    print('Test dataset prediction (extract) : ', predictions[:1])
 
 
 if __name__ == "__main__":
-    main()
+    test()

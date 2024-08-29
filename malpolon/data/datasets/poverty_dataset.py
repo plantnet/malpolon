@@ -1,6 +1,8 @@
 import os
 import random
 import json
+import sys
+from typing import Callable
 
 import numpy as np
 import rasterio
@@ -13,6 +15,10 @@ from torch.utils.data import DataLoader, random_split
 import torchvision
 from torchvision import transforms
 import pytorch_lightning as pl
+
+# Force work with the malpolon github package localled at the root of the project
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+from malpolon.data.data_module import BaseDataModule
 
 import datetime
 
@@ -52,7 +58,7 @@ class JitterCustom:
         return img
 
 
-class PovertyDataModule(pl.LightningDataModule):
+class PovertyDataModule(BaseDataModule):
     def __init__(
             self,
             tif_dir: str = 'landsat_tiles/',
@@ -92,53 +98,71 @@ class PovertyDataModule(pl.LightningDataModule):
         self.dhs_folds = dhs_folds
         self.num_workers = num_workers
 
-    def get_dataset(self):
-        dataset = MSDataset(self.dataframe, self.tif_dir, transform=self.transform)
-        return dataset
+    def train_transform(self) -> Callable:
+        return torchvision.transforms.Compose([
+            torchvision.transforms.CenterCrop(224),
+            torchvision.transforms.RandomHorizontalFlip(),
+            torchvision.transforms.RandomVerticalFlip(),
+            # JitterCustom(),
+            torchvision.transforms.Normalize(mean=self.dict_normalize['mean'], std=self.dict_normalize['std']),
+        ])
 
-    def get_train_dataset(self):
-        dataset = MSDataset(self.dataframe_train, self.tif_dir, transform=self.transform)
-        return dataset
-
-    def get_val_dataset(self):
-        dataset = MSDataset(self.dataframe_val, self.tif_dir, transform=self.transform)
-        return dataset
-
-    def get_test_dataset(self):
-        test_transform = torchvision.transforms.Compose([
+    def test_transform(self) -> Callable:
+        return torchvision.transforms.Compose([
             torchvision.transforms.CenterCrop(224),
             torchvision.transforms.Normalize(mean=self.dict_normalize['mean'], std=self.dict_normalize['std']),
-        ]
-        )
-        dataset = MSDataset(self.dataframe_test, self.tif_dir, transform=test_transform)
+        ])
+
+    def get_dataset(self, split: str, transform: Callable, **kwargs) -> Dataset:
+        if split=='train':
+            dataset = MSDataset(self.dataframe_train, self.tif_dir, transform=transform)
+        elif split=='val':
+            dataset = MSDataset(self.dataframe_val, self.tif_dir, transform=transform)
+        elif split=='test':
+            dataset = MSDataset(self.dataframe_test, self.tif_dir, transform=transform)
         return dataset
 
-    def setup(self, stage=None):
-        if self.dhs_folds:
-            self.train_dataset = self.get_train_dataset()
-            self.val_dataset = self.get_val_dataset()
-            self.test_dataset = self.get_test_dataset()
+    def get_train_dataset(self) -> Dataset:
+        """Call self.get_dataset to return the train dataset.
 
-        else:
-            full_dataset = MSDataset(self.dataframe, self.tif_dir, transform=self.transform)
-            val_size = int(len(full_dataset) * self.val_split)
-            print(val_size)
-            test_size = int(len(full_dataset) * self.test_split)
-            train_size = len(full_dataset) - val_size - test_size
-            self.train_dataset, self.val_dataset, self.test_dataset = random_split(full_dataset,
-                                                                                   [train_size, val_size, test_size])
+        Returns
+        -------
+        Dataset
+            train dataset
+        """
+        dataset = self.get_dataset(
+            split="train",
+            transform=self.train_transform(),
+        )
+        return dataset
 
-    def train_dataloader(self):
-        return DataLoader(self.train_dataset, batch_size=self.train_batch_size, shuffle=True,
-                          num_workers=self.num_workers, persistent_workers=True)
+    def get_val_dataset(self) -> Dataset:
+        """Call self.get_dataset to return the validation dataset.
 
-    def val_dataloader(self):
-        return DataLoader(self.val_dataset, batch_size=self.inference_batch_size, num_workers=self.num_workers,
-                          persistent_workers=True)
+        Returns
+        -------
+        Dataset
+            validation dataset
+        """
+        dataset = self.get_dataset(
+            split="val",
+            transform=self.test_transform(),
+        )
+        return dataset
 
-    def test_dataloader(self):
-        return DataLoader(self.test_dataset, batch_size=self.inference_batch_size, num_workers=self.num_workers,
-                          persistent_workers=True)
+    def get_test_dataset(self) -> Dataset:
+        """Call self.get_dataset to return the test dataset.
+
+        Returns
+        -------
+        Dataset
+            test dataset
+        """
+        dataset = self.get_dataset(
+            split="test",
+            transform=self.test_transform(),
+        )
+        return dataset
 
 
 class MSDataset(Dataset):
