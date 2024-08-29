@@ -143,13 +143,14 @@ class TrainDataset(Dataset):
     """
     num_classes = 11255
 
-    def __init__(self, metadata, num_classes=11255, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None):
+    def __init__(self, metadata, num_classes=11255, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel', **kwargs):
         self.transform = transform
         self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
         ])
         # self.sentinel_transform = None
+        self.task = task
         self.num_classes = num_classes
         self.landsat_data_dir = landsat_data_dir
         self.bioclim_data_dir = bioclim_data_dir
@@ -160,8 +161,8 @@ class TrainDataset(Dataset):
             self.metadata['speciesId'] = self.metadata['speciesId'].astype(int)
         else:
             self.metadata['speciesId'] = [None] * len(self.metadata)
+        self.metadata = self.metadata.drop_duplicates(subset="surveyId").reset_index(drop=True)  # Should we ?
         self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
-        self.metadata = self.metadata.drop_duplicates(subset="surveyId").reset_index(drop=True)
 
     def __len__(self):
         return len(self.metadata)
@@ -187,11 +188,13 @@ class TrainDataset(Dataset):
                                             transform=self.transform['sentinel'])
             data_samples.append(torch.tensor(np.array(sentinel_sample), dtype=torch.float32))
 
-        species_ids = self.label_dict.get(survey_id, [])  # Get list of species IDs for the survey ID
-        label = torch.zeros(self.num_classes)  # Initialize label tensor
-        for species_id in species_ids:
-            label_id = species_id
-            label[label_id] = 1  # Set the corresponding class index to 1 for each species
+        if 'multiclass' in self.task:
+            label = self.metadata.speciesId[idx]
+        else:
+            species_ids = self.label_dict.get(survey_id, [])  # Get list of species IDs for the survey ID
+            label = torch.zeros(self.num_classes)  # Initialize label tensor
+            for species_id in species_ids:
+                label[species_id] = 1  # Set the corresponding class index to 1 for each species
 
         return tuple(data_samples) + (label, survey_id)
 
@@ -206,7 +209,7 @@ class TestDataset(TrainDataset):
     TrainDataset : Dataset
         inherits TrainDataset attributes and __len__() method
     """
-    def __init__(self, metadata, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None):
+    def __init__(self, metadata, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel'):
         self.transform = transform
         self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
@@ -236,11 +239,14 @@ class TestDataset(TrainDataset):
                                             transform=self.transform['sentinel'])
             data_samples.append(torch.tensor(np.array(sentinel_sample), dtype=torch.float32))
 
-        species_ids = self.label_dict.get(survey_id, [])  # Get list of species IDs for the survey ID
-        label = torch.zeros(self.num_classes)  # Initialize label tensor
-        for species_id in species_ids:
-            label_id = species_id
-            label[label_id] = 1  # Set the corresponding class index to 1 for each species
+        if 'multiclass' in self.task:
+            label = self.metadata.speciesId[idx]
+        else:
+            species_ids = self.label_dict.get(survey_id, [])  # Get list of species IDs for the survey ID
+            label = torch.zeros(self.num_classes)  # Initialize label tensor
+            for species_id in species_ids:
+                label[species_id] = 1  # Set the corresponding class index to 1 for each species
+
         return tuple(data_samples) + (label, survey_id,)
 
 
@@ -257,6 +263,7 @@ class GLC24Datamodule(BaseDataModule):
         sampler: Callable = None,
         dataset_kwargs: dict = {},
         download_data: bool = False,
+        task: str = 'classification_multilabel',
         **kwargs,
     ):
         """Class constructor.
@@ -298,20 +305,21 @@ class GLC24Datamodule(BaseDataModule):
         self.root = Path(self.root)
         if download_data:
             self.download()
+        self.task = task
 
     def get_dataset(self, split, transform, **kwargs):
         match split:
             case 'train':
                 train_metadata = pd.read_csv(self.metadata_paths['train'])
-                dataset = TrainDataset(train_metadata, self.num_classes, **self.data_paths['train'], transform=transform, **self.dataset_kwargs)
+                dataset = TrainDataset(train_metadata, self.num_classes, **self.data_paths['train'], transform=transform,  task=self.task, **self.dataset_kwargs)
                 self.dataset_train = dataset
             case 'val':
                 val_metadata = pd.read_csv(self.metadata_paths['val'])
-                dataset = TrainDataset(val_metadata, **self.data_paths['train'], transform=transform, **self.dataset_kwargs)
+                dataset = TrainDataset(val_metadata, **self.data_paths['train'], transform=transform, task=self.task,  **self.dataset_kwargs)
                 self.dataset_val = dataset
             case 'test':
                 test_metadata = pd.read_csv(self.metadata_paths['test'])
-                dataset = TestDataset(test_metadata, **self.data_paths['test'], transform=transform, **self.dataset_kwargs)
+                dataset = TestDataset(test_metadata, **self.data_paths['test'], transform=transform, task=self.task,  **self.dataset_kwargs)
                 self.dataset_test = dataset
         return dataset
 
