@@ -109,7 +109,7 @@ def main(input_path: str,
     pa_train_val = pd.concat([pa_train, pa_val])
 
     pa_train.to_csv(f'{output_name}_split-{val_ratio*100}%_train.csv', index=False)
-    pa_val.to_csv(f'{output_name}-split-{val_ratio*100}%_val.csv', index=False)
+    pa_val.to_csv(f'{output_name}_split-{val_ratio*100}%_val.csv', index=False)
     pa_train_val.to_csv(f'{output_name}_split-{val_ratio*100}%_all.csv', index=False)
     print('Exported train_without_val, val, and train_val_split_by_species_frequency csvs.')
 
