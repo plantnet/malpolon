@@ -2,7 +2,8 @@ import os
 import random
 import json
 import sys
-from typing import Callable
+from typing import Callable, Any, Union
+from pathlib import Path
 
 import numpy as np
 import rasterio
@@ -10,6 +11,7 @@ import pandas as pd
 from matplotlib import pyplot
 
 import torch
+from torch import Tensor
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader, random_split
 import torchvision
@@ -85,18 +87,11 @@ class PovertyDataModule(BaseDataModule):
         self.train_batch_size = train_batch_size
         self.inference_batch_size = inference_batch_size
         self.dict_normalize = json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
-        self.transform = torchvision.transforms.Compose([
-            torchvision.transforms.CenterCrop(224),
-            torchvision.transforms.RandomHorizontalFlip(),
-            torchvision.transforms.RandomVerticalFlip(),
-            # JitterCustom(),
-            torchvision.transforms.Normalize(mean=self.dict_normalize['mean'], std=self.dict_normalize['std']),
-        ]
-        ) if transform is None else transform
         self.val_split = val_split
         self.test_split = test_split
         self.dhs_folds = dhs_folds
         self.num_workers = num_workers
+        self.task = 'regression'
 
     def train_transform(self) -> Callable:
         return torchvision.transforms.Compose([
@@ -114,11 +109,11 @@ class PovertyDataModule(BaseDataModule):
         ])
 
     def get_dataset(self, split: str, transform: Callable, **kwargs) -> Dataset:
-        if split=='train':
+        if split == 'train':
             dataset = MSDataset(self.dataframe_train, self.tif_dir, transform=transform)
-        elif split=='val':
+        elif split == 'val':
             dataset = MSDataset(self.dataframe_val, self.tif_dir, transform=transform)
-        elif split=='test':
+        elif split == 'test':
             dataset = MSDataset(self.dataframe_test, self.tif_dir, transform=transform)
         return dataset
 
@@ -164,6 +159,66 @@ class PovertyDataModule(BaseDataModule):
         )
         return dataset
 
+    def train_dataloader(self):
+        return DataLoader(self.get_train_dataset(), batch_size=self.train_batch_size, shuffle=True,
+                          num_workers=self.num_workers, persistent_workers=True)
+
+    def val_dataloader(self):
+        return DataLoader(self.get_val_dataset(), batch_size=self.inference_batch_size, num_workers=self.num_workers,
+                          persistent_workers=True)
+
+    def test_dataloader(self):
+        return DataLoader(self.get_test_dataset(), batch_size=self.inference_batch_size, num_workers=self.num_workers,
+                          persistent_workers=True)
+
+    def export_predict_csv(self,
+                           predictions: Union[Tensor, np.ndarray],
+                           probas: Union[Tensor, np.ndarray] = None,
+                           single_point_query: dict = None,
+                           out_name: str = "predictions",
+                           out_dir: str = './',
+                           return_csv: bool = False,
+                           top_k: int = None,
+                           **kwargs: Any) -> Any:
+
+        out_name = out_name + ".csv" if not out_name.endswith(".csv") else out_name
+        fp = Path(out_dir) / Path(out_name)
+        top_k = top_k if top_k is not None else predictions.shape[1]
+        if single_point_query:
+            df = pd.DataFrame({'observation_id': [
+                single_point_query['observation_id'] if 'observation_id' in single_point_query else None],
+                               'lon': [single_point_query['lon']],
+                               'lat': [single_point_query['lat']],
+                               'crs': [single_point_query['crs']],
+                               'target_species_id': tuple(np.array(single_point_query['species_id']).astype(
+                                   str) if 'species_id' in single_point_query else None),
+                               'predictions': tuple(predictions[:, :top_k].astype(str)),
+                               'probas': tuple(probas[:, :top_k].astype(str))})
+        else:
+            test_ds = self.get_test_dataset()
+            targets = test_ds.targets
+            df = pd.DataFrame({'cluster': test_ds.observation_ids,
+                               'lon': [None] * len(test_ds) if not hasattr(test_ds,
+                                                                           'coordinates') else test_ds.coordinates[:,
+                                                                                               0],
+                               'lat': [None] * len(test_ds) if not hasattr(test_ds,
+                                                                           'coordinates') else test_ds.coordinates[:,
+                                                                                               1],
+                               'wealthpooled': tuple(np.array(targets).astype(str)),
+                               'predicted_wealth': tuple(predictions[:, :top_k].numpy().astype(str)),
+                               'probas': [None] * len(predictions)})
+
+        if probas is not None:
+            df['probas'] = tuple(probas[:, :top_k].astype(str))
+        for key in ['probas', 'predicted_wealth', 'wealthpooled']:
+            if df.loc[0, key] is not None and not isinstance(df.loc[0, key], str) and len(df.loc[0, key]) >= 1:
+                df[key] = df[key].apply(' '.join)
+        print(df)
+        df.to_csv(fp, index=False, sep=';', **kwargs)
+        if return_csv:
+            return df
+        return None
+
 
 class MSDataset(Dataset):
 
@@ -176,6 +231,8 @@ class MSDataset(Dataset):
         self.dataframe = dataframe
         self.root_dir = root_dir
         self.transform = transform
+        self.targets = dataframe['wealthpooled'].values
+        self.observation_ids = dataframe['cluster'].values
 
     def __len__(self):
         return len(self.dataframe)

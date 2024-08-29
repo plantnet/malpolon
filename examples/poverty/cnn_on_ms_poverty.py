@@ -17,6 +17,8 @@ import sys
 from tqdm import tqdm
 import random
 import json
+from typing import TYPE_CHECKING
+
 
 # Force work with the malpolon github package localled at the root of the project
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
@@ -125,13 +127,11 @@ def test(cfg: DictConfig) -> None:
 
     model = RegressionSystem.load_from_checkpoint(checkpoint_path='outputs/cnn_on_ms_poverty/val=0.3845.ckpt')
     trainer = pl.Trainer(logger=False, log_every_n_steps=1, **cfg.trainer)
-    # trainer.test(model, datamodule=dataM_jitter)
-    # trainer.test(model, datamodule=dataM_no_jitter)
+    # trainer.test(model, datamodule=dataM)
 
     predictions = model.predict(dataM, trainer)
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
-    dataM.export_predict_csv(predictions,
-                             out_dir=log_dir, out_name='predictions_test_dataset', top_k=3, return_csv=True)
+    dataM.export_predict_csv(predictions, out_dir=log_dir, out_name='predictions_test_dataset', top_k=3, return_csv=True)
     print('Test dataset prediction (extract) : ', predictions[:1])
 
 
