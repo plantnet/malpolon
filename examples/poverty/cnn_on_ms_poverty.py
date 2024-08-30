@@ -15,9 +15,7 @@ from __future__ import annotations
 import os
 import sys
 from tqdm import tqdm
-import random
 import json
-from typing import TYPE_CHECKING
 
 
 # Force work with the malpolon github package localled at the root of the project
@@ -31,12 +29,9 @@ import torch
 
 torch.set_float32_matmul_precision('medium')
 from malpolon.data.datasets import PovertyDataModule
-from malpolon.data.datasets.poverty_dataset import MSDataset
 from malpolon.logging import Summary
-from malpolon.models import RegressionSystem, ClassificationSystem
+from malpolon.models import RegressionSystem
 
-import torchvision
-from torchvision import transforms
 
 import warnings
 from rasterio.errors import NotGeoreferencedWarning
@@ -71,8 +66,8 @@ def main(cfg: DictConfig) -> None:
             Summary(),
             ModelCheckpoint(
                 dirpath=log_dir,
-                filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
-                monitor=f"{next(iter(model.metrics.keys()))}/val",
+                filename="{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}_val" + ":.4f}",
+                monitor=f"{next(iter(model.metrics.keys()))}_val",
                 mode="max",
                 save_on_train_epoch_end=True,
                 save_last=True,
@@ -116,24 +111,20 @@ def calcul_mean_std(cfg: DictConfig) -> None:
 
 @hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
 def test(cfg: DictConfig) -> None:
-    dict_normalize = json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
-    transform = torchvision.transforms.Compose([
-        torchvision.transforms.CenterCrop(224),
-        torchvision.transforms.Normalize(mean=dict_normalize['mean'], std=dict_normalize['std'])
-    ]
-    )
-    dataM = PovertyDataModule(**cfg.data, **cfg.task, )
+    dataM = PovertyDataModule(**cfg.data, **cfg.task, fold=5)
     dataM.setup()
 
-    model = RegressionSystem.load_from_checkpoint(checkpoint_path='outputs/cnn_on_ms_poverty/val=0.3845.ckpt')
+    model = RegressionSystem.load_from_checkpoint(
+        checkpoint_path='outputs/cnn_on_ms_poverty/2024-08-29_17-14-16/fold_5/checkpoint-epoch=15-step=3160-regression_R2score/val=0.5259.ckpt')
     trainer = pl.Trainer(logger=False, log_every_n_steps=1, **cfg.trainer)
-    # trainer.test(model, datamodule=dataM)
+    trainer.test(model, datamodule=dataM)
 
     predictions = model.predict(dataM, trainer)
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
-    dataM.export_predict_csv(predictions, out_dir=log_dir, out_name='predictions_test_dataset', top_k=3, return_csv=True)
+    dataM.export_predict_csv(predictions, out_dir=log_dir, out_name=f'predictions_test_dataset_D', top_k=3,
+                             return_csv=True)
     print('Test dataset prediction (extract) : ', predictions[:1])
 
 
 if __name__ == "__main__":
-    test()
+    main()

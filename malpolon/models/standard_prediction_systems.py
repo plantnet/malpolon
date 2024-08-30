@@ -84,7 +84,7 @@ class GenericPredictionSystem(pl.LightningModule):
         y_hat = self(x)
 
         loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
-        self.log(f"loss/{split}", loss, **log_kwargs)
+        self.log(f"loss_{split}", loss, **log_kwargs)
 
         for metric_name, metric_func in self.metrics.items():
 
@@ -100,7 +100,7 @@ class GenericPredictionSystem(pl.LightningModule):
                 score = metric_func(y_hat, y)
         
             
-            self.log(f"{metric_name}/{split}", score, **log_kwargs)
+            self.log(f"{metric_name}_{split}", score, **log_kwargs)
 
         return loss
 
@@ -403,17 +403,14 @@ class RegressionSystem(GenericPredictionSystem):
                                       lr=self.lr,
                                       weight_decay=self.weight_decay)
 
-        scheduler = torch.optim.lr_scheduler.CyclicLR(optimizer=optimizer, max_lr=self.lr * 5,
-                                                      base_lr=self.lr, cycle_momentum=False)
-
-        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.1,
-        #                                                        patience=4, threshold=0.0001, threshold_mode='rel',
-        #                                                        cooldown=0, min_lr=0, eps=1e-08)
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.1,
+                                                               patience=4, threshold=0.0001, threshold_mode='rel',
+                                                               cooldown=0, min_lr=0, eps=1e-08)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
                 "scheduler": scheduler,
-                "monitor": 'loss/val_epoch',
+                "monitor": 'loss_val_epoch',
                 "frequency": 1,
             },
         }
