@@ -313,15 +313,15 @@ class GLC24Datamodule(BaseDataModule):
         match split:
             case 'train':
                 train_metadata = pd.read_csv(self.metadata_paths['train'])
-                dataset = TrainDataset(train_metadata, self.num_classes, **self.data_paths['train'], transform=transform,  task=self.task, **self.dataset_kwargs)
+                dataset = TrainDataset(train_metadata, self.num_classes, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
                 self.dataset_train = dataset
             case 'val':
                 val_metadata = pd.read_csv(self.metadata_paths['val'])
-                dataset = TrainDataset(val_metadata, **self.data_paths['train'], transform=transform, task=self.task,  **self.dataset_kwargs)
+                dataset = TrainDataset(val_metadata, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
                 self.dataset_val = dataset
             case 'test':
                 test_metadata = pd.read_csv(self.metadata_paths['test'])
-                dataset = TestDataset(test_metadata, **self.data_paths['test'], transform=transform, task=self.task,  **self.dataset_kwargs)
+                dataset = TestDataset(test_metadata, **self.data_paths['test'], transform=transform, task=self.task, **self.dataset_kwargs)
                 self.dataset_test = dataset
         return dataset
 
@@ -437,7 +437,14 @@ class GLC24Datamodule(BaseDataModule):
                 'bioclim': transforms.Compose(all_transforms + bioclim_transforms),
                 'sentinel': transforms.Compose(all_transforms + sentinel_transforms)}
 
+
 class TrainDatasetHabitat(TrainDataset):
+    """GLC24 pre-extracted train dataset for habitat classification.
+
+    Parameters
+    ----------
+    Inherits TrainDataset.
+    """
     def __init__(self, metadata, classes, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel'):
         metadata = metadata[metadata['habitatId'].notna()]
         metadata = metadata[metadata['habitatId'] != 'Unknown']
@@ -459,7 +466,14 @@ class TrainDatasetHabitat(TrainDataset):
         self.targets = self.metadata['speciesId'].values
         self.observation_ids = self.metadata['surveyId']
 
+
 class TestDatasetHabitat(TestDataset):
+    """GLC24 pre-extracted test dataset for habitat classification.
+
+    Parameters
+    ----------
+    Inherits TestDataset.
+    """
     def __init__(self, metadata, classes, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel'):
         metadata = metadata[metadata['habitatId'].notna()]
         metadata = metadata[metadata['habitatId'] != 'Unknown']
@@ -475,7 +489,14 @@ class TestDatasetHabitat(TestDataset):
         self.targets = self.metadata['speciesId'].values
         self.observation_ids = self.metadata['surveyId']
 
+
 class GLC24DatamoduleHabitats(GLC24Datamodule):
+    """GLC24 pre-extracted datamodule for habitat classification.
+
+    Parameters
+    ----------
+    Inherits GLC24Datamodule.
+    """
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Union of train and test cls
@@ -508,7 +529,7 @@ class GLC24DatamoduleHabitats(GLC24Datamodule):
                 self.dataset_train = dataset
             case 'val':
                 val_metadata = pd.read_csv(self.metadata_paths['val'])
-                dataset = TrainDatasetHabitat(val_metadata,  self.classes, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
+                dataset = TrainDatasetHabitat(val_metadata, self.classes, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
                 self.dataset_val = dataset
             case 'test':
                 test_metadata = pd.read_csv(self.metadata_paths['test'])

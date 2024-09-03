@@ -14,7 +14,6 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import (accuracy_score, precision_recall_fscore_support,
                              roc_auc_score, top_k_accuracy_score)
-from tqdm import tqdm
 
 # Constant variables
 N_CLS = 174
@@ -28,33 +27,32 @@ LINK = '\033[94m'
 BOLD = "\033[1m"
 
 # 0. Load data
-if True:
-    df = pd.read_csv('GLC24_habitat_predictions_multiclass_val-dataset.csv')
-    df['target_habitat_id'] = df['target_habitat_id'].astype(str)
-    df_gt = df.copy()
-    df_preds = df.copy()
+df = pd.read_csv('GLC24_habitat_predictions_multiclass_val-dataset.csv')
+df['target_habitat_id'] = df['target_habitat_id'].astype(str)
+df_gt = df.copy()
+df_preds = df.copy()
 
-    for rowi, row in deepcopy(df_gt).iterrows():
-        tsi = np.array(row['target_habitat_id'].split()).astype(int)  # Split the predictions string by space and convert to int
-        inds = np.where(tsi > (N_CLS - 1))[0]
-        vals = tsi[inds]
-        if inds.size > 0:
-            df_gt = df_gt.drop(rowi)
-            df_preds = df_preds.drop(rowi)
-            print(f"obs {rowi} of surveyId {row['surveyId']} removed because target_habitat_id value {vals} out of range")
+for rowi, row in deepcopy(df_gt).iterrows():
+    tsi = np.array(row['target_habitat_id'].split()).astype(int)  # Split the predictions string by space and convert to int
+    inds = np.where(tsi > (N_CLS - 1))[0]
+    vals = tsi[inds]
+    if inds.size > 0:
+        df_gt = df_gt.drop(rowi)
+        df_preds = df_preds.drop(rowi)
+        print(f"obs {rowi} of surveyId {row['surveyId']} removed because target_habitat_id value {vals} out of range")
 
-    targets = df_gt['target_habitat_id']
-    targets = [list(map(int, str(x).split())) for x in targets]
+targets = df_gt['target_habitat_id']
+targets = [list(map(int, str(x).split())) for x in targets]
 
-    preds = df_preds['predictions']
-    preds = np.array([list(map(int, str(x).split())) for x in preds])
+preds = df_preds['predictions']
+preds = np.array([list(map(int, str(x).split())) for x in preds])
 
-    probas = df_preds['probas']
-    probas = np.array([list(map(float, str(x).split())) for x in probas])
+probas = df_preds['probas']
+probas = np.array([list(map(float, str(x).split())) for x in probas])
 
-    all_targets_oh = np.zeros((len(df_gt), N_CLS))
-    all_probas = np.zeros_like(probas)
-    all_predictions_topk_oh = np.zeros((len(df_preds), N_CLS))
+all_targets_oh = np.zeros((len(df_gt), N_CLS))
+all_probas = np.zeros_like(probas)
+all_predictions_topk_oh = np.zeros((len(df_preds), N_CLS))
 
 
 if TASK == 'multilabel':
@@ -99,7 +97,6 @@ if TASK == 'multilabel':
         aucs[f'AUC_{avg}'] = auc
         print(f"{avg.upper()}: AUC", auc)
 
-
     # 4. Save results
     res.loc[0] = prfs | aucs
     res.to_csv('Inference_PRC-AUC.csv', index=False)
@@ -136,7 +133,6 @@ elif TASK == 'multiclass':
         acc = top_k_accuracy_score(targets, all_probas, k=topk, labels=np.arange(N_CLS))
         accs[f'Accuracy_multiclass_top-{topk}'] = acc
         print(f"Top-{topk} Accuracy_multiclass: {acc}")
-
 
     # 4. Save results
     res.loc[0] = prfs | accs
