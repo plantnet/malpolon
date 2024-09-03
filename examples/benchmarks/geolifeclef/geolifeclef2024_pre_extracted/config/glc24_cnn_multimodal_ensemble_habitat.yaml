@@ -32,8 +32,8 @@ task:
 
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
-  accelerator: "cpu"
-  # devices: 'auto'
+  accelerator: "gpu"
+  devices: 'auto'
   max_epochs: 20
   val_check_interval: 75
   check_val_every_n_epoch: 1
