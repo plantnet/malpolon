@@ -120,7 +120,7 @@ class GLC24DatamoduleHabitats(GLC24Datamodule):
                 self.dataset_test = dataset
         return dataset
 
-    def _check_integrity(self):
+    def _check_integrity_habitat(self):
         paths = {'predictors': ['EnvironmentalRasters', 'PA-test-landsat_time_series',
                                 'PA_Test_SatellitePatches_NIR', 'PA_Test_SatellitePatches_RGB',
                                 'PA-train-landsat_time_series', 'PA_Train_SatellitePatches_NIR',
@@ -130,14 +130,15 @@ class GLC24DatamoduleHabitats(GLC24Datamodule):
                               'GLC24_PA_metadata_habitats-lvl3_train_split-10.0%_all.csv',
                               'GLC24_PA_metadata_habitats-lvl3_train_split-10.0%_train.csv',
                               'GLC24_PA_metadata_habitats-lvl3_train_split-10.0%_val.csv']}
-        downloaded_p = all(map(lambda x: (self.root / x).exists(), paths['predictors']))
-        downloaded_m = all(map(lambda x: (self.root / x).exists(), paths['metadata']))
+        downloaded_p = all(map(lambda x: Path(self.root / x).exists(), paths['predictors']))
+        downloaded_m = all(map(lambda x: Path(self.root / x).exists(), paths['metadata']))
         return downloaded_p, downloaded_m
 
     def download(self):
-        downloaded_p, downloaded_m = self._check_integrity()
+        downloaded_p, downloaded_m = self._check_integrity_habitat()
         if not downloaded_p:
             print('Downloading data ("predictors")...')
+            self.root = self.root.parent / "geolifeclef-2024"
             super().download()
             self.root = self.root.parent / "geolifeclef-2024_habitats"
             links = {"../geolifeclef-2024/TimeSeries-Cubes/": "TimeSeries-Cubes",
@@ -149,7 +150,7 @@ class GLC24DatamoduleHabitats(GLC24Datamodule):
                      "../geolifeclef-2024/PA-test-landsat_time_series/": "PA-test-landsat_time_series",
                      "../geolifeclef-2024/EnvironmentalRasters/": "EnvironmentalRasters"}
             for k, v in links.items():
-                os.system(f'ln -sf {str(self.root / k)} {str(self.root / v)}')
+                os.system(f'ln -sf {k} {str(self.root / v)}')
         else:
             print('Data ("predictors") already downloaded.')
 
