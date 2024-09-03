@@ -1,3 +1,11 @@
+"""Main script to run training or inference on GLC24 pre_extracted dataset.
+
+This script runs the GeoLifeCLEF2024 pre-extracted dataset to predict
+habitats distribution using the Multi-Modal Ensemble model (MME).
+
+Author: Theo Larcher <theo.larcher@inria.fr>
+"""
+
 import logging
 
 import hydra

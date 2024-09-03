@@ -1,5 +1,12 @@
+"""Main script to run training or inference on GLC24 pre_extracted dataset.
+
+This script runs the GeoLifeCLEF2024 pre-extracted dataset to predict
+species distribution using the Multi-Modal Ensemble model (MME).
+
+Author: Theo Larcher <theo.larcher@inria.fr>
+"""
+
 import logging
-from pathlib import Path
 
 import hydra
 import numpy as np
@@ -11,8 +18,6 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from malpolon.data.datasets.geolifeclef2024_pre_extracted import \
     GLC24Datamodule
 from malpolon.logging import Summary
-from malpolon.models.custom_models.glc2024_multimodal_ensemble_model import \
-    MultimodalEnsemble
 from malpolon.models.custom_models.glc2024_pre_extracted_prediction_system import \
     ClassificationSystemGLC24
 
