@@ -479,27 +479,26 @@ class GLC24DatamoduleHabitats(GLC24Datamodule):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         # Union of train and test cls
-        HABITAT_CLS = ['MA221', 'MA222', 'MA223', 'MA224', 'MA225', 'MA241', 'MA251',
-                       'MA252', 'MA253', 'MAa', 'N11', 'N12', 'N13', 'N14', 'N15', 'N16',
-                       'N18', 'N19', 'N1A', 'N1B', 'N1D', 'N1G', 'N1H', 'N1J', 'N21',
-                       'N22', 'N31', 'N32', 'N35', 'Q11', 'Q21', 'Q22', 'Q24', 'Q25',
-                       'Q41', 'Q42', 'Q43', 'Q44', 'Q51', 'Q52', 'Q53', 'Q54', 'Q61',
-                       'Q62', 'Q63', 'R11', 'R12', 'R13', 'R14', 'R16', 'R18', 'R19',
-                       'R1A', 'R1B', 'R1D', 'R1E', 'R1F', 'R1H', 'R1M', 'R1P', 'R1Q',
-                       'R1R', 'R1S', 'R21', 'R22', 'R23', 'R24', 'R31', 'R32', 'R34',
-                       'R35', 'R36', 'R37', 'R41', 'R43', 'R44', 'R45', 'R51', 'R52',
-                       'R54', 'R55', 'R56', 'R57', 'R61', 'R62', 'R63', 'S21', 'S22',
-                       'S23', 'S24', 'S25', 'S26', 'S31', 'S32', 'S33', 'S34', 'S35',
-                       'S36', 'S37', 'S38', 'S41', 'S42', 'S51', 'S52', 'S53', 'S54',
-                       'S61', 'S62', 'S63', 'S91', 'S92', 'S93', 'T11', 'T12', 'T13',
-                       'T15', 'T16', 'T17', 'T18', 'T19', 'T1A', 'T1B', 'T1C', 'T1D',
-                       'T1E', 'T1F', 'T1H', 'T21', 'T22', 'T24', 'T27', 'T29', 'T31',
-                       'T32', 'T33', 'T34', 'T35', 'T36', 'T37', 'T39', 'T3A', 'T3C',
-                       'T3D', 'T3F', 'T3J', 'T3K', 'T3M', 'U22', 'U24', 'U26', 'U27',
-                       'U28', 'U29', 'U32', 'U33', 'U34', 'U36', 'U37', 'U38', 'U3A',
-                       'U3D', 'U71', 'V11', 'V12', 'V13', 'V14', 'V15', 'V32', 'V33',
-                       'V34', 'V35', 'V37', 'V38', 'V39']
-        self.classes = HABITAT_CLS
+        self.classes = ['MA221', 'MA222', 'MA223', 'MA224', 'MA225', 'MA241', 'MA251',
+                        'MA252', 'MA253', 'MAa', 'N11', 'N12', 'N13', 'N14', 'N15', 'N16',
+                        'N18', 'N19', 'N1A', 'N1B', 'N1D', 'N1G', 'N1H', 'N1J', 'N21',
+                        'N22', 'N31', 'N32', 'N35', 'Q11', 'Q21', 'Q22', 'Q24', 'Q25',
+                        'Q41', 'Q42', 'Q43', 'Q44', 'Q51', 'Q52', 'Q53', 'Q54', 'Q61',
+                        'Q62', 'Q63', 'R11', 'R12', 'R13', 'R14', 'R16', 'R18', 'R19',
+                        'R1A', 'R1B', 'R1D', 'R1E', 'R1F', 'R1H', 'R1M', 'R1P', 'R1Q',
+                        'R1R', 'R1S', 'R21', 'R22', 'R23', 'R24', 'R31', 'R32', 'R34',
+                        'R35', 'R36', 'R37', 'R41', 'R43', 'R44', 'R45', 'R51', 'R52',
+                        'R54', 'R55', 'R56', 'R57', 'R61', 'R62', 'R63', 'S21', 'S22',
+                        'S23', 'S24', 'S25', 'S26', 'S31', 'S32', 'S33', 'S34', 'S35',
+                        'S36', 'S37', 'S38', 'S41', 'S42', 'S51', 'S52', 'S53', 'S54',
+                        'S61', 'S62', 'S63', 'S91', 'S92', 'S93', 'T11', 'T12', 'T13',
+                        'T15', 'T16', 'T17', 'T18', 'T19', 'T1A', 'T1B', 'T1C', 'T1D',
+                        'T1E', 'T1F', 'T1H', 'T21', 'T22', 'T24', 'T27', 'T29', 'T31',
+                        'T32', 'T33', 'T34', 'T35', 'T36', 'T37', 'T39', 'T3A', 'T3C',
+                        'T3D', 'T3F', 'T3J', 'T3K', 'T3M', 'U22', 'U24', 'U26', 'U27',
+                        'U28', 'U29', 'U32', 'U33', 'U34', 'U36', 'U37', 'U38', 'U3A',
+                        'U3D', 'U71', 'V11', 'V12', 'V13', 'V14', 'V15', 'V32', 'V33',
+                        'V34', 'V35', 'V37', 'V38', 'V39']
 
     def get_dataset(self, split, transform, **kwargs):
         match split:
@@ -533,6 +532,21 @@ class GLC24DatamoduleHabitats(GLC24Datamodule):
 
     def download(self):
         downloaded_p, downloaded_m = self._check_integrity_habitat()
+
+        # Metadata
+        if not downloaded_m:
+            print('Downloading observations ("metadata")...')
+            download_and_extract_archive(
+                "https://lab.plantnet.org/seafile/f/583b1878f0694eeca163/?dl=1",
+                self.root,
+                filename='GLC24_PA_metadata_habitats-lvl3.zip',
+                md5='24dc7e126f2bac79a63fdacb4f210f19',
+                remove_finished=True
+            )
+        else:
+            print('Observations ("metadata") already downloaded.')
+
+        # Predictors
         if not downloaded_p:
             print('Downloading data ("predictors")...')
             self.root = self.root.parent / "geolifeclef-2024"
@@ -550,15 +564,3 @@ class GLC24DatamoduleHabitats(GLC24Datamodule):
                 os.system(f'ln -sf {k} {str(self.root / v)}')
         else:
             print('Data ("predictors") already downloaded.')
-
-        if not downloaded_m:
-            print('Downloading observations ("metadata")...')
-            download_and_extract_archive(
-                "https://lab.plantnet.org/seafile/f/583b1878f0694eeca163/?dl=1",
-                self.root,
-                filename='GLC24_PA_metadata_habitats-lvl3.zip',
-                md5='24dc7e126f2bac79a63fdacb4f210f19',
-                remove_finished=True
-            )
-        else:
-            print('Observations ("metadata") already downloaded.')
