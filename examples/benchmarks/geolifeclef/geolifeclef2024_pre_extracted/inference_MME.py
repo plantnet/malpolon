@@ -16,8 +16,8 @@ from sklearn.metrics import precision_recall_fscore_support, roc_auc_score
 from tqdm import tqdm
 
 # 0. Load data
-df_gt = pd.read_csv('GLC24_SOLUTION_FILE.csv')
-df_preds = pd.read_csv('predictions_GLC24_SOLUTION_FILE_logits.csv', sep=';')
+df_gt = pd.read_csv('GLC24_habitat_predictions_multilabel.csv')
+df_preds = pd.read_csv('GLC24_habitat_predictions_multilabel.csv', sep=';')
 for rowi, row in deepcopy(df_gt).iterrows():
     tsi = np.array(row['target_species_ids'].split()).astype(int)  # Split the predictions string by space and convert to int
     inds = np.where(tsi > 11254)[0]

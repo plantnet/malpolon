@@ -1,4 +1,5 @@
 import logging
+import os
 from pathlib import Path
 
 import hydra
@@ -10,6 +11,7 @@ from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 from sklearn.preprocessing import LabelEncoder
 from torchvision import transforms
+from torchvision.datasets.utils import download_and_extract_archive
 
 from malpolon.data.datasets.geolifeclef2024_pre_extracted import (
     GLC24Datamodule, TestDataset, TrainDataset)
@@ -18,26 +20,6 @@ from malpolon.models.custom_models.glc2024_multimodal_ensemble_model import \
     MultimodalEnsemble
 from malpolon.models.custom_models.glc2024_pre_extracted_prediction_system import \
     ClassificationSystemGLC24
-
-HABITAT_CLS = ['N1G', 'R1A', 'Q22', 'Q24', 'S41', 'T21', 'MA225', 'R35', 'Q52',
-               'R1D', 'Q51', 'R56', 'T19', 'V32', 'R36', 'V35', 'S42', 'R18',
-               'R22', 'N14', 'T17', 'N1H', 'T16', 'MA222', 'V38', 'R37', 'R55',
-               'V37', 'T3A', 'N16', 'MA223', 'T24', 'R43', 'N1D', 'S51', 'R1P',
-               'T1B', 'MA224', 'R1F', 'T15', 'R21', 'V11', 'R1E', 'N15', 'R1R',
-               'U27', 'R1B', 'S35', 'S32', 'T3M', 'S92', 'T1H', 'T3J', 'T11',
-               'N1A', 'Q53', 'R1Q', 'V34', 'R63', 'MA252', 'Q42', 'T1E', 'Q25',
-               'V33', 'N12', 'T31', 'S53', 'T13', 'R1M', 'R51', 'T27', 'S38',
-               'S21', 'S31', 'V15', 'T33', 'R23', 'S26', 'U26', 'R19', 'R1H',
-               'N1B', 'S61', 'T1C', 'R13', 'N32', 'MA253', 'Q21', 'T22', 'S33',
-               'T1F', 'Q11', 'R57', 'S34', 'U22', 'R1S', 'R44', 'V39', 'T29',
-               'T36', 'Q54', 'T1D', 'T12', 'U38', 'R41', 'R16', 'S91', 'T37',
-               'T32', 'S22', 'T18', 'U28', 'R31', 'R32', 'S24', 'MA241', 'N19',
-               'N22', 'T3D', 'U36', 'R62', 'T35', 'N35', 'S25', 'N11', 'N18',
-               'S54', 'R54', 'T1A', 'MA221', 'V13', 'R45', 'Q43', 'U37', 'S36',
-               'S52', 'N31', 'S62', 'N1J', 'S37', 'S23', 'R52', 'T39', 'R14',
-               'R24', 'Q44', 'R34', 'MA251', 'Q41', 'R61', 'R12', 'U3D', 'N21',
-               'S63', 'U33', 'T34', 'T3F', 'U34', 'V14', 'T3C', 'S93', 'T3K',
-               'V12', 'U32', 'U3A', 'U29', 'R11', 'S74']
 
 
 def set_seed(seed):
@@ -58,62 +40,134 @@ def set_seed(seed):
 
 
 class TrainDatasetHabitat(TrainDataset):
-    def __init__(self, metadata, num_classes=168, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel'):
+    def __init__(self, metadata, classes, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel'):
         metadata = metadata[metadata['habitatId'].notna()]
         metadata = metadata[metadata['habitatId'] != 'Unknown']
-        self.label_encoder = LabelEncoder().fit(metadata['habitatId'])
+        self.label_encoder = LabelEncoder().fit(classes)
         metadata['habitatId_encoded'] = self.label_encoder.transform(metadata['habitatId'])
         metadata.rename({'PlotObservationID': 'surveyId'}, axis=1, inplace=True)
         metadata.rename({'habitatId_encoded': 'speciesId'}, axis=1, inplace=True)
 
-        super().__init__(metadata, num_classes=num_classes, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform, task=task)
+        super().__init__(metadata, num_classes=len(classes), bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform, task=task)
 
         self.metadata = metadata
         if 'speciesId' in self.metadata.columns:
-            self.metadata = self.metadata.dropna(subset="speciesId").reset_index(drop=True)
+            self.metadata = self.metadata.dropna(subset='speciesId').reset_index(drop=True)
             self.metadata['speciesId'] = self.metadata['speciesId'].astype(int)
         else:
             self.metadata['speciesId'] = [None] * len(self.metadata)
-        self.metadata = self.metadata.drop_duplicates(subset=["surveyId", "habitatId"]).reset_index(drop=True)  # Should we ?
+        self.metadata = self.metadata.drop_duplicates(subset=['surveyId', 'habitatId']).reset_index(drop=True)  # Should we ?
         self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
+        self.targets = self.metadata['speciesId'].values
+        self.observation_ids = self.metadata['surveyId']
 
+class TestDatasetHabitat(TestDataset):
+    def __init__(self, metadata, classes, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel'):
+        metadata = metadata[metadata['habitatId'].notna()]
+        metadata = metadata[metadata['habitatId'] != 'Unknown']
+        self.label_encoder = LabelEncoder().fit(classes)
+        metadata['habitatId_encoded'] = self.label_encoder.transform(metadata['habitatId'])
+        metadata.rename({'PlotObservationID': 'surveyId'}, axis=1, inplace=True)
+        metadata.rename({'habitatId_encoded': 'speciesId'}, axis=1, inplace=True)
 
-class TestDatasetHabitat(TestDataset, TrainDatasetHabitat):
-    def __init__(self, metadata, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None):
-        super().__init__(metadata, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform)
+        super().__init__(metadata, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform, task=task)
+
+        self.metadata = self.metadata.drop_duplicates(subset=['surveyId', 'habitatId']).reset_index(drop=True)  # Should we ?
+        self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
+        self.targets = self.metadata['speciesId'].values
+        self.observation_ids = self.metadata['surveyId']
 
 
 class GLC24DatamoduleHabitats(GLC24Datamodule):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # Union of train and test cls
+        HABITAT_CLS = ['MA221', 'MA222', 'MA223', 'MA224', 'MA225', 'MA241', 'MA251',
+                       'MA252', 'MA253', 'MAa', 'N11', 'N12', 'N13', 'N14', 'N15', 'N16',
+                       'N18', 'N19', 'N1A', 'N1B', 'N1D', 'N1G', 'N1H', 'N1J', 'N21',
+                       'N22', 'N31', 'N32', 'N35', 'Q11', 'Q21', 'Q22', 'Q24', 'Q25',
+                       'Q41', 'Q42', 'Q43', 'Q44', 'Q51', 'Q52', 'Q53', 'Q54', 'Q61',
+                       'Q62', 'Q63', 'R11', 'R12', 'R13', 'R14', 'R16', 'R18', 'R19',
+                       'R1A', 'R1B', 'R1D', 'R1E', 'R1F', 'R1H', 'R1M', 'R1P', 'R1Q',
+                       'R1R', 'R1S', 'R21', 'R22', 'R23', 'R24', 'R31', 'R32', 'R34',
+                       'R35', 'R36', 'R37', 'R41', 'R43', 'R44', 'R45', 'R51', 'R52',
+                       'R54', 'R55', 'R56', 'R57', 'R61', 'R62', 'R63', 'S21', 'S22',
+                       'S23', 'S24', 'S25', 'S26', 'S31', 'S32', 'S33', 'S34', 'S35',
+                       'S36', 'S37', 'S38', 'S41', 'S42', 'S51', 'S52', 'S53', 'S54',
+                       'S61', 'S62', 'S63', 'S91', 'S92', 'S93', 'T11', 'T12', 'T13',
+                       'T15', 'T16', 'T17', 'T18', 'T19', 'T1A', 'T1B', 'T1C', 'T1D',
+                       'T1E', 'T1F', 'T1H', 'T21', 'T22', 'T24', 'T27', 'T29', 'T31',
+                       'T32', 'T33', 'T34', 'T35', 'T36', 'T37', 'T39', 'T3A', 'T3C',
+                       'T3D', 'T3F', 'T3J', 'T3K', 'T3M', 'U22', 'U24', 'U26', 'U27',
+                       'U28', 'U29', 'U32', 'U33', 'U34', 'U36', 'U37', 'U38', 'U3A',
+                       'U3D', 'U71', 'V11', 'V12', 'V13', 'V14', 'V15', 'V32', 'V33',
+                       'V34', 'V35', 'V37', 'V38', 'V39']
+        self.classes = HABITAT_CLS
 
     def get_dataset(self, split, transform, **kwargs):
         match split:
             case 'train':
                 train_metadata = pd.read_csv(self.metadata_paths['train'])
-                dataset = TrainDatasetHabitat(train_metadata, self.num_classes, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
+                dataset = TrainDatasetHabitat(train_metadata, self.classes, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
                 self.dataset_train = dataset
             case 'val':
                 val_metadata = pd.read_csv(self.metadata_paths['val'])
-                dataset = TrainDatasetHabitat(val_metadata,  self.num_classes, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
+                dataset = TrainDatasetHabitat(val_metadata,  self.classes, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
                 self.dataset_val = dataset
             case 'test':
                 test_metadata = pd.read_csv(self.metadata_paths['test'])
-                dataset = TestDatasetHabitat(test_metadata, **self.data_paths['test'], transform=transform, task=self.task, **self.dataset_kwargs)
+                dataset = TestDatasetHabitat(test_metadata, self.classes, **self.data_paths['test'], transform=transform, task=self.task, **self.dataset_kwargs)
                 self.dataset_test = dataset
         return dataset
 
     def _check_integrity(self):
-        downloaded = (self.root / "eva_header.csv").exists()
-        # split = (self.root / "GLC24_PA_metadata_train_train-10.0min.csv").exists()
-        # if downloaded and not split:
-        #     print('Data already downloaded but not split. Splitting data spatially into train (90%) & val (10%) sets.')
-        #     split_obs_spatially(str(self.root / "GLC24_PA_metadata_train.csv"), val_size=0.10)
-        #     split = True
-        return downloaded  # and split
+        paths = {'predictors': ['EnvironmentalRasters', 'PA-test-landsat_time_series',
+                                'PA_Test_SatellitePatches_NIR', 'PA_Test_SatellitePatches_RGB',
+                                'PA-train-landsat_time_series', 'PA_Train_SatellitePatches_NIR',
+                                'PA_Train_SatellitePatches_RGB', 'TimeSeries-Cubes'],
+                 'metadata': ['GLC24_PA_metadata_habitats-lvl3_test.csv',
+                              'GLC24_PA_metadata_habitats-lvl3_train.csv',
+                              'GLC24_PA_metadata_habitats-lvl3_train_split-10.0%_all.csv',
+                              'GLC24_PA_metadata_habitats-lvl3_train_split-10.0%_train.csv',
+                              'GLC24_PA_metadata_habitats-lvl3_train_split-10.0%_val.csv']}
+        downloaded_p = all(map(lambda x: (self.root / x).exists(), paths['predictors']))
+        downloaded_m = all(map(lambda x: (self.root / x).exists(), paths['metadata']))
+        return downloaded_p, downloaded_m
 
-@hydra.main(version_base="1.3", config_path="config/", config_name="glc24_cnn_multimodal_ensemble_habitat2")
-def main(cfg: DictConfig) -> None:
+    def download(self):
+        downloaded_p, downloaded_m = self._check_integrity()
+        if not downloaded_p:
+            print('Downloading data ("predictors")...')
+            super().download()
+            self.root = self.root.parent / "geolifeclef-2024_habitats"
+            links = {"../geolifeclef-2024/TimeSeries-Cubes/": "TimeSeries-Cubes",
+                     "../geolifeclef-2024/PA_Train_SatellitePatches_RGB/": "PA_Train_SatellitePatches_RGB",
+                     "../geolifeclef-2024/PA_Train_SatellitePatches_NIR/": "PA_Train_SatellitePatches_NIR",
+                     "../geolifeclef-2024/PA-train-landsat_time_series/": "PA-train-landsat_time_series",
+                     "../geolifeclef-2024/PA_Test_SatellitePatches_RGB/": "PA_Test_SatellitePatches_RGB",
+                     "../geolifeclef-2024/PA_Test_SatellitePatches_NIR/": "PA_Test_SatellitePatches_NIR",
+                     "../geolifeclef-2024/PA-test-landsat_time_series/": "PA-test-landsat_time_series",
+                     "../geolifeclef-2024/EnvironmentalRasters/": "EnvironmentalRasters"}
+            for k, v in links.items():
+                os.system(f'ln -sf {str(self.root / k)} {str(self.root / v)}')
+        else:
+            print('Data ("predictors") already downloaded.')
+
+        if not downloaded_m:
+            print('Downloading observations ("metadata")...')
+            download_and_extract_archive(
+                "https://lab.plantnet.org/seafile/f/583b1878f0694eeca163/?dl=1",
+                self.root,
+                filename='GLC24_PA_metadata_habitats-lvl3.zip',
+                md5='24dc7e126f2bac79a63fdacb4f210f19',
+                remove_finished=True
+            )
+        else:
+            print('Observations ("metadata") already downloaded.')
+
+
+@hydra.main(version_base="1.3", config_path="config/", config_name="glc24_cnn_multimodal_ensemble_habitat")
+def main(cfg: DictConfig):
     """Run main script used for either training or inference.
 
     Parameters
@@ -134,9 +188,10 @@ def main(cfg: DictConfig) -> None:
 
     # Datamodule & Model
     datamodule = GLC24DatamoduleHabitats(**cfg.data, **cfg.task)
-    classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optimizer,
+    classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optimizer, **cfg.task,
                                                checkpoint_path=cfg.run.checkpoint_path,
-                                               weights_dir=log_dir)  # multilabel
+                                               weights_dir=log_dir,
+                                               num_classes=cfg.data.num_classes)  # multiclass
 
     # Lightning Trainer
     callbacks = [
@@ -148,7 +203,7 @@ def main(cfg: DictConfig) -> None:
             mode="min",
             save_on_train_epoch_end=True,
             save_last=True,
-            every_n_train_steps=100,
+            every_n_train_steps=75,
         ),
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer, deterministic=True)
@@ -162,10 +217,9 @@ def main(cfg: DictConfig) -> None:
 
         predictions = model_loaded.predict(datamodule, trainer)
         preds, probas = datamodule.predict_logits_to_class(predictions,
-                                                           np.arange(cfg.data.num_classes),
-                                                           activation_fn=torch.nn.Sigmoid())
+                                                           np.arange(cfg.data.num_classes))
         datamodule.export_predict_csv(preds, probas,
-                                      out_dir=log_dir, out_name='predictions_test_dataset', top_k=25, return_csv=True)
+                                      out_dir=log_dir, out_name='predictions_test_dataset', top_k=None, return_csv=True)
         print('Test dataset prediction (extract) : ', predictions[:1])
 
     else:

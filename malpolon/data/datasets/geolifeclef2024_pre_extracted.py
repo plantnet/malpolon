@@ -169,7 +169,7 @@ class TrainDataset(Dataset):
 
     def __getitem__(self, idx):
 
-        survey_id = self.metadata.surveyId[idx]
+        survey_id = self.metadata.surveyId.iloc[idx]
         data_samples = []
 
         # Landsat data (pre-extracted time series)
@@ -189,14 +189,14 @@ class TrainDataset(Dataset):
             data_samples.append(torch.tensor(np.array(sentinel_sample), dtype=torch.float32))
 
         if 'multiclass' in self.task:
-            label = self.metadata.speciesId[idx]
+            label = self.metadata.speciesId.iloc[idx]
         else:
             species_ids = self.label_dict.get(survey_id, [])  # Get list of species IDs for the survey ID
             label = torch.zeros(self.num_classes)  # Initialize label tensor
             for species_id in species_ids:
                 label[species_id] = 1  # Set the corresponding class index to 1 for each species
 
-        return tuple(data_samples) + (label, survey_id)
+        return tuple(data_samples) + (label, survey_id,)
 
 
 class TestDataset(TrainDataset):
@@ -216,7 +216,7 @@ class TestDataset(TrainDataset):
             transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
         ])
         super().__init__(metadata, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform)
-        self.targets = np.array([0] * len(metadata))
+        self.targets = np.array([0] * len(self.metadata))
         self.observation_ids = metadata['surveyId']
 
     def __getitem__(self, idx):
@@ -329,7 +329,7 @@ class GLC24Datamodule(BaseDataModule):
             batch_size=self.train_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
-            shuffle=False,
+            shuffle=True,
         )
         return dataloader
 
@@ -339,7 +339,7 @@ class GLC24Datamodule(BaseDataModule):
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
-            shuffle=False,
+            shuffle=True,
         )
         return dataloader
 
@@ -365,7 +365,14 @@ class GLC24Datamodule(BaseDataModule):
         return dataloader
 
     def _check_integrity(self):
-        downloaded = (self.root / "GLC24_P0_metadata_train.csv").exists()
+        paths = ['EnvironmentalRasters', 'PA-test-landsat_time_series',
+                 'PA_Test_SatellitePatches_NIR', 'PA_Test_SatellitePatches_RGB',
+                 'PA-train-landsat_time_series', 'PA_Train_SatellitePatches_NIR',
+                 'PA_Train_SatellitePatches_RGB', 'TimeSeries-Cubes',
+                 'GLC24_P0_metadata_train.csv', 'GLC24_PA_metadata_train.csv',
+                 'GLC24_PA_metadata_test.csv', 'GLC24_SAMPLE_SUBMISSION.csv']
+        downloaded = all(map(lambda x: (self.root / x).exists(), paths))
+
         split = (self.root / "GLC24_PA_metadata_train_train-10.0min.csv").exists()
         if downloaded and not split:
             print('Data already downloaded but not split. Splitting data spatially into train (90%) & val (10%) sets.')
