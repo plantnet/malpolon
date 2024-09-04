@@ -146,7 +146,7 @@ class TrainDataset(Dataset):
     num_classes = 11255
 
     def __init__(self, metadata, num_classes=11255, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel', **kwargs):
-        self.transform = transform
+        self.transform = transform if transform else {'landsat': None, 'bioclim': None, 'sentinel': None}
         self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
@@ -211,8 +211,9 @@ class TestDataset(TrainDataset):
     TrainDataset : Dataset
         inherits TrainDataset attributes and __len__() method
     """
-    def __init__(self, metadata, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel'):
-        self.transform = transform
+    __test__ = False
+    def __init__(self, metadata, num_classes=11255, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel'):
+        self.transform = transform if transform else {'landsat': None, 'bioclim': None, 'sentinel': None}
         self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
