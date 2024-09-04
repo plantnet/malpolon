@@ -12,3 +12,4 @@ predictions_and_evaluation/predictions_GLC24_SOLUTION_FILE_sigmoid_CNN-sentinel.
 
 # Other
 ALEXIS_inference_bioclim_time_series_resnet_softmax_binary_loss.py
+*.sh
