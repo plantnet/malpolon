@@ -6,16 +6,13 @@ Author: Lukas Picek <lukas.picek@inria.fr>
 License: GPLv3
 Python version: 3.10.6
 """
-from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Union
 
 import omegaconf
 import torch
 from omegaconf import OmegaConf
-from PIL import Image
-from torch import Tensor, nn
+from torch import Tensor
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torchvision import models
 
 from malpolon.models.standard_prediction_systems import ClassificationSystem
 from malpolon.models.utils import check_optimizer
@@ -41,7 +38,7 @@ class ClassificationSystemGLC24(ClassificationSystem):
         checkpoint_path: Optional[str] = None,
         num_classes: int = None,
     ):
-        """Class constructor
+        """Class constructor.
 
         Parameters
         ----------
