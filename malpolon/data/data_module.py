@@ -269,8 +269,6 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             class_preds = torch.zeros_like(probas, device=device)
             for batch_i in range(predictions.shape[0]):  # useful if classes don't span from 0 to n_classes-1
                 class_preds[batch_i] = classes[indices[batch_i]]
-            if 'multiclass' in self.task:
-                class_preds, probas = class_preds[:, :1], probas[:, :1]
         return class_preds.to('cpu').numpy().astype(int), probas.to('cpu').numpy()
 
     def export_predict_csv_basic(self,
@@ -395,8 +393,8 @@ class BaseDataModule(pl.LightningDataModule, ABC):
             targets = test_ds.targets if test_ds.targets is not None else [-1] * len(predictions)
             print('Constructing predictions CSV file...')
             df = pd.DataFrame({'observation_id': test_ds.observation_ids,
-                               'lon': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 0],
-                               'lat': [None] * len(test_ds) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 1],
+                               'lon': [None] * len(test_ds.observation_ids) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 0],
+                               'lat': [None] * len(test_ds.observation_ids) if not hasattr(test_ds, 'coordinates') else test_ds.coordinates[:, 1],
                                'target_species_id': tuple(np.array(targets).astype(int).astype(str)),
                                'predictions': tuple(predictions[:, :top_k].astype(str)),
                                'probas': [None] * len(predictions)})

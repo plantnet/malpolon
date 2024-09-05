@@ -74,9 +74,9 @@ class GenericPredictionSystem(pl.LightningModule):
         filename: str,
         md5: Optional[str] = None,
     ):
-        """Download pretrained weihgts from a remote repository.
+        """Download pretrained weights from a remote repository.
 
-        Downloads weigths and ajusts self.checkpoint_path accordingly.
+        Downloads weights and ajusts self.checkpoint_path accordingly.
         This method is intended to be used to perform transfer learning
         or resume a model training later on and/or on a different
         machine.

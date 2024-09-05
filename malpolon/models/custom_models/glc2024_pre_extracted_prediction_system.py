@@ -6,15 +6,13 @@ Author: Lukas Picek <lukas.picek@inria.fr>
 License: GPLv3
 Python version: 3.10.6
 """
-from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Union
 
 import omegaconf
 import torch
 from omegaconf import OmegaConf
-from torch import Tensor, nn
+from torch import Tensor
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torchvision import models
 
 from malpolon.models.standard_prediction_systems import ClassificationSystem
 from malpolon.models.utils import check_optimizer
@@ -37,9 +35,10 @@ class ClassificationSystemGLC24(ClassificationSystem):
         loss_kwargs: Optional[dict] = {},
         hparams_preprocess: bool = True,
         weights_dir: str = 'outputs/glc24_cnn_multimodal_ensemble/',
-        checkpoint_path: Optional[str] = None
+        checkpoint_path: Optional[str] = None,
+        num_classes: int = None,
     ):
-        """Class constructor
+        """Class constructor.
 
         Parameters
         ----------
@@ -79,12 +78,20 @@ class ClassificationSystemGLC24(ClassificationSystem):
             path to the model checkpoint to load either to resume
             a previous training, perform transfer learning or run in
             prediction mode (inference), by default None
+        num_classes : int, optional
+            number of classes for the classification task, by default None
         """
+        loss_kwargs = {} if loss_kwargs is None else loss_kwargs
         if isinstance(loss_kwargs, omegaconf.dictconfig.DictConfig):
             loss_kwargs = OmegaConf.to_container(loss_kwargs, resolve=True)
-        if 'pos_weight' in loss_kwargs.keys():
-            length = metrics['multilabel_f1-score'].kwargs.num_labels
-            loss_kwargs['pos_weight'] = Tensor([loss_kwargs['pos_weight']] * length)
+        if 'pos_weight' in loss_kwargs.keys() and not isinstance(loss_kwargs['pos_weight'], Tensor):
+            # Backwards compatibility for num_classes
+            if num_classes is None:
+                if 'multilabel' in task:
+                    num_classes = metrics['multilabel_f1-score'].kwargs.num_labels
+                elif 'multiclass' in task:
+                    num_classes = metrics['multiclass_f1-score'].kwargs.num_classes
+            loss_kwargs['pos_weight'] = Tensor([loss_kwargs['pos_weight']] * num_classes)
         super().__init__(model, lr, weight_decay, momentum, nesterov, metrics, task, loss_kwargs, hparams_preprocess, checkpoint_path)
         optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr)
         self.optimizer = check_optimizer(optimizer)
@@ -125,11 +132,15 @@ class ClassificationSystemGLC24(ClassificationSystem):
         x_landsat, x_bioclim, x_sentinel, y, survey_id = batch
         y_hat = self(x_landsat, x_bioclim, x_sentinel)
 
-        loss_pos_weight = self.loss.pos_weight  # save initial loss parameter value
-        self.loss.pos_weight = y * torch.Tensor(self.loss.pos_weight).to(y)   # Proper way would be to forward pos_weight to loss instantiation via loss_kwargs, but pos_weight must be a tensor, i.e. have access to y -> Not possible in Malpolon as datamodule and optimizer instantiations are separate
+        if 'pos_weight' in dir(self.loss):
+            loss_pos_weight = self.loss.pos_weight  # save initial loss parameter value
+            self.loss.pos_weight = y * torch.Tensor(self.loss.pos_weight).to(y)   # Proper way would be to forward pos_weight to loss instantiation via loss_kwargs, but pos_weight must be a tensor, i.e. have access to y -> Not possible in Malpolon as datamodule and optimizer instantiations are separate
+
         loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
         self.log(f"loss/{split}", loss, **log_kwargs)
-        self.loss.pos_weight = loss_pos_weight  # restore initial loss parameter value to not alter lightning module state_dict
+
+        if 'pos_weight' in dir(self.loss):
+            self.loss.pos_weight = loss_pos_weight  # restore initial loss parameter value to not alter lightning module state_dict
 
         for metric_name, metric_func in self.metrics.items():
             if isinstance(metric_func, dict):
