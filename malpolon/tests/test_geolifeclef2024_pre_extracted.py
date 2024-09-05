@@ -74,7 +74,7 @@ def test_train_dataset():
 
     path = ROOT_PATH / 'metadata.csv'
     df_train = pd.read_csv(path)
-    n_classes = 11255  # len(np.unique(df_train['subset']))
+    n_classes = 11255
     df_test = df_train[df_train['subset'] == 'test']
     df_train = df_train[df_train['subset'] == 'train']
 

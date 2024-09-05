@@ -13,6 +13,7 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 import os
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import torch
 
@@ -213,6 +214,23 @@ GLC23_EXAMPLE_PATHS = {
          "hydra_args": ""},
     ],
 }
+
+GLC24_PRE_EXTRACTED_EXAMPLE_PATHS = {
+    "geolifeclef2024_pre_extracted": [
+        # Multilabel classif (species)
+        ## Training (raw, transfer learning, inference)
+        {"ref": "Benchmarks/geolifeclef/geolifeclef2024_pre_extracted, classification_multilabel (species), training_raw",
+         "path": Path('examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble.py'),
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null ~trainer.val_check_interval loggers.exp_name=glc24_pre_extracted_mme_test"},
+
+        # Multiclass classif (habitats)
+        ## Training (raw, transfer learning, inference)
+        {"ref": "Benchmarks/geolifeclef/geolifeclef2024_pre_extracted, classification_multiclass (habitats), training_raw",
+         "path": Path('examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble_habitat.py'),
+         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null ~trainer.val_check_interval loggers.exp_name=glc24_pre_extracted_mme_test"},
+    ],
+}
+
 @pytest.mark.skip(reason="Slow and no guarantee of having the data available.")
 def test_train_inference_examples():
     ckpt_path = ''
@@ -353,3 +371,63 @@ def test_GLC23_examples():
         os.system(f'rm -rf {path}')
         print(f'{INFO}         > {LINK}{path}{RESET}')
     print(f'\n{INFO}[INFO] Done. {RESET}')
+
+def test_GLC24_pre_extracted_examples():
+    ckpt_path = ''
+    for expe_name, v in GLC24_PRE_EXTRACTED_EXAMPLE_PATHS.items():
+        print(f'\n{INFO}[INFO] --- Scenarios "benchmarks/geolifeclef2024_pre_etracted" --- {RESET}')
+        print(f'\n{INFO}[INFO] Testing example: {expe_name}{RESET}{INFO}...{RESET}')
+        for expes in v:
+            ref, path, args = expes['ref'], expes['path'], expes['hydra_args']
+            expe_type = ref.rsplit(', ', maxsplit=1)[-1].lower()
+            print(f'{INFO}[INFO]   > {LINK}{path.name}{RESET}{INFO}: {ref}...{RESET}\n')
+            assert path.exists()
+            os.chdir(path.parent)
+
+            out_dir = Path(f"{OUT_DIR}_{ref.rsplit(' ', maxsplit=1)[-1]}")
+            if out_dir.exists():
+                os.system(f'rm -rf {out_dir}')
+
+            # Create a temporary lightweight observation file
+            if 'habitat' in str(path):
+                df = pd.read_csv('dataset/geolifeclef-2024_habitats/GLC24_PA_metadata_habitats-lvl3_train_split-10.0%_val.csv').sample(n=100)
+            else:
+                df = pd.read_csv('dataset/geolifeclef-2024/GLC24_PA_metadata_train_val-10.0min.csv').sample(n=100)
+            df.to_csv('obs_sample.csv', index=False, sep=',')
+            TMP_PATHS_TO_DELETE.append(Path(os.getcwd()) / 'obs_sample.csv')
+            args += " 'data.metadata_paths.train=obs_sample.csv' 'data.metadata_paths.val=obs_sample.csv' 'data.metadata_paths.test=obs_sample.csv' "
+
+            if any(v in expe_type for v in ['training_raw', 'training_transfer_learning']):
+                a = os.system(f"python {path.name} {args} hydra.run.dir={out_dir} ")  # 5-6x faster than subprocess.run or popen
+                assert not a
+                if expe_type != 'training_transfer_learning':
+                    assert os.path.isfile(out_dir / 'last.ckpt')  # When using transfer learning, last.ckpt is not guaranteed to exist as lightning my overwrite it with the same link referencing itself and breaking if there are no "proper" checkpoints to reference (which is the case when begining the transfer learning task)
+                    ckpt_path = Path(os.getcwd()) / out_dir
+                assert os.path.isfile(out_dir / 'glc24_pre_extracted_mme_test/metrics.csv')
+                assert os.path.isfile(out_dir / 'glc24_pre_extracted_mme_test/hparams.yaml')
+                assert os.path.isfile(out_dir / f'{path.stem}.log')
+                assert os.path.isdir(out_dir / 'tensorboard_logs')
+            elif 'inference' in expe_type:
+                a = os.system(f'python {path.name} hydra.run.dir={out_dir} {args} run.checkpoint_path={ckpt_path}/last.ckpt')
+                assert not a
+                if expe_type != 'inference_dataset':
+                    assert os.path.isfile(out_dir / 'prediction_point.csv')
+                if expe_type != 'inference_point':
+                    assert os.path.isfile(out_dir / 'predictions_test_dataset.csv')
+            elif 'data_loading' in expe_type:
+                a = os.system(f"python {path.name}")
+                assert not a
+
+            TMP_PATHS_TO_DELETE.append(Path(os.getcwd()) / out_dir)
+            os.chdir(PROJECT_ROOT_PATH)
+            print(f'\n{INFO}[INFO] OK. {RESET}')
+
+    # Clean up: remove the output files
+    print(f'\n{INFO}[INFO] Cleaning up temporary test output files... {RESET}')
+    for path in TMP_PATHS_TO_DELETE:
+        os.system(f'rm -rf {path}')
+        print(f'{INFO}         > {LINK}{path}{RESET}')
+    print(f'\n{INFO}[INFO] Done. {RESET}')
+
+if __name__ == '__main__':
+    test_GLC24_pre_extracted_examples()
