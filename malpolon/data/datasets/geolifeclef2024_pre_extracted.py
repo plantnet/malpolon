@@ -145,7 +145,35 @@ class TrainDataset(Dataset):
     """
     num_classes = 11255
 
-    def __init__(self, metadata, num_classes=11255, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel', **kwargs):
+    def __init__(self,
+                 metadata: pd.DataFrame,
+                 num_classes: int = 11255,
+                 bioclim_data_dir: str = None,
+                 landsat_data_dir: str = None,
+                 sentinel_data_dir: str = None,
+                 transform: Callable = None,
+                 task: str = 'classification_multilabel',
+                 **kwargs,
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        metadata : pd.DataFrame
+            observation dataframe.
+        num_classes : int, optional
+            number of unique labels in the dataset, by default 11255
+        bioclim_data_dir : str, optional
+            path to the bioclim dataset directory, by default None
+        landsat_data_dir : str, optional
+            path to the landsat dataset directory, by default None
+        sentinel_data_dir : str, optional
+            path to the sentinel dataset directory, by default None
+        transform : Callable, optional
+            transform function to apply to the data, by default None
+        task : str, optional
+            deep learning task to perform, by default 'classification_multilabel'
+        """
         self.transform = transform if transform else {'landsat': None, 'bioclim': None, 'sentinel': None}
         self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
@@ -212,7 +240,22 @@ class TestDataset(TrainDataset):
         inherits TrainDataset attributes and __len__() method
     """
     __test__ = False
-    def __init__(self, metadata, num_classes=11255, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel'):
+
+    def __init__(self,
+                 metadata: pd.DataFrame,
+                 num_classes: int = 11255,
+                 bioclim_data_dir: str = None,
+                 landsat_data_dir: str = None,
+                 sentinel_data_dir: str = None,
+                 transform: Callable = None,
+                 task: str = 'classification_multilabel'
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        See TrainDataset description.
+        """
         self.transform = transform if transform else {'landsat': None, 'bioclim': None, 'sentinel': None}
         self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
@@ -293,9 +336,14 @@ class GLC24Datamodule(BaseDataModule):
         sampler : Callable, optional
             dataloader sampler to use, by default None (standard
             iteration)
+        dataset_kwargs : dict, optional
+            additional keyword arguments to pass to the dataset, by default {}
         download_data : bool, optional
             if true, will offer to download the pre-extracted data from
             Seafile, by default False
+        task : str, optional
+            Task to perform. Can take values in ['classification_multiclass',
+            'classification_multilabel'], by default 'classification_multilabel'
         """
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.data_paths = data_paths
@@ -310,7 +358,25 @@ class GLC24Datamodule(BaseDataModule):
             self.download()
         self.task = task
 
-    def get_dataset(self, split, transform, **kwargs):
+    def get_dataset(self,
+                    split: str,
+                    transform: Callable,
+                    **kwargs
+    ):
+        """Dataset getter.
+
+        Parameters
+        ----------
+        split : str
+            dataset split to get, can take values in ['train', 'val', 'test']
+        transform : Callable
+            transformfunctions to apply to the data
+
+        Returns
+        -------
+        Union[TrainDataset, TestDataset]
+            dataset class to return
+        """
         match split:
             case 'train':
                 train_metadata = pd.read_csv(self.metadata_paths['train'])
@@ -368,6 +434,13 @@ class GLC24Datamodule(BaseDataModule):
         return dataloader
 
     def _check_integrity(self):
+        """Check if the dataset is already downloaded and split into train and val sets."
+
+        Returns
+        -------
+        (bool)
+            True if the dataset is already downloaded and split, False otherwise.
+        """
         paths = ['EnvironmentalRasters', 'PA-test-landsat_time_series',
                  'PA_Test_SatellitePatches_NIR', 'PA_Test_SatellitePatches_RGB',
                  'PA-train-landsat_time_series', 'PA_Train_SatellitePatches_NIR',
@@ -413,6 +486,16 @@ class GLC24Datamodule(BaseDataModule):
 
     @property
     def train_transform(self):
+        """Return the training transform functions for each data modality.
+
+        The normalization values are computed from the training dataset
+        (pre-extracted values) for each modality.
+
+        Returns
+        -------
+        (dict)
+            dictionary of transform functions for each data modality.
+        """
         all_transforms = [torch.tensor]
         landsat_transforms = [transforms.Normalize(mean=[30.071] * 6,
                                                    std=[24.860] * 6)]
@@ -427,6 +510,16 @@ class GLC24Datamodule(BaseDataModule):
 
     @property
     def test_transform(self):
+        """Return the test transform functions for each data modality.
+
+        The normalization values are computed from the test dataset
+        (pre-extracted values) for each modality.
+
+        Returns
+        -------
+        (dict)
+            dictionary of transform functions for each data modality.
+        """
         all_transforms = [torch.tensor]
         landsat_transforms = [transforms.Normalize(mean=[30.923] * 6,
                                                    std=[25.722] * 6)]
