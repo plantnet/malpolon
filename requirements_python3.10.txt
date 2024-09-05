@@ -11,7 +11,7 @@ jupyter==1.0.0
 jupyter-server==2.11.2
 jupyterlab==3.6.7
 kaggle==1.5.16
-lightning==2.0.9.post0
+lightning==2.3.2
 Markdown==3.4.1
 matplotlib==3.8.0
 notebook==6.5.2
