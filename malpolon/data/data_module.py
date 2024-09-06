@@ -382,9 +382,9 @@ class BaseDataModule(pl.LightningDataModule, ABC):
         top_k = top_k if top_k is not None else predictions.shape[1]
         if single_point_query:
             df = pd.DataFrame({'observation_id': [single_point_query['observation_id'] if 'observation_id' in single_point_query else None],
-                               'lon': [single_point_query['lon']],
-                               'lat': [single_point_query['lat']],
-                               'crs': [single_point_query['crs']],
+                               'lon': [single_point_query['lon'] if 'lon' in single_point_query else None],
+                               'lat': [single_point_query['lat'] if 'lat' in single_point_query else None],
+                               'crs': [single_point_query['crs'] if 'crs' in single_point_query else None],
                                'target_species_id': tuple(np.array(single_point_query['species_id']).astype(str) if 'species_id' in single_point_query else None),
                                'predictions': tuple(predictions[:, :top_k].astype(str)),
                                'probas': tuple(probas[:, :top_k].astype(str))})
