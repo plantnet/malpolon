@@ -74,9 +74,9 @@ class GenericPredictionSystem(pl.LightningModule):
         filename: str,
         md5: Optional[str] = None,
     ):
-        """Download pretrained weihgts from a remote repository.
+        """Download pretrained weights from a remote repository.
 
-        Downloads weigths and ajusts self.checkpoint_path accordingly.
+        Downloads weights and ajusts self.checkpoint_path accordingly.
         This method is intended to be used to perform transfer learning
         or resume a model training later on and/or on a different
         machine.
@@ -230,6 +230,41 @@ class GenericPredictionSystem(pl.LightningModule):
         print(f'Inference state_dict: replaced {len(state_dict)} keys from "{replace[0]}" to "{replace[1]}"')
         return state_dict
 
+    def remove_state_dict_prefix(
+        self,
+        state_dict: dict,
+        prefix: str = 'model.',
+    ):
+        """Remove a prefix from the keys of a state_dict.
+
+        This method is intended to remove the ".model" prefix from the
+        keys of a state_dict which is added by PyTorchLightning
+        when saving a LightningModule's checkpoint. This is due to the fact
+        that a LightningModule contains a model attribute which is referenced
+        in the LightningModule state_dict as "model.<model_state_dict_key>".
+        And the LightningModule state_dict is saved as a whole when calling
+        the save_checkpoint method (enabling the saving of more
+        hyperparameters).
+        This is useful when loading a state_dict directly on a model object
+        instead of a LightningModule.
+
+        Parameters
+        ----------
+        state_dict : dict
+            Model state_dict
+        prefix : str
+            Prefix to remove from the state_dict keys.
+
+        Returns
+        -------
+        dict
+            State_dict with new keys.
+        """
+        for key in list(state_dict):
+            state_dict[key.replace(prefix, '')] = state_dict.pop(key)
+        print(f'Inference state_dict: removed prefix "{prefix}" from {len(state_dict)} keys')
+        return state_dict
+
     def predict(
         self,
         datamodule,
@@ -263,7 +298,7 @@ class GenericPredictionSystem(pl.LightningModule):
         checkpoint_path: str,
         data: Union[Tensor, tuple[Any, Any]],
         state_dict_replace_key: Optional[list[str, str]] = None,
-        ckpt_transform: Callable = None
+        ckpt_transform: Callable = None,
     ):
         """Predict a model's output on 1 data point.
 
@@ -283,6 +318,9 @@ class GenericPredictionSystem(pl.LightningModule):
             callable function applied to the loaded checkpoint object.
             Use this to modify the structure of the loaded model's checkpoint
             on the fly. Defaults to None.
+        remove_model_prefix : bool, optional
+            if True, removes the "model." prefix from the keys of the
+            loaded checkpoint. Defaults
 
         Returns
         -------
@@ -291,7 +329,6 @@ class GenericPredictionSystem(pl.LightningModule):
         """
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model.to(device)
-        data = data.to(device)
 
         ckpt = torch.load(checkpoint_path, map_location=device)
         if state_dict_replace_key:
@@ -299,10 +336,17 @@ class GenericPredictionSystem(pl.LightningModule):
                                                              state_dict_replace_key)
         if ckpt_transform:
             ckpt = ckpt_transform(ckpt)
-        self.model.load_state_dict(ckpt['state_dict'])
+        self.load_state_dict(ckpt['state_dict'])
         self.model.eval()
         with torch.no_grad():
-            prediction = self.model(data)
+            if '__iter__' in dir(data):
+                for i, d in enumerate(data):
+                    data[i] = d.to(device) if isinstance(d, torch.Tensor) else d
+                prediction = self.model(*data)
+            else:
+                if isinstance(data, torch.Tensor):
+                    data = data.to(device)
+                prediction = self.model(data)
         return prediction
 
 

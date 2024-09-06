@@ -45,3 +45,8 @@ docs/resources/Malpolon_white.png
 # Debugging
 examples/custom_train/sentinel-2a-rgbnir/test.py
 examples/custom_train/sentinel-2a-rgbnir/test_bug_rasterio.md
+
+# Miscellaneous
+packages_malpolon.png
+classes_malpolon.png
+classes_yourpackage.png

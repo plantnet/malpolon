@@ -554,7 +554,7 @@ class RasterTorchGeoDataset(RasterDataset):
 
 
 class RasterBioclim(RasterTorchGeoDataset):
-    """Raster dataset adapted for Sentinel-2 data.
+    """Raster dataset adapted for CHELSA Bioclimatic data.
 
     Inherits RasterTorchGeoDataset.
     """

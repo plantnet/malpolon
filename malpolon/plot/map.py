@@ -10,9 +10,7 @@ from itertools import cycle
 from typing import TYPE_CHECKING, Optional
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-from matplotlib.pyplot import cm
 
 if TYPE_CHECKING:
     import numpy.typing as npt

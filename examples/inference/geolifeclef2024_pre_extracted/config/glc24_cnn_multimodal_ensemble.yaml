@@ -1,0 +1,86 @@
+hydra:
+  run:
+    dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+
+run:
+  predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point']
+  checkpoint_path: ???
+
+data:
+  root: "dataset/geolifeclef-2024/"
+  data_paths:
+    train:
+      landsat_data_dir:  "${data.root}TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-train-landsat_time_series/"
+      bioclim_data_dir:  "${data.root}TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-train-bioclimatic_monthly/"
+      sentinel_data_dir:  "${data.root}PA_Train_SatellitePatches_RGB/pa_train_patches_rgb/"
+    test:
+      landsat_data_dir:  "${data.root}TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-test-landsat_time_series/"
+      bioclim_data_dir:  "${data.root}TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-test-bioclimatic_monthly/"
+      sentinel_data_dir:  "${data.root}PA_Test_SatellitePatches_RGB/pa_test_patches_rgb/"
+  metadata_paths:
+    train:  "${data.root}GLC24_PA_metadata_train_train-10.0min.csv"
+    val:  "${data.root}GLC24_PA_metadata_train_val-10.0min.csv"
+    test:  "${data.root}GLC24_PA_metadata_test.csv"
+  num_classes: &num_classes 11255
+  download_data: True
+  train_batch_size: 64
+  inference_batch_size: 16
+  num_workers: 16
+
+task:
+  task: "classification_multilabel" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
+
+trainer:
+  # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
+  accelerator: "gpu"
+  devices: 'auto'
+  max_epochs: 20
+  val_check_interval: 100
+  check_val_every_n_epoch: 1
+  # log_every_n_steps: 100
+
+model:
+  provider_name: "malpolon" # choose from ["malpolon", "timm", "torchvision"]
+  model_name: "glc24_multimodal_ensemble"
+  model_kwargs:
+    pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
+  modifiers:
+    change_last_layer:
+      num_outputs: *num_classes
+
+optimizer:
+  lr: 0.00025
+  weight_decay: 0
+  momentum: 0.9
+  nesterov: true
+  loss_kwargs:
+    pos_weight: 10.0
+  metrics:
+    multilabel_accuracy:
+      # callable: 'Fmetrics.classification.multilabel_accuracy'
+      kwargs:
+        num_labels: *num_classes
+        # threshold: 0.1
+        average: micro
+    multilabel_recall:
+      callable: 'Fmetrics.classification.multilabel_recall'
+      kwargs:
+        num_labels: *num_classes
+        # threshold: 0.1
+        average: micro
+    multilabel_precision:
+      callable: 'Fmetrics.classification.multilabel_precision'
+      kwargs:
+        num_labels: *num_classes
+        # threshold: 0.1
+        average: micro
+    multilabel_f1-score:
+      callable: 'Fmetrics.classification.multilabel_f1_score'
+      kwargs:
+        num_labels: *num_classes
+        # threshold: 0.1
+        average: micro
+
+loggers:
+  exp_name: "multimodal_resnet18-swint_ensemble"  # Name of your experiment
+  log_dir_name: "tensorboard_logs/"  # Name of the logs directory

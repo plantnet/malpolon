@@ -14,9 +14,11 @@ from typing import Callable
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.preprocessing import LabelEncoder
 from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
-from torchvision.datasets.utils import extract_archive
+from torchvision.datasets.utils import (download_and_extract_archive,
+                                        extract_archive)
 from torchvision.io import read_image
 
 from malpolon.data.data_module import BaseDataModule
@@ -143,13 +145,42 @@ class TrainDataset(Dataset):
     """
     num_classes = 11255
 
-    def __init__(self, metadata, num_classes=11255, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None):
-        self.transform = transform
+    def __init__(self,
+                 metadata: pd.DataFrame,
+                 num_classes: int = 11255,
+                 bioclim_data_dir: str = None,
+                 landsat_data_dir: str = None,
+                 sentinel_data_dir: str = None,
+                 transform: Callable = None,
+                 task: str = 'classification_multilabel',
+                 **kwargs,
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        metadata : pd.DataFrame
+            observation dataframe.
+        num_classes : int, optional
+            number of unique labels in the dataset, by default 11255
+        bioclim_data_dir : str, optional
+            path to the bioclim dataset directory, by default None
+        landsat_data_dir : str, optional
+            path to the landsat dataset directory, by default None
+        sentinel_data_dir : str, optional
+            path to the sentinel dataset directory, by default None
+        transform : Callable, optional
+            transform function to apply to the data, by default None
+        task : str, optional
+            deep learning task to perform, by default 'classification_multilabel'
+        """
+        self.transform = transform if transform else {'landsat': None, 'bioclim': None, 'sentinel': None}
         self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
         ])
         # self.sentinel_transform = None
+        self.task = task
         self.num_classes = num_classes
         self.landsat_data_dir = landsat_data_dir
         self.bioclim_data_dir = bioclim_data_dir
@@ -160,15 +191,15 @@ class TrainDataset(Dataset):
             self.metadata['speciesId'] = self.metadata['speciesId'].astype(int)
         else:
             self.metadata['speciesId'] = [None] * len(self.metadata)
+        self.metadata = self.metadata.drop_duplicates(subset="surveyId").reset_index(drop=True)  # Should we ?
         self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
-        self.metadata = self.metadata.drop_duplicates(subset="surveyId").reset_index(drop=True)
 
     def __len__(self):
         return len(self.metadata)
 
     def __getitem__(self, idx):
 
-        survey_id = self.metadata.surveyId[idx]
+        survey_id = self.metadata.surveyId.iloc[idx]
         data_samples = []
 
         # Landsat data (pre-extracted time series)
@@ -187,13 +218,15 @@ class TrainDataset(Dataset):
                                             transform=self.transform['sentinel'])
             data_samples.append(torch.tensor(np.array(sentinel_sample), dtype=torch.float32))
 
-        species_ids = self.label_dict.get(survey_id, [])  # Get list of species IDs for the survey ID
-        label = torch.zeros(self.num_classes)  # Initialize label tensor
-        for species_id in species_ids:
-            label_id = species_id
-            label[label_id] = 1  # Set the corresponding class index to 1 for each species
+        if 'multiclass' in self.task:
+            label = self.metadata.speciesId.iloc[idx]
+        else:
+            species_ids = self.label_dict.get(survey_id, [])  # Get list of species IDs for the survey ID
+            label = torch.zeros(self.num_classes)  # Initialize label tensor
+            for species_id in species_ids:
+                label[species_id] = 1  # Set the corresponding class index to 1 for each species
 
-        return tuple(data_samples) + (label, survey_id)
+        return tuple(data_samples) + (label, survey_id,)
 
 
 class TestDataset(TrainDataset):
@@ -206,14 +239,30 @@ class TestDataset(TrainDataset):
     TrainDataset : Dataset
         inherits TrainDataset attributes and __len__() method
     """
-    def __init__(self, metadata, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None):
-        self.transform = transform
+    __test__ = False
+
+    def __init__(self,
+                 metadata: pd.DataFrame,
+                 num_classes: int = 11255,
+                 bioclim_data_dir: str = None,
+                 landsat_data_dir: str = None,
+                 sentinel_data_dir: str = None,
+                 transform: Callable = None,
+                 task: str = 'classification_multilabel'
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        See TrainDataset description.
+        """
+        self.transform = transform if transform else {'landsat': None, 'bioclim': None, 'sentinel': None}
         self.sentinel_transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Normalize(mean=(0.5, 0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5, 0.5)),
         ])
         super().__init__(metadata, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform)
-        self.targets = np.array([0] * len(metadata))
+        self.targets = np.array([0] * len(self.metadata))
         self.observation_ids = metadata['surveyId']
 
     def __getitem__(self, idx):
@@ -236,11 +285,14 @@ class TestDataset(TrainDataset):
                                             transform=self.transform['sentinel'])
             data_samples.append(torch.tensor(np.array(sentinel_sample), dtype=torch.float32))
 
-        species_ids = self.label_dict.get(survey_id, [])  # Get list of species IDs for the survey ID
-        label = torch.zeros(self.num_classes)  # Initialize label tensor
-        for species_id in species_ids:
-            label_id = species_id
-            label[label_id] = 1  # Set the corresponding class index to 1 for each species
+        if 'multiclass' in self.task:
+            label = self.metadata.speciesId[idx]
+        else:
+            species_ids = self.label_dict.get(survey_id, [])  # Get list of species IDs for the survey ID
+            label = torch.zeros(self.num_classes)  # Initialize label tensor
+            for species_id in species_ids:
+                label[species_id] = 1  # Set the corresponding class index to 1 for each species
+
         return tuple(data_samples) + (label, survey_id,)
 
 
@@ -257,6 +309,7 @@ class GLC24Datamodule(BaseDataModule):
         sampler: Callable = None,
         dataset_kwargs: dict = {},
         download_data: bool = False,
+        task: str = 'classification_multilabel',
         **kwargs,
     ):
         """Class constructor.
@@ -283,9 +336,14 @@ class GLC24Datamodule(BaseDataModule):
         sampler : Callable, optional
             dataloader sampler to use, by default None (standard
             iteration)
+        dataset_kwargs : dict, optional
+            additional keyword arguments to pass to the dataset, by default {}
         download_data : bool, optional
             if true, will offer to download the pre-extracted data from
             Seafile, by default False
+        task : str, optional
+            Task to perform. Can take values in ['classification_multiclass',
+            'classification_multilabel'], by default 'classification_multilabel'
         """
         super().__init__(train_batch_size, inference_batch_size, num_workers)
         self.data_paths = data_paths
@@ -298,20 +356,39 @@ class GLC24Datamodule(BaseDataModule):
         self.root = Path(self.root)
         if download_data:
             self.download()
+        self.task = task
 
-    def get_dataset(self, split, transform, **kwargs):
+    def get_dataset(self,
+                    split: str,
+                    transform: Callable,
+                    **kwargs
+    ):
+        """Dataset getter.
+
+        Parameters
+        ----------
+        split : str
+            dataset split to get, can take values in ['train', 'val', 'test']
+        transform : Callable
+            transformfunctions to apply to the data
+
+        Returns
+        -------
+        Union[TrainDataset, TestDataset]
+            dataset class to return
+        """
         match split:
             case 'train':
                 train_metadata = pd.read_csv(self.metadata_paths['train'])
-                dataset = TrainDataset(train_metadata, self.num_classes, **self.data_paths['train'], transform=transform, **self.dataset_kwargs)
+                dataset = TrainDataset(train_metadata, self.num_classes, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
                 self.dataset_train = dataset
             case 'val':
                 val_metadata = pd.read_csv(self.metadata_paths['val'])
-                dataset = TrainDataset(val_metadata, **self.data_paths['train'], transform=transform, **self.dataset_kwargs)
+                dataset = TrainDataset(val_metadata, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
                 self.dataset_val = dataset
             case 'test':
                 test_metadata = pd.read_csv(self.metadata_paths['test'])
-                dataset = TestDataset(test_metadata, **self.data_paths['test'], transform=transform, **self.dataset_kwargs)
+                dataset = TestDataset(test_metadata, **self.data_paths['test'], transform=transform, task=self.task, **self.dataset_kwargs)
                 self.dataset_test = dataset
         return dataset
 
@@ -321,7 +398,7 @@ class GLC24Datamodule(BaseDataModule):
             batch_size=self.train_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
-            shuffle=False,
+            shuffle=True,
         )
         return dataloader
 
@@ -331,7 +408,7 @@ class GLC24Datamodule(BaseDataModule):
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
-            shuffle=False,
+            shuffle=True,
         )
         return dataloader
 
@@ -357,7 +434,21 @@ class GLC24Datamodule(BaseDataModule):
         return dataloader
 
     def _check_integrity(self):
-        downloaded = (self.root / "GLC24_P0_metadata_train.csv").exists()
+        """Check if the dataset is already downloaded and split into train and val sets."
+
+        Returns
+        -------
+        (bool)
+            True if the dataset is already downloaded and split, False otherwise.
+        """
+        paths = ['EnvironmentalRasters', 'PA-test-landsat_time_series',
+                 'PA_Test_SatellitePatches_NIR', 'PA_Test_SatellitePatches_RGB',
+                 'PA-train-landsat_time_series', 'PA_Train_SatellitePatches_NIR',
+                 'PA_Train_SatellitePatches_RGB', 'TimeSeries-Cubes',
+                 'GLC24_P0_metadata_train.csv', 'GLC24_PA_metadata_train.csv',
+                 'GLC24_PA_metadata_test.csv', 'GLC24_SAMPLE_SUBMISSION.csv']
+        downloaded = all(map(lambda x: (self.root / x).exists(), paths))
+
         split = (self.root / "GLC24_PA_metadata_train_train-10.0min.csv").exists()
         if downloaded and not split:
             print('Data already downloaded but not split. Splitting data spatially into train (90%) & val (10%) sets.')
@@ -395,6 +486,16 @@ class GLC24Datamodule(BaseDataModule):
 
     @property
     def train_transform(self):
+        """Return the training transform functions for each data modality.
+
+        The normalization values are computed from the training dataset
+        (pre-extracted values) for each modality.
+
+        Returns
+        -------
+        (dict)
+            dictionary of transform functions for each data modality.
+        """
         all_transforms = [torch.tensor]
         landsat_transforms = [transforms.Normalize(mean=[30.071] * 6,
                                                    std=[24.860] * 6)]
@@ -409,6 +510,16 @@ class GLC24Datamodule(BaseDataModule):
 
     @property
     def test_transform(self):
+        """Return the test transform functions for each data modality.
+
+        The normalization values are computed from the test dataset
+        (pre-extracted values) for each modality.
+
+        Returns
+        -------
+        (dict)
+            dictionary of transform functions for each data modality.
+        """
         all_transforms = [torch.tensor]
         landsat_transforms = [transforms.Normalize(mean=[30.923] * 6,
                                                    std=[25.722] * 6)]
@@ -419,3 +530,152 @@ class GLC24Datamodule(BaseDataModule):
         return {'landsat': transforms.Compose(all_transforms + landsat_transforms),
                 'bioclim': transforms.Compose(all_transforms + bioclim_transforms),
                 'sentinel': transforms.Compose(all_transforms + sentinel_transforms)}
+
+
+class TrainDatasetHabitat(TrainDataset):
+    """GLC24 pre-extracted train dataset for habitat classification.
+
+    Parameters
+    ----------
+    Inherits TrainDataset.
+    """
+    def __init__(self, metadata, classes, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel'):
+        metadata = metadata[metadata['habitatId'].notna()]
+        metadata = metadata[metadata['habitatId'] != 'Unknown']
+        self.label_encoder = LabelEncoder().fit(classes)
+        metadata['habitatId_encoded'] = self.label_encoder.transform(metadata['habitatId'])
+        metadata.rename({'PlotObservationID': 'surveyId'}, axis=1, inplace=True)
+        metadata.rename({'habitatId_encoded': 'speciesId'}, axis=1, inplace=True)
+
+        super().__init__(metadata, num_classes=len(classes), bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform, task=task)
+
+        self.metadata = metadata
+        if 'speciesId' in self.metadata.columns:
+            self.metadata = self.metadata.dropna(subset='speciesId').reset_index(drop=True)
+            self.metadata['speciesId'] = self.metadata['speciesId'].astype(int)
+        else:
+            self.metadata['speciesId'] = [None] * len(self.metadata)
+        self.metadata = self.metadata.drop_duplicates(subset=['surveyId', 'habitatId']).reset_index(drop=True)  # Should we ?
+        self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
+        self.targets = self.metadata['speciesId'].values
+        self.observation_ids = self.metadata['surveyId']
+
+
+class TestDatasetHabitat(TestDataset):
+    """GLC24 pre-extracted test dataset for habitat classification.
+
+    Parameters
+    ----------
+    Inherits TestDataset.
+    """
+    def __init__(self, metadata, classes, bioclim_data_dir=None, landsat_data_dir=None, sentinel_data_dir=None, transform=None, task='classification_multilabel'):
+        metadata = metadata[metadata['habitatId'].notna()]
+        metadata = metadata[metadata['habitatId'] != 'Unknown']
+        self.label_encoder = LabelEncoder().fit(classes)
+        metadata['habitatId_encoded'] = self.label_encoder.transform(metadata['habitatId'])
+        metadata.rename({'PlotObservationID': 'surveyId'}, axis=1, inplace=True)
+        metadata.rename({'habitatId_encoded': 'speciesId'}, axis=1, inplace=True)
+
+        super().__init__(metadata, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform, task=task)
+
+        self.metadata = self.metadata.drop_duplicates(subset=['surveyId', 'habitatId']).reset_index(drop=True)  # Should we ?
+        self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
+        self.targets = self.metadata['speciesId'].values
+        self.observation_ids = self.metadata['surveyId']
+
+
+class GLC24DatamoduleHabitats(GLC24Datamodule):
+    """GLC24 pre-extracted datamodule for habitat classification.
+
+    Parameters
+    ----------
+    Inherits GLC24Datamodule.
+    """
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Union of train and test cls
+        self.classes = ['MA221', 'MA222', 'MA223', 'MA224', 'MA225', 'MA241', 'MA251',
+                        'MA252', 'MA253', 'MAa', 'N11', 'N12', 'N13', 'N14', 'N15', 'N16',
+                        'N18', 'N19', 'N1A', 'N1B', 'N1D', 'N1G', 'N1H', 'N1J', 'N21',
+                        'N22', 'N31', 'N32', 'N35', 'Q11', 'Q21', 'Q22', 'Q24', 'Q25',
+                        'Q41', 'Q42', 'Q43', 'Q44', 'Q51', 'Q52', 'Q53', 'Q54', 'Q61',
+                        'Q62', 'Q63', 'R11', 'R12', 'R13', 'R14', 'R16', 'R18', 'R19',
+                        'R1A', 'R1B', 'R1D', 'R1E', 'R1F', 'R1H', 'R1M', 'R1P', 'R1Q',
+                        'R1R', 'R1S', 'R21', 'R22', 'R23', 'R24', 'R31', 'R32', 'R34',
+                        'R35', 'R36', 'R37', 'R41', 'R43', 'R44', 'R45', 'R51', 'R52',
+                        'R54', 'R55', 'R56', 'R57', 'R61', 'R62', 'R63', 'S21', 'S22',
+                        'S23', 'S24', 'S25', 'S26', 'S31', 'S32', 'S33', 'S34', 'S35',
+                        'S36', 'S37', 'S38', 'S41', 'S42', 'S51', 'S52', 'S53', 'S54',
+                        'S61', 'S62', 'S63', 'S91', 'S92', 'S93', 'T11', 'T12', 'T13',
+                        'T15', 'T16', 'T17', 'T18', 'T19', 'T1A', 'T1B', 'T1C', 'T1D',
+                        'T1E', 'T1F', 'T1H', 'T21', 'T22', 'T24', 'T27', 'T29', 'T31',
+                        'T32', 'T33', 'T34', 'T35', 'T36', 'T37', 'T39', 'T3A', 'T3C',
+                        'T3D', 'T3F', 'T3J', 'T3K', 'T3M', 'U22', 'U24', 'U26', 'U27',
+                        'U28', 'U29', 'U32', 'U33', 'U34', 'U36', 'U37', 'U38', 'U3A',
+                        'U3D', 'U71', 'V11', 'V12', 'V13', 'V14', 'V15', 'V32', 'V33',
+                        'V34', 'V35', 'V37', 'V38', 'V39']
+
+    def get_dataset(self, split, transform, **kwargs):
+        match split:
+            case 'train':
+                train_metadata = pd.read_csv(self.metadata_paths['train'])
+                dataset = TrainDatasetHabitat(train_metadata, self.classes, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
+                self.dataset_train = dataset
+            case 'val':
+                val_metadata = pd.read_csv(self.metadata_paths['val'])
+                dataset = TrainDatasetHabitat(val_metadata, self.classes, **self.data_paths['train'], transform=transform, task=self.task, **self.dataset_kwargs)
+                self.dataset_val = dataset
+            case 'test':
+                test_metadata = pd.read_csv(self.metadata_paths['test'])
+                dataset = TestDatasetHabitat(test_metadata, self.classes, **self.data_paths['test'], transform=transform, task=self.task, **self.dataset_kwargs)
+                self.dataset_test = dataset
+        return dataset
+
+    def _check_integrity_habitat(self):
+        paths = {'predictors': ['EnvironmentalRasters', 'PA-test-landsat_time_series',
+                                'PA_Test_SatellitePatches_NIR', 'PA_Test_SatellitePatches_RGB',
+                                'PA-train-landsat_time_series', 'PA_Train_SatellitePatches_NIR',
+                                'PA_Train_SatellitePatches_RGB', 'TimeSeries-Cubes'],
+                 'metadata': ['GLC24_PA_metadata_habitats-lvl3_test.csv',
+                              'GLC24_PA_metadata_habitats-lvl3_train.csv',
+                              'GLC24_PA_metadata_habitats-lvl3_train_split-10.0%_all.csv',
+                              'GLC24_PA_metadata_habitats-lvl3_train_split-10.0%_train.csv',
+                              'GLC24_PA_metadata_habitats-lvl3_train_split-10.0%_val.csv']}
+        downloaded_p = all(map(lambda x: Path(self.root / x).exists(), paths['predictors']))
+        downloaded_m = all(map(lambda x: Path(self.root / x).exists(), paths['metadata']))
+        return downloaded_p, downloaded_m
+
+    def download(self):
+        downloaded_p, downloaded_m = self._check_integrity_habitat()
+
+        # Metadata
+        if not downloaded_m:
+            print('Downloading observations ("metadata")...')
+            download_and_extract_archive(
+                "https://lab.plantnet.org/seafile/f/583b1878f0694eeca163/?dl=1",
+                self.root,
+                filename='GLC24_PA_metadata_habitats-lvl3.zip',
+                md5='24dc7e126f2bac79a63fdacb4f210f19',
+                remove_finished=True
+            )
+        else:
+            print('Observations ("metadata") already downloaded.')
+
+        # Predictors
+        if not downloaded_p:
+            print('Downloading data ("predictors")...')
+            self.root = self.root.parent / "geolifeclef-2024"
+            super().download()
+            self.root = self.root.parent / "geolifeclef-2024_habitats"
+            links = {"../geolifeclef-2024/TimeSeries-Cubes/": "TimeSeries-Cubes",
+                     "../geolifeclef-2024/PA_Train_SatellitePatches_RGB/": "PA_Train_SatellitePatches_RGB",
+                     "../geolifeclef-2024/PA_Train_SatellitePatches_NIR/": "PA_Train_SatellitePatches_NIR",
+                     "../geolifeclef-2024/PA-train-landsat_time_series/": "PA-train-landsat_time_series",
+                     "../geolifeclef-2024/PA_Test_SatellitePatches_RGB/": "PA_Test_SatellitePatches_RGB",
+                     "../geolifeclef-2024/PA_Test_SatellitePatches_NIR/": "PA_Test_SatellitePatches_NIR",
+                     "../geolifeclef-2024/PA-test-landsat_time_series/": "PA-test-landsat_time_series",
+                     "../geolifeclef-2024/EnvironmentalRasters/": "EnvironmentalRasters"}
+            for k, v in links.items():
+                os.system(f'ln -sf {k} {str(self.root / v)}')
+        else:
+            print('Data ("predictors") already downloaded.')
