@@ -19,7 +19,7 @@ numpy==1.26.4
 odc-geo==0.3.2
 odc-stac==0.3.3
 omegaconf==2.3.0
-opencv-python==4.7.0.72
+opencv-python==4.8.1.78
 pandas==2.2.1
 Pillow==10.3.0
 planetary-computer==1.0.0
