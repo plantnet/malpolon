@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point']
-  checkpoint_path: "outputs_training/glc24_cnn_multimodal_ensemble/runOK_2024-08-12_11-50-01/last.ckpt"
+  checkpoint_path: ???
 
 data:
   root: "dataset/geolifeclef-2024/"

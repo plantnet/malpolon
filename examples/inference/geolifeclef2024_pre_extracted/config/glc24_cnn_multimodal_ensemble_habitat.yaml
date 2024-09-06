@@ -3,8 +3,8 @@ hydra:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
 run:
-  predict: false
-  checkpoint_path: # "outputs/glc24_cnn_multimodal_ensemble_habitat/2024-08-30_20-21-26_multiclass/last.ckpt"
+  predict_type: false
+  checkpoint_path: ???
 
 data:
   root: "dataset/geolifeclef-2024_habitats/"
