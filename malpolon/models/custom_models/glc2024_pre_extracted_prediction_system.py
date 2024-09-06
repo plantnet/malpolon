@@ -133,7 +133,7 @@ class ClassificationSystemGLC24(ClassificationSystem):
         y_hat = self(x_landsat, x_bioclim, x_sentinel)
 
         if 'pos_weight' in dir(self.loss):
-            loss_pos_weight = self.loss.pos_weight  # save initial loss parameter value
+            loss_pos_weight = self.loss.pos_weight.clone()  # save initial loss parameter value
             self.loss.pos_weight = y * torch.Tensor(self.loss.pos_weight).to(y)   # Proper way would be to forward pos_weight to loss instantiation via loss_kwargs, but pos_weight must be a tensor, i.e. have access to y -> Not possible in Malpolon as datamodule and optimizer instantiations are separate
 
         loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
