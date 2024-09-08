@@ -52,7 +52,7 @@ MicroGeoLifeCLEF2022
 GeoLifeClef2024_pre_extracted
 =============================
 
-`See GLC24_pre_extracted (inference) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/inference/geolifeclef2024_pre_extracted>
+`See GLC24_pre_extracted (inference) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/inference/geolifeclef2024_pre_extracted>`_
 
 III. Benchmarks scenario
 ************************
