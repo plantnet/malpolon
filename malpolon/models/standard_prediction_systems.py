@@ -339,7 +339,7 @@ class GenericPredictionSystem(pl.LightningModule):
         self.load_state_dict(ckpt['state_dict'])
         self.model.eval()
         with torch.no_grad():
-            if '__iter__' in dir(data):
+            if isinstance(data, (tuple, list, set, dict)):
                 for i, d in enumerate(data):
                     data[i] = d.to(device) if isinstance(d, torch.Tensor) else d
                 prediction = self.model(*data)
