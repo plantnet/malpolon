@@ -1,7 +1,7 @@
-# GeoLifeCLEF 2024 (pre-extracted)
+# GeoLifeCLEF 2024 (pre-extracted) - Inference mode
 
 <div align="center">
-  <a href="https://www.kaggle.com/competitions/geolifeclef-2024"><img src="../../../../docs/resources/GLC2024_thumbnail.png" alt="glc24_thumbnail" style="width: 200px;  margin-top: 15px; margin-right: 50px;"></a>
+  <a href="https://www.kaggle.com/competitions/geolifeclef-2024"><img src="../../../docs/resources/GLC2024_thumbnail.png" alt="glc24_thumbnail" style="width: 200px;  margin-top: 15px; margin-right: 50px;"></a>
 </div>
 
 This repository is related to the GeoLifeCLEF challenge.
@@ -9,7 +9,9 @@ This repository is related to the GeoLifeCLEF challenge.
 The details of the challenge, the data, and all other useful information are present on the challenge page: [https://www.kaggle.com/competitions/geolifeclef-2024](https://www.kaggle.com/competitions/geolifeclef-2024)
 
 ## Codes
-In this repository you will find a ready-to-use code to run one of the baseline models for the GeoLifeCLEF 2024 challenge: the [MultimodelEnsemble baseline](https://www.kaggle.com/code/picekl/sentinel-landsat-bioclim-baseline-0-31626).
+In this repository you will find a ready-to-use code to run one of the baseline models for the GeoLifeCLEF 2024 challenge: the [MultimodelEnsemble baseline](https://www.kaggle.com/code/picekl/sentinel-landsat-bioclim-baseline-0-31626) in **inference mode** to predict the presence/absence of species (or habitats) in a given area, based on a test dataset. By default, the datasets and the model's weights (resulting from one of our trainings) will be automatically downloaded via the following 2 config key-values:
+  1. `data.download_data: True`
+  2. `models.model_kwargs.pretrained: True`
 
 This example can be run using the following command:
 ```bash
