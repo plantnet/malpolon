@@ -258,7 +258,7 @@ GLC24_PRE_EXTRACTED_EXAMPLE_PATHS = {
     ],
 }
 
-# @pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
+@pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
 def test_train_inference_examples():
     ckpt_path = ''
     for expe_name, v in EXAMPLE_PATHS.items():
@@ -304,7 +304,7 @@ def test_train_inference_examples():
     print(f'\n{INFO}[INFO] Done. {RESET}')
 
 
-@pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
+# @pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
 def test_GLC22_examples():
     ckpt_path = ''
     for expe_name, v in GLC22_EXAMPLE_PATHS.items():
@@ -353,7 +353,7 @@ def test_GLC22_examples():
     print(f'\n{INFO}[INFO] Done. {RESET}')
 
 
-# @pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
+@pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
 def test_GLC23_examples():
     ckpt_path = ''
     for expe_name, v in GLC23_EXAMPLE_PATHS.items():
@@ -402,7 +402,7 @@ def test_GLC23_examples():
     print(f'\n{INFO}[INFO] Done. {RESET}')
 
 
-@pytest.mark.skip(reason="Impossible for pytest to run because user input is needed to validate data download.")
+# @pytest.mark.skip(reason="Impossible for pytest to run because user input is needed to validate data download.")
 def test_GLC24_pre_extracted_examples():
     ckpt_path = ''
     for expe_name, v in GLC24_PRE_EXTRACTED_EXAMPLE_PATHS.items():
