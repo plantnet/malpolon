@@ -16,6 +16,8 @@ The examples are organized by the type of user and the type of dataset used.
 
 I. Custom train scenario
 ************************
+I. Custom train scenario
+************************
 
 I have a dataset of **pre-extracted image patches** or **raster files** *(e.g. bioclimatic data, satellite rasters...)* of my own and I want to train a **deep image neural network model** on it. I want to be able to easily customize the training process and the model architecture.
 
@@ -38,6 +40,7 @@ II. Inference scenario
 **********************
 
 I have an observations file (.csv) and I want to predict the presence of species on a given area using a model I trained previously and a selected dataset or a shapefile I would provide.
+I have an observations file (.csv) and I want to predict the presence of species on a given area using a model I trained previously and a selected dataset or a shapefile I would provide.
 
 Sentinel-2A
 ===========
@@ -52,27 +55,40 @@ MicroGeoLifeCLEF2022
 GeoLifeClef2024_pre_extracted
 =============================
 
-`See GLC24_pre_extracted (inference) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/inference/geolifeclef2024_pre_extracted>`_
+`See GLC24_pre_extracted (inference) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/inference/geolifeclef2024_pre_extracted>
 
+III. Benchmarks scenario
+************************
 III. Benchmarks scenario
 ************************
 
 I want to compare the performance of different models on a given known dataset; or I am a potential kaggle participant on the GeoLifeClef challenge. I want to train a model on the provided datasets without having to worry about the data loading, starting from a plug-and-play example.
+I want to compare the performance of different models on a given known dataset; or I am a potential kaggle participant on the GeoLifeClef challenge. I want to train a model on the provided datasets without having to worry about the data loading, starting from a plug-and-play example.
+
+- *GeoLifeClef2022* : contains a fully functionnal example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction. Comes with datasets and datamodule.
 
 - *GeoLifeClef2022* : contains a fully functionnal example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction. Comes with datasets and datamodule.
 
 - *GeoLifeClef2023* : contains dataloaders for the GeoLifeClef2023 dataset (different from the GLC2022 dataloaders). The training and prediction scripts are not provided.
 
 - *GeoLifeClef2024_pre_extracted*: contains a fully functionnal example of a model training on the GeoLifeClef2024 pre-extracted dataset, from data download, to training and prediction. Comes with datasets and datamodule for species prediction as well as habitats prediction using a direct approach (raster-based).
+- *GeoLifeClef2024_pre_extracted*: contains a fully functionnal example of a model training on the GeoLifeClef2024 pre-extracted dataset, from data download, to training and prediction. Comes with datasets and datamodule for species prediction as well as habitats prediction using a direct approach (raster-based).
 
 GeoLifeCLEF 2022
 ================
 
 `See GLC22 (kaggle) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/benchmarks/geolifeclef/geolifeclef2022>`_
+`See GLC22 (kaggle) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/benchmarks/geolifeclef/geolifeclef2022>`_
 
 GeoLifeCLEF 2023
 ================
 
+`See GLC23 (kaggle) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/benchmarks/geolifeclef/geolifeclef2023>`_
+
+GeoLifeCLEF 2024 (pre-extracted)
+================================
+
+`See GLC24_pre_extracted (kaggle) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted>`_
 `See GLC23 (kaggle) GitHub README 🔗 <https://github.com/plantnet/malpolon/tree/main/examples/benchmarks/geolifeclef/geolifeclef2023>`_
 
 GeoLifeCLEF 2024 (pre-extracted)
