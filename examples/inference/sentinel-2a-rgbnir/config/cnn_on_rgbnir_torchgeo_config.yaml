@@ -3,11 +3,11 @@ hydra:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
 run:
-  predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point']
-  checkpoint_path: ???
+  predict_type: 'test_point'  # choose from ['test_dataset', 'test_point']
+  checkpoint_path: 'outputs_training/cnn_on_rgbnir_torchgeo/train_multilabel/last.ckpt'
 
 data:
-  num_classes: &num_classes 10
+  num_classes: &num_classes 5
   dataset_path: "dataset/"
   labels_name: "observations.csv"
   download_data_sample: True
@@ -25,7 +25,7 @@ data:
                        "split": "subset"}
 
 task:
-  task: 'classification_multilabel'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+  task: 'classification_multilabel'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
 
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes

@@ -41,11 +41,16 @@ class Cifar10Datamodule(BaseDataModule):
     num_workers : int
         Number of workers to use for loading data.
     """
-
-    def __init__(self, dataset_path: str, batch_size: int, num_workers: int, **kwargs):
+    def __init__(self,
+                 dataset_path: str,
+                 train_batch_size: int,
+                 inference_batch_size: int,
+                 num_workers: int,
+                 **kwargs):
         super().__init__()
         self.dataset_path = dataset_path
-        self.batch_size = batch_size
+        self.train_batch_size = train_batch_size
+        self.inference_batch_size = inference_batch_size
         self.num_workers = num_workers
         self.__dict__.update(kwargs)
         self.cifar10_train = None
@@ -104,15 +109,19 @@ def main(cfg: DictConfig) -> None:
         hydra config dictionary created from the .yaml config file
         associated with this script.
     """
+    # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
     logger_tb.log_hyperparams(cfg)
 
+    # Datamodule & Model
     datamodule = Cifar10Datamodule(**cfg.data, **cfg.task)
-    model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
+    classif_system = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task,
+                                          checkpoint_path=cfg.run.checkpoint_path)
 
+    # Lightning Trainer
     callbacks = [
         Summary(),
         ModelCheckpoint(
@@ -126,9 +135,10 @@ def main(cfg: DictConfig) -> None:
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
 
+    # Run
     if cfg.run.predict:
         model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
-                                                                 model=model.model,
+                                                                 model=classif_system.model,
                                                                  hparams_preprocess=False)
 
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
@@ -149,8 +159,8 @@ def main(cfg: DictConfig) -> None:
         df.to_csv(os.path.join(log_dir, 'scores_test_dataset.csv'), index=False)
         print('Test dataset prediction (extract) : ', predictions[:1])
     else:
-        trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
-        trainer.validate(model, datamodule=datamodule)
+        trainer.fit(classif_system, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+        trainer.validate(classif_system, datamodule=datamodule)
 
 
 if __name__ == "__main__":

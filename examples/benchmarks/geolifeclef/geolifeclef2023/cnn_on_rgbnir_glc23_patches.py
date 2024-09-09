@@ -166,31 +166,36 @@ def main(cfg: DictConfig) -> None:
         hydra config dictionary created from the .yaml config file
         associated with this script.
     """
+    # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
     logger_tb.log_hyperparams(cfg)
 
+    # Datamodule & Model
     datamodule = Sentinel2PatchesDataModule(**cfg.data, **cfg.task)
-    model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
+    classif_system = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task,
+                                          checkpoint_path=cfg.run.checkpoint_path)
 
+    # Lightning Trainer
     callbacks = [
         Summary(),
         ModelCheckpoint(
             dirpath=log_dir,
-            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
-            monitor=f"{next(iter(model.metrics.keys()))}/val",
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(classif_system.metrics.keys()))}/val" + ":.4f}",
+            monitor=f"{next(iter(classif_system.metrics.keys()))}/val",
             mode="max",
             save_on_train_epoch_end=True,
             save_last=True,
         ),
     ]
-
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, num_sanity_val_steps=0, **cfg.trainer)
+
+    # Run
     if cfg.run.predict:
         model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
-                                                                 model=model.model,
+                                                                 model=classif_system.model,
                                                                  hparams_preprocess=False)
 
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
@@ -212,8 +217,7 @@ def main(cfg: DictConfig) -> None:
                        'crs': 4326}
         test_data_point = test_data_point[0].resize_(1, *test_data_point[0].shape)
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
-                                                test_data_point,
-                                                ['model.', ''])
+                                                test_data_point)
         preds, probas = datamodule.predict_logits_to_class(prediction,
                                                            np.arange(0, max(datamodule.get_test_dataset().targets)+1))
         datamodule.export_predict_csv(preds,
@@ -225,8 +229,8 @@ def main(cfg: DictConfig) -> None:
         print('Point prediction : ', prediction.shape, prediction)
     else:
         CrashHandler(trainer)
-        trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
-        trainer.validate(model, datamodule=datamodule)
+        trainer.fit(classif_system, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
+        trainer.validate(classif_system, datamodule=datamodule)
 
 
 if __name__ == "__main__":

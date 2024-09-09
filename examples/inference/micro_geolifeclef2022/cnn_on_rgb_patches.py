@@ -106,31 +106,33 @@ def main(cfg: DictConfig) -> None:
         hydra config dictionary created from the .yaml config file
         associated with this script.
     """
+    # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name="tensorboard_logs", version="")
     logger_tb.log_hyperparams(cfg)
 
+    # Datamodule & Model
     datamodule = MicroGeoLifeCLEF2022DataModule(**cfg.data)
+    classif_system = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
+    model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
+                                                                model=classif_system.model,
+                                                                hparams_preprocess=False)
 
-    model = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
-
+    # Lightning Trainer
     callbacks = [
         Summary(),
         ModelCheckpoint(
             dirpath=log_dir,
-            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(model.metrics.keys()))}/val" + ":.4f}",
-            monitor=f"{next(iter(model.metrics.keys()))}/val",
+            filename="checkpoint-{epoch:02d}-{step}-{" + f"{next(iter(classif_system.metrics.keys()))}/val" + ":.4f}",
+            monitor=f"{next(iter(classif_system.metrics.keys()))}/val",
             mode="max",
         ),
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer)
 
-    model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
-                                                                model=model.model,
-                                                                hparams_preprocess=False)
-
+    # Run
     if cfg.run.predict_type == 'test_dataset':
         predictions = model_loaded.predict(datamodule, trainer)
         preds, probas = datamodule.predict_logits_to_class(predictions,
@@ -149,8 +151,7 @@ def main(cfg: DictConfig) -> None:
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
 
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
-                                                test_data_point,
-                                                ['model.', ''])
+                                                test_data_point)
         preds, probas = datamodule.predict_logits_to_class(prediction,
                                                            list(range(test_data.n_classes)))
         datamodule.export_predict_csv(preds, probas,
