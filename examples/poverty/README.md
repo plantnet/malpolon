@@ -9,16 +9,17 @@ This example performs regression of poverty  using a 2-mpa model on Landsat rast
 ### Sample data
 
 The sample data used in this example consists of:
-- **Satellite images**: MS (Multi-Spectral) 7 bands Landsat7 image satellite. Numerous GeoTiff files of resolution XXXm  distributed across various countries, years and clusters.
+- **Satellite images**: MS (Multi-Spectral) 7 bands Landsat8 image satellite. Numerous GeoTiff files of resolution XXXm  distributed across various countries, years and clusters.
 
-- **Observations**: a CSV file containing all labels and correspondings informations necessary for matching the GeoTiffs. The CSV file contains the following columns:
+- **Observations**: a CSV file containing all labels and corresponding data necessary for matching the GeoTiffs. The CSV file contains the following columns:
   - `country`, (ex : angola, etc.)
-  - `years`, (2013 to 2019)
+  - `year`, (2013 to 2019)
   - `cluster`, cluster ID
-  - `lat`, `lon`
-  - `households`, XXXXXXXX
+  - `lat` : latitude of the cluster,
+  - `lon` : longitude of the cluster,
+  - `households` : number of households in the cluster,
   - `wealthpooled`, the poverty indicator we want to regress
-  - `urban_rural`, 0 or 1 for XXXXXXXXXX
+  - `urban_rural`, 0 if rural, 1 if urban
   - `fold`, fold ID (for a cross validation)
 
 
@@ -29,12 +30,6 @@ The sample data used in this example consists of:
 The LandSat tiles are looked for in the `example/poverty/dataset` directory and they are loaded based on  a `PovertyDataModule` and `MSDataset` (cf. [python file](datamodule/landsat_poverty.py) ).
 
 
-```python 
-  dm = PovertyDataModule("dataset/observation_2013+.csv", "dataset/landsat_7_less")
-  dm.setup()
-  dl = dm.train_dataloader()
+```script
+python examples/poverty/cnn_on_ms_poverty.py
 ```
-
-
-
-

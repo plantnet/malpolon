@@ -1,5 +1,4 @@
 import os
-import random
 import json
 import sys
 from typing import Callable, Any, Union
@@ -13,43 +12,24 @@ from matplotlib import pyplot
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 import torchvision
 from torchvision import transforms
-import pytorch_lightning as pl
 
-# Force work with the malpolon github package localled at the root of the project
+# Force work with the malpolon GitHub package localized at the root of the project
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from malpolon.data.data_module import BaseDataModule
 
 import datetime
 
-# TODO : CHECK JITTER WORKS
-# TODO : REPRODUICE Mathieu 2-mpa Results
 
-
-NORMALIZER = 'dataset/normalizer.pkl'
-BANDS = ['BLUE', 'GREEN', 'RED', 'NIR', 'SWIR1', 'SWIR2', 'TEMP1', 'NIGHTLIGHTS']
-DESCRIPTOR = {
-    'cluster': "float",
-    'lat': "float",
-    "lon": "float",
-    'wealthpooled': "float",
-    'BLUE': "float",
-    'GREEN': "float",
-    'RED': "float",
-    'NIR': "float",
-    'SWIR1': "float",
-    'SWIR2': "float",
-    'TEMP1': "float",
-    'NIGHTLIGHTS': "float"
-}
+# Folds for the Poverty dataset
 FOLD = {1: (['A', 'B', 'C'], ['D'], ['E']), 2: (['B', 'C', 'D'], ['E'], ['A']), 3: (['C', 'D', 'E'], ['A'], ['B']),
         4: (['D', 'E', 'A'], ['B'], ['C']), 5: (['E', 'A', 'B'], ['C'], ['D'])}
 
 
 class JitterCustom:
-
+    """Custom Jitter class to apply the same transformation to all bands of the image."""
     def __init__(self, brightness=0.1, contrast=0.1):
         self.jitter = transforms.ColorJitter(brightness=brightness, contrast=contrast)
 
@@ -71,12 +51,21 @@ class PovertyDataModule(BaseDataModule):
             num_workers: int = 8,
             fold: int = 1,
             cach_data: bool = True,
-            val_split: float = 0.2,
-            test_split: float = 0.2,
-            dhs_folds: bool = False,
             transform=None,
             **kwargs
     ):
+
+        """DataModule for the Poverty dataset.
+        Args:
+            tif_dir (str): directory containing the tif files
+            dataset_path (str): path to the dataset
+            labels_name (str): name of the csv file containing the labels
+            train_batch_size (int): batch size for training
+            inference_batch_size (int): batch size for inference
+            num_workers (int): number of workers for the DataLoader
+            fold (int): fold to use for training
+            transform (torchvision.transforms): transform to apply to the data"""
+
         super().__init__()
         dataframe = pd.read_csv(dataset_path + labels_name)
         self.dataframe = dataframe
@@ -87,9 +76,6 @@ class PovertyDataModule(BaseDataModule):
         self.train_batch_size = train_batch_size
         self.inference_batch_size = inference_batch_size
         self.dict_normalize = json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
-        self.val_split = val_split
-        self.test_split = test_split
-        self.dhs_folds = dhs_folds
         self.num_workers = num_workers
         self.task = 'regression'
 
@@ -118,13 +104,6 @@ class PovertyDataModule(BaseDataModule):
         return dataset
 
     def get_train_dataset(self) -> Dataset:
-        """Call self.get_dataset to return the train dataset.
-
-        Returns
-        -------
-        Dataset
-            train dataset
-        """
         dataset = self.get_dataset(
             split="train",
             transform=self.train_transform(),
@@ -132,13 +111,6 @@ class PovertyDataModule(BaseDataModule):
         return dataset
 
     def get_val_dataset(self) -> Dataset:
-        """Call self.get_dataset to return the validation dataset.
-
-        Returns
-        -------
-        Dataset
-            validation dataset
-        """
         dataset = self.get_dataset(
             split="val",
             transform=self.test_transform(),
@@ -146,13 +118,6 @@ class PovertyDataModule(BaseDataModule):
         return dataset
 
     def get_test_dataset(self) -> Dataset:
-        """Call self.get_dataset to return the test dataset.
-
-        Returns
-        -------
-        Dataset
-            test dataset
-        """
         dataset = self.get_dataset(
             split="test",
             transform=self.test_transform(),
@@ -180,6 +145,9 @@ class PovertyDataModule(BaseDataModule):
                            return_csv: bool = False,
                            top_k: int = None,
                            **kwargs: Any) -> Any:
+
+        """Exports the predictions and probabilities to a csv file.
+        The key names are tailored for the DHS dataset."""
 
         out_name = out_name + ".csv" if not out_name.endswith(".csv") else out_name
         fp = Path(out_dir) / Path(out_name)
@@ -221,6 +189,9 @@ class PovertyDataModule(BaseDataModule):
 
 
 class MSDataset(Dataset):
+    """ Dataset returning the LANDSAT tiles and wealth index corresponding to the DHS cluster.
+        Rasters were previously downloaded from Earth Engine and stored in the 'landsat_tiles' directory.
+        Images contain 8 bands, one of them being a nightlight image. Only the first 7 bands are selected."""
 
     def __init__(self, dataframe, root_dir, transform=None):
         """
@@ -264,6 +235,11 @@ class MSDataset(Dataset):
         return tile, value
 
     def plot(self, idx, rgb=False, save=True):
+        """Plot the tile at the given index.
+           Args:
+                idx (int): index of the tile to plot
+                rgb (bool): if True, plot the RGB image, otherwise plot the 7 bands
+                save (bool): if True, save the plot in the 'examples/poverty' directory"""
 
         tile, value = self.__getitem__(idx)
 

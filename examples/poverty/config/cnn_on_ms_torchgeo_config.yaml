@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path: null
+  checkpoint_path: 'outputs/cnn_on_ms_poverty/2024-08-29_17-14-16/fold_5/checkpoint-epoch=15-step=3160-regression_R2score/val=0.5259.ckpt'
 
 data:
   num_classes: 1
@@ -54,5 +54,5 @@ optimizer:
 
 miscellaneous:
   optimizer : AdamW
-  lr_scheduler : CyclicLR
+  lr_scheduler : ReduceLROnPlateau
         

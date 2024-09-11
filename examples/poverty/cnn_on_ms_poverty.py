@@ -1,24 +1,21 @@
 """Main script to run training or inference on Poverty Marbec Dataset.
 
-This script will runs the Poverty dataset by default.
+This script will run the Poverty dataset by default.
 
-Author: Theo Larcher <theo.larcher@inria.fr>
-        Titouan Lorieul <titouan.lorieul@gmail.com>
-        Auguste Verdier <auguste.verdier@umontpellier.fr>
+Author: Auguste Verdier <auguste.verdier@umontpellier.fr>
+        Isabelle Mornard <isabelle.mornard@umontpellier.fr>
 """
-# TODO : implement data ajustment for Poverty / Regression task
-# TODO : CHECK WHY BAND 6 IS NANA AFTER JITTER
-
 
 from __future__ import annotations
 
 import os
+import random
 import sys
 from tqdm import tqdm
 import json
 
 
-# Force work with the malpolon github package localled at the root of the project
+# Force work with the malpolon GitHub package localized at the root of the project
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 import hydra
@@ -114,8 +111,11 @@ def test(cfg: DictConfig) -> None:
     dataM = PovertyDataModule(**cfg.data, **cfg.task, fold=5)
     dataM.setup()
 
-    model = RegressionSystem.load_from_checkpoint(
-        checkpoint_path='outputs/cnn_on_ms_poverty/2024-08-29_17-14-16/fold_5/checkpoint-epoch=15-step=3160-regression_R2score/val=0.5259.ckpt')
+    dataset = dataM.get_train_dataset()
+    idx = random.randint(0, len(dataset))
+    dataset.plot(idx)
+
+    model = RegressionSystem.load_from_checkpoint(checkpoint_path=cfg.run.checkpoint_path)
     trainer = pl.Trainer(logger=False, log_every_n_steps=1, **cfg.trainer)
     trainer.test(model, datamodule=dataM)
 
@@ -127,4 +127,4 @@ def test(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    test()
