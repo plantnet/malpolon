@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path: 'outputs/cnn_on_ms_poverty/2024-08-29_17-14-16/fold_5/checkpoint-epoch=15-step=3160-regression_R2score/val=0.5259.ckpt'
+  checkpoint_path:
 
 data:
   num_classes: 1
@@ -23,7 +23,7 @@ task:
 trainer:
   accelerator: gpu
   devices: 1
-  max_epochs: 50
+  max_epochs: 3
   check_val_every_n_epoch: 1
 
 model:

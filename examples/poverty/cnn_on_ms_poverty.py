@@ -10,13 +10,8 @@ from __future__ import annotations
 
 import os
 import random
-import sys
 from tqdm import tqdm
 import json
-
-
-# Force work with the malpolon GitHub package localized at the root of the project
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 import hydra
 import pytorch_lightning as pl
@@ -113,7 +108,7 @@ def test(cfg: DictConfig) -> None:
 
     dataset = dataM.get_train_dataset()
     idx = random.randint(0, len(dataset))
-    dataset.plot(idx)
+    dataset.plot(idx, save=False)
 
     model = RegressionSystem.load_from_checkpoint(checkpoint_path=cfg.run.checkpoint_path)
     trainer = pl.Trainer(logger=False, log_every_n_steps=1, **cfg.trainer)
@@ -127,4 +122,4 @@ def test(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    test()
+    main()

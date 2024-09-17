@@ -1,6 +1,5 @@
 import os
 import json
-import sys
 from typing import Callable, Any, Union
 from pathlib import Path
 
@@ -16,8 +15,6 @@ from torch.utils.data import DataLoader
 import torchvision
 from torchvision import transforms
 
-# Force work with the malpolon GitHub package localized at the root of the project
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 from malpolon.data.data_module import BaseDataModule
 
 import datetime

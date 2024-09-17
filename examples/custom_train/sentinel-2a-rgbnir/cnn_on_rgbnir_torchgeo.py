@@ -8,12 +8,6 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 
 from __future__ import annotations
 
-import os
-import sys
-
-# Force work with the malpolon github package localled at the root of the project
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../')))
-
 import hydra
 import pytorch_lightning as pl
 from omegaconf import DictConfig
