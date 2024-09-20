@@ -12,6 +12,7 @@ import os
 import random
 from tqdm import tqdm
 import json
+import pandas as pd
 
 import hydra
 import pytorch_lightning as pl
@@ -23,7 +24,6 @@ torch.set_float32_matmul_precision('medium')
 from malpolon.data.datasets import PovertyDataModule
 from malpolon.logging import Summary
 from malpolon.models import RegressionSystem
-
 
 import warnings
 from rasterio.errors import NotGeoreferencedWarning
@@ -101,6 +101,28 @@ def calcul_mean_std(cfg: DictConfig) -> None:
     json.dump({'mean': mean.tolist(), 'std': std.tolist()}, open('examples/poverty/mean_std_normalize.json', 'w'))
 
 
+def files_paths_txt(data_dir: str, output: str):
+    """Write the paths of the files in the data_dir to a txt file.
+       args: data_dir: str: path to the data directory
+             output: str: path to the output txt file"""
+
+    with open(output, 'w') as f:
+        for root, dirs, files in os.walk(data_dir):
+            for file in files:
+                if file.endswith('.tif'):
+                    f.write(os.path.join(root, file) + '\n')
+
+
+def swap_observation_columns_csv(csv_path: str, output: str):
+    """Swap the columns of a csv file containing observations.
+       args: csv_path: str: path to the input csv file
+             output: str: path to the output csv file"""
+
+    df = pd.read_csv(csv_path)
+    df = df[['country', 'year', 'cluster', 'lon', 'lat', 'households', 'wealthpooled', 'urban_rural', 'fold']]
+    df.to_csv(output, index=False)
+
+
 @hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
 def test(cfg: DictConfig) -> None:
     dataM = PovertyDataModule(**cfg.data, **cfg.task, fold=5)
@@ -122,4 +144,4 @@ def test(cfg: DictConfig) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    swap_observation_columns_csv('examples/poverty/dataset/observation_2013+.csv', 'examples/poverty/dataset/observation_2013+.csv')
