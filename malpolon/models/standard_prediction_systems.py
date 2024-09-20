@@ -8,13 +8,16 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
+import json
 
 import pytorch_lightning as pl
 import torch
 import torchmetrics.functional as Fmetrics
 from torchvision.datasets.utils import (download_and_extract_archive,
                                         download_url, extract_archive)
+import torchvision.models
 
+from torchmetrics.regression import R2Score
 from malpolon.models.utils import check_metric
 
 from .utils import check_loss, check_model, check_optimizer
@@ -147,14 +150,18 @@ class GenericPredictionSystem(pl.LightningModule):
         y_hat = self(x)
 
         loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
-        self.log(f"loss/{split}", loss, **log_kwargs)
+        self.log(f"loss_{split}", loss, **log_kwargs)
 
         for metric_name, metric_func in self.metrics.items():
             if isinstance(metric_func, dict):
-                score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
+                if metric_func['kwargs']:
+
+                    score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
+                else:
+                    score = metric_func['callable'](y_hat, y)
             else:
                 score = metric_func(y_hat, y)
-            self.log(f"{metric_name}/{split}", score, **log_kwargs)
+            self.log(f"{metric_name}_{split}", score, **log_kwargs)
 
         return loss
 
@@ -329,6 +336,7 @@ class GenericPredictionSystem(pl.LightningModule):
         """
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model.to(device)
+        data = data.to(device)
 
         ckpt = torch.load(checkpoint_path, map_location=device)
         if state_dict_replace_key:
@@ -426,3 +434,91 @@ class ClassificationSystem(GenericPredictionSystem):
             }
 
         super().__init__(model, loss, optimizer, metrics)
+
+
+class RegressionSystem(GenericPredictionSystem):
+    """Regression task class."""
+    def __init__(
+        self,
+        model: Union[torch.nn.Module, Mapping] = json.load(open('examples/poverty/model.json', 'r')),
+        lr: float = 1e-2,
+        weight_decay: float = 0,
+        momentum: float = 0.9,
+        nesterov: bool = True,
+        metrics: Optional[dict[str, Callable]] = None,
+        task: str = 'regression',
+        hparams_preprocess: bool = True,
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        model : dict
+            model to use
+        lr : float
+            learning rate
+        weight_decay : float
+            weight decay
+        momentum : float
+            value of momentum
+        nesterov : bool
+            if True, uses Nesterov's momentum
+        metrics : dict
+            dictionnary containing the metrics to compute.
+            Keys must match metrics' names and have a subkey with each
+            metric's functional methods as value. This subkey is either
+            created from the `malpolon.models.utils.FMETRICS_CALLABLES`
+            constant or supplied, by the user directly.
+        task : str, optional
+            Machine learning task (used to format labels accordingly),
+            by default 'regression'. The value determines
+            the loss to be selected.
+        hparams_preprocess : bool, optional
+            if True performs preprocessing operations on the hyperparameters,
+            by default True
+        """
+        if hparams_preprocess:
+            assert task == 'regression', "Regression task must be specified."
+            metrics = check_metric(metrics)
+
+
+        self.lr = lr
+        self.weight_decay = weight_decay
+        self.momentum = momentum
+        self.nesterov = nesterov
+
+        model = check_model(model)
+
+        optimizer = torch.optim.AdamW(model.parameters(),
+                                      lr=lr,
+                                      weight_decay=weight_decay)
+
+        print(optimizer)
+
+        if 'regression' in task:
+            loss = torch.nn.MSELoss()
+
+        if metrics is None:
+            metrics = {
+                "regression_R2score": {'callable': Fmetrics.regression.r2_score,
+                                       'kwargs': {}}
+            }
+
+        super().__init__(model, loss, optimizer, metrics)
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.AdamW(self.model.parameters(),
+                                      lr=self.lr,
+                                      weight_decay=self.weight_decay)
+
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.1,
+                                                               patience=4, threshold=0.0001, threshold_mode='rel',
+                                                               cooldown=0, min_lr=0, eps=1e-08)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": scheduler,
+                "monitor": 'loss_val_epoch',
+                "frequency": 1,
+            },
+        }

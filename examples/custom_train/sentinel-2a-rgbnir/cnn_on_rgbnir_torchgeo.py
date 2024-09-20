@@ -8,8 +8,6 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 
 from __future__ import annotations
 
-import os
-
 import hydra
 import pytorch_lightning as pl
 from omegaconf import DictConfig
