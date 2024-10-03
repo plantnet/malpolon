@@ -6,16 +6,19 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Sequence, Union
+from typing import (TYPE_CHECKING, Any, Callable, Dict, Iterator, Optional,
+                    Sequence, Tuple, Union)
 
 import numpy as np
 import pandas as pd
 import pyproj
 from matplotlib import pyplot as plt
 from pyproj import CRS, Transformer
-from torchgeo.datasets import BoundingBox, RasterDataset
-from torchgeo.samplers import Units
+from torch.utils.data import DataLoader
+from torchgeo.datasets import BoundingBox, GeoDataset, RasterDataset
+from torchgeo.samplers import GeoSampler, Units
 
+from malpolon.data.data_module import BaseDataModule
 from malpolon.data.utils import is_point_in_bbox, to_one_hot_encoding
 
 if TYPE_CHECKING:
@@ -551,6 +554,176 @@ class RasterTorchGeoDataset(RasterDataset):
         if self.transform is not None:
             sample = self.transform(sample)
         return sample
+
+
+class RasterGeoDataModule(BaseDataModule):
+    """Data module for torchgeo datasets."""
+    def __init__(
+        self,
+        dataset_path: str,
+        labels_name: str = 'labels.csv',
+        train_batch_size: int = 32,
+        inference_batch_size: int = 16,
+        num_workers: int = 8,
+        size: int = 256,
+        units: str = 'pixel',
+        crs: int = 4326,
+        binary_positive_classes: list = [],
+        task: str = 'classification_multiclass',  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
+        dataset_kwargs: dict = {},
+        **kwargs,
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        dataset_path : str
+            path to the directory containing the data
+        labels_name : str, optional
+            labels file name, by default 'labels.csv'
+        train_batch_size : int, optional
+            train batch size, by default 32
+        inference_batch_size : int, optional
+            inference batch size, by default 256
+        num_workers : int, optional
+            how many subprocesses to use for data
+            loading. ``0`` means that the data will be loaded in the
+            main process, by default 8
+        size : int, optional
+            size of the 2D extracted patches. Patches can either be
+            square (int/float value) or rectangular (tuple of int/float).
+            Defaults to a square of size 200, by default 200
+        units : Units, optional
+             The queries' unit system, must have a value in
+             ['pixel', 'crs', 'm', 'meter', 'metre]. This sets the unit you want
+             your query to be performed in, even if it doesn't match
+             the dataset's unit system, by default Units.CRS
+        crs : int, optional
+            The queries' `coordinate reference system (CRS)`. This
+            argument sets the CRS of the dataset's queries. The value
+            should be equal to the CRS of your observations. It takes
+            any EPSG integer code, by default 4326
+        binary_positive_classes : list, optional
+            labels' classes to consider valid in the case of binary
+            classification with multi-class labels (defaults to all 0),
+            by default []
+        task : str, optional
+            machine learning task (used to format labels accordingly),
+            by default 'classification_multiclass'
+        dataset_kwargs : dict, optional
+            additional keyword arguments for the dataset, by default {}
+        """
+        super().__init__(train_batch_size, inference_batch_size, num_workers)
+        self.dataset_path = dataset_path
+        self.labels_name = labels_name
+        self.size = size
+        self.units = units
+        self.crs = crs
+        self.sampler = RasterGeoSampler
+        self.task = task
+        self.binary_positive_classes = binary_positive_classes
+        self.dataset_kwargs = dataset_kwargs
+
+    def train_dataloader(self) -> DataLoader:
+        dataloader = DataLoader(
+            self.dataset_train,
+            sampler=self.sampler(self.dataset_train, size=self.size, units=self.units, crs=self.crs),
+            batch_size=self.train_batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            shuffle=False,
+        )
+        return dataloader
+
+    def val_dataloader(self) -> DataLoader:
+        dataloader = DataLoader(
+            self.dataset_val,
+            sampler=self.sampler(self.dataset_val, size=self.size, units=self.units, crs=self.crs),
+            batch_size=self.inference_batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+        )
+        return dataloader
+
+    def test_dataloader(self) -> DataLoader:
+        dataloader = DataLoader(
+            self.dataset_test,
+            sampler=self.sampler(self.dataset_test, size=self.size, units=self.units, crs=self.crs),
+            batch_size=self.inference_batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            shuffle=False,
+        )
+        return dataloader
+
+    def predict_dataloader(self) -> DataLoader:
+        dataloader = DataLoader(
+            self.dataset_predict,
+            sampler=self.sampler(self.dataset_predict, size=self.size, units=self.units),
+            batch_size=self.inference_batch_size,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            shuffle=False,
+        )
+        return dataloader
+
+
+class RasterGeoSampler(GeoSampler):
+    """Custom sampler for RasterSentinel2.
+
+    This custom sampler is used by RasterSentinel2 to query the dataset
+    with the fully constructed dictionary. The sampler is passed to and
+    used by PyTorch dataloaders in the training/inference workflow.
+
+    Inherits GeoSampler.
+
+    NOTE: this sampler is compatible with any class inheriting
+          RasterTorchGeoDataset's `__getitem__` method so the name of
+          this sampler may become irrelevant when more dataset-specific
+          classes inheriting RasterTorchGeoDataset are created.
+    """
+
+    def __init__(
+        self,
+        dataset: GeoDataset,
+        size: Union[Tuple[float, float], float],
+        length: Optional[int] = None,
+        roi: Optional[BoundingBox] = None,
+        units: str = 'pixel',
+        crs: str = 'crs',
+    ) -> None:
+        super().__init__(dataset, roi)
+        self.units = units
+        self.crs = crs
+        self.size = (size, size) if isinstance(size, (int, float)) else size
+        self.coordinates = dataset.coordinates
+        self.length = length if length is not None else len(dataset.observation_ids)
+        self.observation_ids = dataset.observation_ids.values
+
+    def __iter__(self) -> Iterator[BoundingBox]:
+        """Yield a dict to iterate over a RasterTorchGeoDataset dataset.
+
+        Yields
+        ------
+        Iterator[BoundingBox]
+            dataset input query
+        """
+        for _ in range(len(self)):
+            coords = tuple(self.coordinates[_])
+            obs_id = self.observation_ids[_]
+            yield {'lon': coords[0], 'lat': coords[1],
+                   'crs': self.crs,
+                   'size': self.size,
+                   'units': self.units,
+                   'obs_id': obs_id}
+
+    def __len__(self) -> int:
+        """Return the number of samples in a single epoch.
+
+        Returns:
+            length of the epoch
+        """
+        return self.length
 
 
 class RasterBioclim(RasterTorchGeoDataset):

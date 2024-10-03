@@ -24,9 +24,9 @@ from malpolon.data.datasets.geolifeclef2024 import (JpegPatchProvider,
                                                     PatchesDataset,
                                                     PatchesDatasetMultiLabel)
 from malpolon.data.datasets.torchgeo_datasets import (RasterBioclim,
+                                                      RasterGeoSampler,
                                                       RasterTorchGeoDataset)
-from malpolon.data.datasets.torchgeo_sentinel2 import (RasterSentinel2,
-                                                       Sentinel2GeoSampler)
+from malpolon.data.datasets.torchgeo_sentinel2 import RasterSentinel2
 
 if TYPE_CHECKING:
     import numpy.typing as npt
