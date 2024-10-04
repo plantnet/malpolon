@@ -1,0 +1,76 @@
+hydra:
+  run:
+    dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+
+run:
+  predict: false
+  checkpoint_path:  # 'outputs/cnn_on_rgbnir_torchgeo/train_multilabel/last.ckpt'
+
+data:
+  num_classes: 1
+  dataset_path: "dataset/"
+  # labels_name: "labels.csv"
+  labels_name: "20240212-Extraction_GN-and.cyl-subset.csv"
+  train_batch_size: 4
+  inference_batch_size: 2
+  num_workers: 8
+  units: "pixel"
+  crs: 4326
+  size: 16
+  binary_positive_classes: [82495]  # For binary classification, define which classes are considered as 1. Others will be considered 0
+  dataset_kwargs:
+    obs_data_columns: {"x": "longitude",
+                       "y": "latitude",
+                       "index": "index",
+                       "species_id": "species_id",
+                       "split": "subset"}
+    filename_glob: "bio_*.tif"
+    filename_regex: '(?P<band>bio_[\d][\d])'
+    bands: ['bio_01',  'bio_02',  'bio_03',  'bio_04',  'bio_05',  'bio_06',  'bio_07',  'bio_08',  'bio_09',  'bio_10',  'bio_11',  'bio_12',  'bio_13',  'bio_14',  'bio_15',  'bio_16',  'bio_17',  'bio_18',  'bio_19',  'bio_20',  'bio_21',  'bio_22',  'bio_23',  'bio_24',  'bio_25',  'bio_26',  'bio_27',  'bio_28',  'bio_29',  'bio_30',  'bio_31',  'bio_32',  'bio_33',  'bio_34',  'bio_35',  'bio_36',  'bio_37',  'bio_38',  'bio_39',  'bio_40',  'bio_41',  'bio_42']
+
+task:
+  task: "classification_binary" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
+
+trainer:
+  # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
+  accelerator: "gpu"
+  devices: 1
+  max_epochs: 3
+  # val_check_interval: 2
+  check_val_every_n_epoch: 1
+  log_every_n_steps: 10
+
+
+model:
+  provider_name: "timm" # choose from ["timm", "torchvision"]
+  model_name: "resnet18"
+  model_kwargs:
+    pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
+    num_classes:
+    in_chans:
+    output_stride:
+    global_pool:
+  modifiers:
+    change_first_convolutional_layer:
+      num_input_channels: 42
+    change_last_layer:
+      num_outputs: ${data.num_classes}  # set to 1 for binary classification
+
+optimizer:
+  # optimizer_name: "SGD"  # ['Adam', 'AdamW', 'SGD']
+  lr: 1e-2
+  weight_decay: 0
+  momentum: 0.9
+  nesterov: true
+  metrics:
+    binary_accuracy:
+      # callable: 'Fmetrics.accuracy'
+      kwargs: {}
+    # multiclass_accuracy:
+    #   # callable: 'Fmetrics.classification.multiclass_accuracy'
+    #   kwargs:
+    #     num_classes: ${data.num_classes}
+    # multilabel_accuracy:
+    #   # callable: 'Fmetrics.classification.multilabel_accuracy'
+    #   kwargs:
+    #     num_labels: ${data.num_classes}
