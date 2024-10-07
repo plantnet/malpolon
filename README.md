@@ -40,7 +40,7 @@ Here is a list of the currently available scenarios:
   - <u>Custom dataset</u> : I have my own dataset consisting of pre-extracted image patches and/or rasters and I want to train a model on it.
 - [**Inference**](examples/inference/) : I have an observations file (.csv) and I want to predict the presence of species on a given area using a model I trained previously and a selected dataset or a shapefile I would provide.
 
-## 🔧 Installation
+## ⚙️ Installation
 
 To install malpolon, you will first need to install **Python ≥ 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
 
@@ -220,7 +220,20 @@ Here is an overview of the main Python librairies used in this project.
 * [![Hydra](https://img.shields.io/badge/Hydra-%23729DB1.svg?logo=hydra&logoColor=white)](https://hydra.cc/docs/intro/) - To handle models' hyperparameters
 * [![Cartopy](https://img.shields.io/badge/Cartopy-%2300A1D9.svg?logo=cartopy&logoColor=white)](https://scitools.org.uk/cartopy/docs/latest/) - To handle geographical data
 
- ## Acknowledgments
+
+## ⚒️ Troubleshooting
+### `ValueError: Expected more than 1 value per channel when training, got input size torch.Size([1, 256, 1, 1])`
+
+This error might occur when your model is trying to perform a forward pass on a layer which encounters division by 0 because of how small the data is.
+
+Typically, a ResNet block cannot run a `batch_norm` operation on a tensor of size `[1, 256, 1, 1]` because for each of the 256 channels, there is only 1 value to normalize. Since the operation is `value - mean / std`, the std is 0 and the operation is impossible.
+
+To solve this issue, you can either:
+- **Increase the batch size** of your dataloader. A small batch size can lead to the last one containing only 1 element _e.g.: a dataset of 99 elements with batch size of 2. Increasing the batch size to 4 would leave a remainder of 3 elements in the last batch [3, 256, 1, 1]_.
+- **Increase the input size of your data** so that the encoding layers don't reduce the size too much _e.g.: a patch size of 64 leads to [1, 256, 4, 4]_
+- **Change the model architecture** by removing the `batch_norm` layers (can lead to further issues).
+
+## Acknowledgments
 
 This work is made possible through public financing by the [European Commission](https://commission.europa.eu/index_en) on european projects [MAMBO](https://www.mambo-project.eu/) and [GUARDEN](https://guarden.org/).
 
