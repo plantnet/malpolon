@@ -16,11 +16,9 @@ import torch
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
 
-from malpolon.data.datasets.geolifeclef2024_pre_extracted import \
-    GLC24Datamodule
+from malpolon.data.datasets.rls_aus import RLSDatamodule
 from malpolon.logging import Summary
-from malpolon.models.custom_models.glc2024_pre_extracted_prediction_system import \
-    ClassificationSystemGLC24
+from malpolon.models.custom_models.rls_aus import RLSRegressionSystem
 
 
 def set_seed(seed):
@@ -40,7 +38,7 @@ def set_seed(seed):
         torch.backends.cudnn.benchmark = False
 
 
-@hydra.main(version_base="1.3", config_path="config/", config_name="rls-aus")
+@hydra.main(version_base="1.3", config_path="config/", config_name="rls_aus")
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
 
@@ -61,8 +59,8 @@ def main(cfg: DictConfig) -> None:
     logger.addHandler(logging.FileHandler(f"{log_dir}/core.log"))
 
     # Datamodule & Model
-    datamodule = GLC24Datamodule(**cfg.data, **cfg.task)
-    classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optimizer,
+    datamodule = RLSDatamodule(**cfg.data, **cfg.task)
+    classif_system = RLSRegressionSystem(cfg.model, **cfg.optimizer,
                                                checkpoint_path=cfg.run.checkpoint_path,
                                                weights_dir=log_dir)  # multilabel
 
@@ -83,7 +81,7 @@ def main(cfg: DictConfig) -> None:
 
     # Run
     if cfg.run.predict:
-        model_loaded = ClassificationSystemGLC24.load_from_checkpoint(classif_system.checkpoint_path,
+        model_loaded = RLSRegressionSystem.load_from_checkpoint(classif_system.checkpoint_path,
                                                                       model=classif_system.model,
                                                                       hparams_preprocess=False,
                                                                       strict=False)

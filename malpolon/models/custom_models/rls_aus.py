@@ -2,6 +2,7 @@
 
 Author: Lukas Picek <lukas.picek@inria.fr>
         Theo Larcher <theo.larcher@inria.fr>
+Adapted by: Gaetan Morand <gaetan.morand@umontpellier.fr>
 
 License: GPLv3
 Python version: 3.10.6
@@ -17,7 +18,7 @@ class MultimodalEnsemble(nn.Module):
     Inherits torch nn.Module.
     """
     def __init__(self,
-                 num_classes: int = 11255,
+                 num_classes: int,
                  pretrained: bool = False,
                  **kwargs):
         """Class constructor.
