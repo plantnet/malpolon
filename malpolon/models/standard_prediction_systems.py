@@ -38,7 +38,7 @@ class GenericPredictionSystem(pl.LightningModule):
         optimizer: Union[torch.optim.Optimizer, Mapping],
         scheduler: Union[torch.optim.Optimizer] = None,
         metrics: Optional[dict[str, Callable]] = None,
-        save_hyperparameters: Optional[bool] = False,
+        save_hyperparameters: Optional[bool] = True,
     ):
         if save_hyperparameters:
             self.save_hyperparameters(ignore=['model', 'loss'])
