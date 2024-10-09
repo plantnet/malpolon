@@ -104,7 +104,9 @@ def check_loss(loss: nn.modules.loss._Loss) -> nn.modules.loss._Loss:
     """
     if isinstance(loss, nn.modules.loss._Loss):  # pylint: disable=protected-access  # noqa
         return loss
-    raise ValueError(f"Loss must be of type nn.modules.loss. "
+    elif isinstance(loss, Mapping):
+        return eval(loss['callable'])
+    raise ValueError(f"Loss must be of type nn.modules.loss."
                      f"Loss given type {type(loss)} instead")
 
 
