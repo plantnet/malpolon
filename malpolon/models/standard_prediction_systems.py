@@ -49,7 +49,7 @@ class GenericPredictionSystem(pl.LightningModule):
         loss: torch.nn.modules.loss._Loss,
         optimizer: torch.optim.Optimizer,
         metrics: Optional[dict[str, Callable]] = None,
-        save_hyperparameters: Optional[bool] = False,
+        save_hyperparameters: Optional[bool] = True,
     ):
         if save_hyperparameters:
             self.save_hyperparameters(ignore=['model', 'loss'])
