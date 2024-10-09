@@ -90,7 +90,7 @@ def check_metric(metrics: OmegaConf) -> OmegaConf:
     return metrics
 
 
-def check_loss(loss: nn.modules.loss._Loss) -> nn.modules.loss._Loss:
+def check_loss(loss: Union[nn.modules.loss._Loss, Mapping]) -> nn.modules.loss._Loss:
     """Ensure input loss is a pytorch loss.
 
     Args:

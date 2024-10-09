@@ -49,7 +49,7 @@ class GenericPredictionSystem(pl.LightningModule):
         loss: torch.nn.modules.loss._Loss,
         optimizer: torch.optim.Optimizer,
         metrics: Optional[dict[str, Callable]] = None,
-        save_hyperparameters: Optional[bool] = True,
+        save_hyperparameters: Optional[bool] = False,
     ):
         if save_hyperparameters:
             self.save_hyperparameters(ignore=['model', 'loss'])
@@ -433,6 +433,7 @@ class RegressionSystem(GenericPredictionSystem):
     def __init__(
         self,
         model: Union[torch.nn.Module, Mapping],
+        loss: Union[torch.nn.modules.loss._Loss, Mapping],
         lr: float = 1e-2,
         weight_decay: float = 0,
         momentum: float = 0.9,
