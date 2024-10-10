@@ -14,12 +14,26 @@ from typing import Mapping, Union
 import torchmetrics.functional as Fmetrics
 from omegaconf import OmegaConf
 from torch import nn, optim
+from torch.optim import Optimizer, lr_scheduler
+from torch.optim.lr_scheduler import LRScheduler
 
 from .model_builder import ModelBuilder
 
 FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.classification.binary_accuracy,
                       'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
                       'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
+
+OPTIMIZERS_CALLABLES = {'sgd': optim.SGD,
+                        'adam': optim.Adam,
+                        'adamw': optim.AdamW,
+                        'adadelta': optim.Adadelta,
+                        'adagrad': optim.Adagrad,
+                        'adamax': optim.Adamax,
+                        'rmsprop': optim.RMSprop,}
+
+SCHEDULER_CALLABLES = {'step_lr': lr_scheduler.StepLR,
+                       'reduce_lr_on_plateau': lr_scheduler.ReduceLROnPlateau,
+                       'cosine_annealing_lr': lr_scheduler.CosineAnnealingLR,}
 
 
 class CrashHandler():
@@ -130,21 +144,97 @@ def check_model(model: Union[nn.Module, Mapping]) -> nn.Module:
     )
 
 
-def check_optimizer(optimizer: optim.Optimizer) -> optim.Optimizer:
+def check_scheduler(scheduler: Union[LRScheduler, dict],
+                    optimizer: optim.Optimizer) -> LRScheduler:
+    """Ensure input scheduler is a pytorch scheduler.
+
+    Parameters
+    ----------
+    scheduler : Union[LRScheduler, dict]
+        input scheduler
+    optimizer : optim.Optimizer
+        associated optimizer
+
+    Returns
+    -------
+    LRScheduler
+        output scheduler
+    """
+    if isinstance(scheduler, LRScheduler):
+        return [scheduler]
+
+    try:
+        k, v = next(iter(scheduler.items()))  # Get 1st key & value of scheduler dict as there can only be 1 scheduler per optimizer
+        if 'callable' in v:
+            scheduler[k]['callable'] = eval(v['callable'])
+        else:
+            scheduler[k]['callable'] = SCHEDULER_CALLABLES[k]
+        scheduler = scheduler[k]['callable'](optimizer, **scheduler[k]['kwargs'])
+    except ValueError as e:
+        print('\n[WARNING]: Please make sure you have registered'
+              ' a dict-like value to your "scheduler" key in your'
+              ' config file. Defaulting scheduler to None.\n')
+        print(e, '\n')
+        scheduler = None
+    except KeyError as e:
+        print('\n[WARNING]: Please make sure the name of your scheduler'
+              ' registered in your config file match an entry'
+              ' in constant SCHEDULER_CALLABLES.'
+              ' Defaulting scheduler to None.\n')
+        print(e, '\n')
+        scheduler = None
+
+    return scheduler
+
+
+def check_optimizer(optimizer: Union[Optimizer, OmegaConf],
+                    model: nn.Module=None) -> Optimizer:
     """Ensure input optimizer is a pytorch optimizer.
 
     Args:
-        optimizer (optim.Optimizer): input optimizer.
+        optimizer (Optimizer): input optimizer.
 
     Raises:
         ValueError: if input optimizer isn't a pytorch optimizer object.
 
     Returns:
-        optim.Optimizer: the pytorch input optimizer itself.
+        Optimizer: the pytorch input optimizer itself.
     """
-    if isinstance(optimizer, optim.Optimizer):
-        return optimizer
-    raise ValueError(
-        "Optimizer must be of type optim.Optimizer,"
-        f"given type {type(optimizer)} instead"
-    )
+    optim_list = []
+    scheduler_list = []
+
+    if isinstance(optimizer, Optimizer):
+        return [optimizer], scheduler_list
+
+    try:        
+        if optimizer is not None:
+            optimizer = OmegaConf.to_container(optimizer, resolve=True)
+            # Loop over all optimizers
+            for k, v in optimizer.items():
+                if 'callable' in v:
+                    optimizer[k]['callable'] = eval(v['callable'])
+                else:
+                    optimizer[k]['callable'] = OPTIMIZERS_CALLABLES[k]
+                optim_list.append(optimizer[k]['callable'](model.parameters(), **optimizer[k]['kwargs']))
+                if 'scheduler' in v and v['scheduler'] is not None:
+                    scheduler_list.append(check_scheduler(v['scheduler'], optim_list[-1]))
+        
+    except ValueError as e:
+        print('\n[WARNING]: Please make sure you have registered'
+            ' a dict-like value to your "optimizer" key in your'
+            ' config file. Defaulting optimizer to None.\n')
+        print(e, '\n')
+        optimizer = None
+    except KeyError as e:
+        print('\n[WARNING]: Please make sure the name of your optimizer'
+            ' registered in your config file match an entry'
+            ' in constant OPTIMIZERS_CALLABLES.'
+            ' Defaulting optimizer to None.\n')
+        print(e, '\n')
+        optimizer = None
+
+    if len(optim_list) > 1 and len(scheduler_list) >= 1:
+        assert len(optim_list) == len(scheduler_list), "When using multiple optimizers, there should be as many schedulers as there are optimizers, or none at all."
+
+    return optim_list, scheduler_list
+

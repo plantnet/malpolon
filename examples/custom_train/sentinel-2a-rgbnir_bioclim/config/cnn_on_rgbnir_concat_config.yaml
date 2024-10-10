@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path: 'outputs/cnn_on_rgbnir_concat/train_multilabel/last.ckpt'
+  checkpoint_path: # 'outputs/cnn_on_rgbnir_concat/train_multilabel/last.ckpt'
 
 data:
   num_classes: &num_classes 5
@@ -67,10 +67,19 @@ model:
       num_outputs: *num_classes
 
 optimizer:
-  lr: 1e-2
-  weight_decay: 0
-  momentum: 0.9
-  nesterov: true
+  optimizer:
+    # sgd:  # ['adam', 'sgd', 'adamw', 'adadelta', 'adagrad', 'adamax', 'rmsprop']
+    #   # callable: 'optim.SGD'
+    #   kwargs:
+    #     lr: 1e-2
+    #     weight_decay: 0
+    #     momentum: 0.9
+    #     nesterov: true
+    #   scheduler:
+        # reduce_lr_on_plateau:
+        #   # callable: 'lr_scheduler.reduce_lr_on_plateau'
+        #   kwargs:
+        #     threshold: 0.001
   metrics:
     # binary_accuracy:
     #   # callable: 'Fmetrics.accuracy'

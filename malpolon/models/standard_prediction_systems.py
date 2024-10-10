@@ -17,7 +17,7 @@ from torchvision.datasets.utils import (download_and_extract_archive,
 
 from malpolon.models.utils import check_metric
 
-from .utils import check_loss, check_model, check_optimizer
+from .utils import check_loss, check_model, check_optimizer, check_scheduler
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Mapping, Optional, Union
@@ -47,7 +47,8 @@ class GenericPredictionSystem(pl.LightningModule):
         self,
         model: Union[torch.nn.Module, Mapping],
         loss: torch.nn.modules.loss._Loss,
-        optimizer: torch.optim.Optimizer,
+        optimizer: Union[torch.optim.Optimizer, Mapping],
+        scheduler: Union[torch.optim.Optimizer, Mapping] = None,
         metrics: Optional[dict[str, Callable]] = None,
         save_hyperparameters: Optional[bool] = True,
     ):
@@ -60,9 +61,13 @@ class GenericPredictionSystem(pl.LightningModule):
         super().__init__()
         self.checkpoint_path = None if not hasattr(self, 'checkpoint_path') else self.checkpoint_path  # Avoids overwriting the attribute. This class will need to be re-written properly alongside ClassificationSystem
         self.model = check_model(model)
-        self.optimizer = check_optimizer(optimizer)
+        self.optimizer, config_scheduler = check_optimizer(optimizer, self.model)
+        self.scheduler = check_scheduler(config_scheduler, self.optimizer) if (isinstance(optimizer, torch.optim.Optimizer) and scheduler is not None) else config_scheduler
         self.loss = check_loss(loss)
         self.metrics = metrics or {}
+        if len(self.optimizer) > 1:
+            print(f'[INFO] Multiple optimizers detected: setting automatic optimization to False... you are responsible for calling ``.backward()``, ``.step()``, ``.zero_grad()`` of your prediction system.')
+            self.automatic_optimization = False
 
     def _check_integrity(self, fp: str) -> bool:
         return (fp).exists()
@@ -177,8 +182,8 @@ class GenericPredictionSystem(pl.LightningModule):
         x, y = batch
         return self(x)
 
-    def configure_optimizers(self) -> torch.optim.Optimizer:
-        return self.optimizer
+    def configure_optimizers(self) -> dict:
+        return self.optimizer, self.scheduler
 
     @staticmethod
     def state_dict_replace_key(
@@ -355,6 +360,7 @@ class ClassificationSystem(GenericPredictionSystem):
     def __init__(
         self,
         model: Union[torch.nn.Module, Mapping],
+        optimizer: Union[torch.nn.Module, Mapping] = None,
         lr: float = 1e-2,
         weight_decay: float = 0,
         momentum: float = 0.9,
@@ -407,13 +413,16 @@ class ClassificationSystem(GenericPredictionSystem):
         self.checkpoint_path = checkpoint_path
         model = check_model(model)
 
-        optimizer = torch.optim.SGD(
-            model.parameters(),
-            lr=self.lr,
-            weight_decay=self.weight_decay,
-            momentum=self.momentum,
-            nesterov=self.nesterov,
-        )
+        if optimizer is None:
+            print(f'[INFO] No optimizer provided: using SGD with lr={lr}, weight_decay={weight_decay}, momentum={momentum}, nesterov={nesterov}')
+            optimizer = torch.optim.SGD(
+                model.parameters(),
+                lr=self.lr,
+                weight_decay=self.weight_decay,
+                momentum=self.momentum,
+                nesterov=self.nesterov,
+            )
+
         if 'binary' in task or 'multilabel' in task:
             loss = torch.nn.BCEWithLogitsLoss(**loss_kwargs)
         else:
@@ -425,4 +434,4 @@ class ClassificationSystem(GenericPredictionSystem):
                              'kwargs': {}}
             }
 
-        super().__init__(model, loss, optimizer, metrics)
+        super().__init__(model, loss, optimizer, metrics=metrics)
