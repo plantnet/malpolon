@@ -148,17 +148,22 @@ def check_scheduler(scheduler: Union[LRScheduler, dict],
                     optimizer: optim.Optimizer) -> LRScheduler:
     """Ensure input scheduler is a pytorch scheduler.
 
+    Input can either be an Omegaconf mapping (passed through a hydra config
+    file) or a pytorch scheduler object. Several scheduler can be passed as
+    input through an Omegaconf mapping which will be instantiated and returned
+    as a list of scheduler.
+
     Parameters
     ----------
     scheduler : Union[LRScheduler, dict]
-        input scheduler
+        input scheduler(s)
     optimizer : optim.Optimizer
         associated optimizer
 
     Returns
     -------
     LRScheduler
-        output scheduler
+        list of instantiated scheduler(s)
     """
     if isinstance(scheduler, LRScheduler):
         return [scheduler]
@@ -188,17 +193,25 @@ def check_scheduler(scheduler: Union[LRScheduler, dict],
 
 
 def check_optimizer(optimizer: Union[Optimizer, OmegaConf],
-                    model: nn.Module=None) -> Optimizer:
-    """Ensure input optimizer is a pytorch optimizer.
+                    model: nn.Module) -> Optimizer:
+    """Ensure input optimizer is a pytorch scheduler.
 
-    Args:
-        optimizer (Optimizer): input optimizer.
+    Input can either be an Omegaconf mapping (passed through a hydra config
+    file) or a pytorch optimizer object. Several optimizers can be passed as
+    input through an Omegaconf mapping which will be instantiated and returned
+    as a list of optimizers.
 
-    Raises:
-        ValueError: if input optimizer isn't a pytorch optimizer object.
+    Parameters
+    ----------
+    optimizer : Union[Optimizer, OmegaConf]
+        input scheduler(s)
+    model : nn.Module, optional
+        associated model
 
-    Returns:
-        Optimizer: the pytorch input optimizer itself.
+    Returns
+    -------
+    Optimizer
+        list of instantiated optimizer(s)
     """
     optim_list = []
     scheduler_list = []
