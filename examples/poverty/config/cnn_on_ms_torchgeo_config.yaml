@@ -9,7 +9,7 @@ run:
 data:
   num_classes: 1
   dataset_path: examples/poverty/dataset/
-  labels_name: observation_2013+.csv
+  labels_name: observations_2013+.csv
   train_batch_size: 64
   inference_batch_size: 64
   num_workers: 8
@@ -23,7 +23,7 @@ task:
 trainer:
   accelerator: gpu
   devices: 1
-  max_epochs: 3
+  max_epochs: 30
   check_val_every_n_epoch: 1
 
 model:
@@ -55,4 +55,5 @@ optimizer:
 miscellaneous:
   optimizer : AdamW
   lr_scheduler : ReduceLROnPlateau
+  cross-val : false
         

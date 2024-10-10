@@ -440,7 +440,7 @@ class RegressionSystem(GenericPredictionSystem):
     """Regression task class."""
     def __init__(
         self,
-        model: Union[torch.nn.Module, Mapping] = json.load(open('examples/poverty/model.json', 'r')),
+        model: Union[torch.nn.Module, Mapping],
         lr: float = 1e-2,
         weight_decay: float = 0,
         momentum: float = 0.9,
