@@ -90,7 +90,7 @@ class PovertyDataModule(BaseDataModule):
 
 
 class MSDataset(Dataset):
-    """ Dataset returning the LANDSAT tiles and wealth index corresponding to the DHS cluster.
+    """ Dataset returning the LANDSAT patches and wealth index corresponding to the DHS cluster.
         Rasters were previously downloaded from Earth Engine and stored in the 'landsat_tiles' directory.
         Images contain 8 bands, one of them being a nightlight image. Only the first 7 bands are selected."""
 
@@ -151,7 +151,7 @@ class MSDataset(Dataset):
             img_rgb = tile[0:3, ...][::-1, ...].transpose(1, 2, 0)
             ax.imshow(img_rgb)  #
             ax.axis('off')
-            # ax.set_title(f"Value: {value}, RGB")
+            ax.set_title(f"Value: {value}, RGB")
         else:
 
             fig, axs = pyplot.subplots(2, 4, figsize=(12, 6))
@@ -161,7 +161,7 @@ class MSDataset(Dataset):
 
                 ax.set_title(f"Band: {i}")
 
-        # fig.suptitle(f"Value: {value}")
+        fig.suptitle(f"Value: {value}")
         if save:
             fig.savefig(f'examples/poverty/plot_{idx}_{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}.png')
 

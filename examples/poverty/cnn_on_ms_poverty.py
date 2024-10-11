@@ -76,21 +76,5 @@ def main(cfg: DictConfig) -> None:
     trainer.test(model, datamodule=datamodule)
 
 
-@hydra.main(version_base="1.3", config_path="config", config_name="cnn_on_ms_torchgeo_config")
-def test(cfg: DictConfig) -> None:
-    dict_normalize = json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
-    transform = torchvision.transforms.Compose([
-        torchvision.transforms.CenterCrop(224),
-        # torchvision.transforms.RandomHorizontalFlip(),
-        # torchvision.transforms.RandomVerticalFlip(),
-        torchvision.transforms.Normalize(mean=dict_normalize['mean'], std=dict_normalize['std'])
-    ]
-    )
-    dataM_no_jitter = PovertyDataModule(**cfg.data, **cfg.task, transform=transform)
-    dataM_no_jitter.setup()
-    datasetNJ = dataM_no_jitter.dataset_train
-    datasetNJ.plot(46, rgb=True)
-
-
 if __name__ == "__main__":
-    test()
+    main()

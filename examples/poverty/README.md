@@ -2,7 +2,7 @@
 
 # Landsat rasters example (training)
 
-This example performs regression of poverty using a CNN on Landsat raster.
+This example performs regression of the Asset Wealth Index (AWI) using a CNN on Landsat raster over Africa between 2013 and 2020.
 
 ## Data
 
@@ -30,6 +30,8 @@ The sample data used in this example consists of:
   - `urban_rural`, 0 if rural, 1 if urban
   - `subset`, train, validation or test
 
+The sample data is based on the Demographic and Health Surveys undertaken in Africa since 2013.
+
 
 ### Data loading
 
@@ -37,10 +39,12 @@ The sample data used in this example consists of:
 
 The LandSat patches are looked for in the `example/poverty/dataset` directory, and they are loaded based on  a `PovertyDataModule` and `MSDataset` (cf. [python file](datamodule/landsat_poverty.py) ).
 They are to be downloaded beforehand in a TIF format and placed in the `dataset` directory.
+The images were downloaded from the Google Earth Engine platform and preprocessed using [this method](https://github.com/mpa-poverty/2-mpa/tree/main/preprocessing).
 
 ## Usage
 
 Examples are **ready-to-use scripts** that can be executed by a simple Python command. Every data, model and training parameters are specified in a `.yaml` configuration file located in the `config/` directory.
+As stated in the previous section, the data needs to be downloaded and placed in the `dataset` directory.
 
 ### Training
 
