@@ -9,12 +9,6 @@ Author: Auguste Verdier <auguste.verdier@umontpellier.fr>
 from __future__ import annotations
 
 import os
-import random
-from tqdm import tqdm
-import json
-import pandas as pd
-
-import torchvision
 
 import hydra
 import pytorch_lightning as pl
@@ -69,7 +63,7 @@ def main(cfg: DictConfig) -> None:
     ]
     print(cfg.trainer)
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], log_every_n_steps=1, callbacks=callbacks,
-                         **cfg.trainer)  #
+                         **cfg.trainer)
 
     trainer.fit(model, datamodule=datamodule, ckpt_path=cfg.run.checkpoint_path)
     trainer.validate(model, datamodule=datamodule)

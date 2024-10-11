@@ -50,10 +50,4 @@ optimizer:
     regression_R2score:
       callable: Fmetrics.regression.r2_score
       kwargs: null
-
-
-miscellaneous:
-  optimizer : AdamW
-  lr_scheduler : ReduceLROnPlateau
-  cross-val : false
         
