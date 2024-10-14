@@ -26,10 +26,7 @@ class ClassificationSystemGLC24(ClassificationSystem):
     def __init__(
         self,
         model: Union[torch.nn.Module, Mapping],
-        lr: float = 1e-2,
-        weight_decay: float = 0,
-        momentum: float = 0.9,
-        nesterov: bool = True,
+        optimizer: Union[torch.nn.Module, Mapping] = None,
         metrics: Optional[dict[str, Callable]] = None,
         task: str = 'classification_multilabel',
         loss_kwargs: Optional[dict] = {},
@@ -46,14 +43,10 @@ class ClassificationSystemGLC24(ClassificationSystem):
             model to use, either a torch model object, or a mapping
             (dictionary from config file) used to load and build
             the model
-        lr : float, optional
-            learning rate, by default 1e-2
-        weight_decay : float, optional
-            weight decay, by default 0
-        momentum : float
-            value of momentum
-        nesterov : bool
-            if True, uses Nesterov's momentum
+        optimizer : Union[torch.nn.Module, Mapping], optional
+            optimizer to use, either a torch optimizer object, or a mapping
+            (dictionary from config file) used to load and build
+            the optimizer and scheduler, by default None (SGD is used)
         metrics : dict
             dictionnary containing the metrics to compute.
             Keys must match metrics' names and have a subkey with each
@@ -92,31 +85,29 @@ class ClassificationSystemGLC24(ClassificationSystem):
                 elif 'multiclass' in task:
                     num_classes = metrics['multiclass_f1-score'].kwargs.num_classes
             loss_kwargs['pos_weight'] = Tensor([loss_kwargs['pos_weight']] * num_classes)
-        super().__init__(model, lr, weight_decay, momentum, nesterov, metrics, task, loss_kwargs, hparams_preprocess, checkpoint_path)
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr)
-        self.optimizer = check_optimizer(optimizer)
+        super().__init__(model, optimizer, metrics, task, loss_kwargs, hparams_preprocess, checkpoint_path)
         if self.model.pretrained and not self.checkpoint_path:
             self.download_weights("https://lab.plantnet.org/seafile/f/d780d4ab7f6b419194f9/?dl=1",
                                   weights_dir,
                                   filename="pretrained.ckpt",
                                   md5="69111dd8013fcd8e8f4504def774f3a5")
 
-    def configure_optimizers(self):
-        """Override default optimizer and scheduler.
+    # def configure_optimizers(self):
+    #     """Override default optimizer and scheduler.
 
-        By default, SGD is selected and the scheduler is handled by
-        PyTorch Lightning's default one.
+    #     By default, SGD is selected and the scheduler is handled by
+    #     PyTorch Lightning's default one.
 
-        Returns
-        -------
-        (dict)
-            dictionary containing keys for optimizer and scheduler,
-            passed on to PyTorch Lightning
-        """
-        scheduler = CosineAnnealingLR(self.optimizer, T_max=25, verbose=True)
-        res = {'optimizer': self.optimizer,
-               'lr_scheduler': scheduler}
-        return res
+    #     Returns
+    #     -------
+    #     (dict)
+    #         dictionary containing keys for optimizer and scheduler,
+    #         passed on to PyTorch Lightning
+    #     """
+    #     scheduler = CosineAnnealingLR(self.optimizer, T_max=25, verbose=True)
+    #     res = {'optimizer': self.optimizer,
+    #            'lr_scheduler': scheduler}
+    #     return res
 
     def forward(self, x, y, z):  # noqa: D102 pylint: disable=C0116
         return self.model(x, y, z)
