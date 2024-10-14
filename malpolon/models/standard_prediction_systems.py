@@ -36,7 +36,7 @@ class GenericPredictionSystem(pl.LightningModule):
         model: Union[torch.nn.Module, Mapping],
         loss: torch.nn.modules.loss._Loss,
         optimizer: Union[torch.optim.Optimizer, Mapping],
-        scheduler: Union[torch.optim.Optimizer, Mapping] = None,
+        scheduler: Union[torch.optim.Optimizer] = None,
         metrics: Optional[dict[str, Callable]] = None,
         save_hyperparameters: Optional[bool] = True,
     ): 
@@ -70,7 +70,7 @@ class GenericPredictionSystem(pl.LightningModule):
         self.checkpoint_path = None if not hasattr(self, 'checkpoint_path') else self.checkpoint_path  # Avoids overwriting the attribute. This class will need to be re-written properly alongside ClassificationSystem
         self.model = check_model(model)
         self.optimizer, config_scheduler = check_optimizer(optimizer, self.model)
-        self.scheduler = check_scheduler(config_scheduler, self.optimizer) if (isinstance(optimizer, torch.optim.Optimizer) and scheduler is not None) else config_scheduler
+        self.scheduler = config_scheduler if scheduler is None else check_scheduler(scheduler, self.optimizer)
         self.loss = check_loss(loss)
         self.metrics = metrics or {}
         if len(self.optimizer) > 1:
@@ -191,7 +191,13 @@ class GenericPredictionSystem(pl.LightningModule):
         return self(x)
 
     def configure_optimizers(self) -> dict:
-        return self.optimizer, self.scheduler
+        res = []
+        for i, opt in enumerate(self.optimizer):
+            tmp = {'optimizer': opt, 'lr_scheduler': self.scheduler[i]}
+            if tmp['lr_scheduler'] is None:
+                tmp.pop('lr_scheduler')
+            res.append(tmp)
+        return res
 
     @staticmethod
     def state_dict_replace_key(
@@ -441,5 +447,6 @@ class ClassificationSystem(GenericPredictionSystem):
                 "accuracy": {'callable': Fmetrics.classification.binary_accuracy,
                              'kwargs': {}}
             }
-
+        # from torch.optim import Optimizer, lr_scheduler
+        # sch = lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
         super().__init__(model, loss, optimizer, metrics=metrics)

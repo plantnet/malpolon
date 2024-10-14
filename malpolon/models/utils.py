@@ -145,7 +145,7 @@ def check_model(model: Union[nn.Module, Mapping]) -> nn.Module:
 
 
 def check_scheduler(scheduler: Union[LRScheduler, dict],
-                    optimizer: optim.Optimizer) -> LRScheduler:
+                    optimizer: optim.Optimizer) -> dict:
     """Ensure input scheduler is a pytorch scheduler.
 
     Input can either be an Omegaconf mapping (passed through a hydra config
@@ -162,34 +162,44 @@ def check_scheduler(scheduler: Union[LRScheduler, dict],
 
     Returns
     -------
-    LRScheduler
-        list of instantiated scheduler(s)
+    dict
+        dictionary of LR scheduler config
     """
+    if scheduler is None:
+        return
+
+    lr_sch_config = {'scheduler': None}
+
     if isinstance(scheduler, LRScheduler):
-        return [scheduler]
+        lr_sch_config['scheduler'] = scheduler
+        return lr_sch_config
 
     try:
         k, v = next(iter(scheduler.items()))  # Get 1st key & value of scheduler dict as there can only be 1 scheduler per optimizer
+        if 'lr_scheduler_config' in v and v['lr_scheduler_config'] is not None:
+            lr_sch_config = lr_sch_config | v['lr_scheduler_config']
         if 'callable' in v:
-            scheduler[k]['callable'] = eval(v['callable'])
+            v['callable'] = eval(v['callable'])
         else:
-            scheduler[k]['callable'] = SCHEDULER_CALLABLES[k]
-        scheduler = scheduler[k]['callable'](optimizer, **scheduler[k]['kwargs'])
+            v['callable'] = SCHEDULER_CALLABLES[k]
+        scheduler = v['callable'](optimizer, **v['kwargs'])
     except ValueError as e:
-        print('\n[WARNING]: Please make sure you have registered'
+        print('\n[ERROR]: Please make sure you have registered'
               ' a dict-like value to your "scheduler" key in your'
-              ' config file. Defaulting scheduler to None.\n')
+              ' config file.\n')
         print(e, '\n')
-        scheduler = None
+        raise e
     except KeyError as e:
-        print('\n[WARNING]: Please make sure the name of your scheduler'
+        print('\n[ERROR]: Please make sure the name of your scheduler'
               ' registered in your config file match an entry'
-              ' in constant SCHEDULER_CALLABLES.'
-              ' Defaulting scheduler to None.\n')
+              ' in constant SCHEDULER_CALLABLES; or that you have provided a'
+              ' callable function if your scheduler\'s name is not pre-registered'
+              ' in SCHEDULER_CALLABLES.\n')
         print(e, '\n')
-        scheduler = None
+        raise e
 
-    return scheduler
+    lr_sch_config['scheduler'] = scheduler
+    return lr_sch_config
 
 
 def check_optimizer(optimizer: Union[Optimizer, OmegaConf],
@@ -217,7 +227,7 @@ def check_optimizer(optimizer: Union[Optimizer, OmegaConf],
     scheduler_list = []
 
     if isinstance(optimizer, Optimizer):
-        return [optimizer], scheduler_list
+        return [optimizer], [None]
 
     try:        
         if optimizer is not None:
@@ -229,25 +239,23 @@ def check_optimizer(optimizer: Union[Optimizer, OmegaConf],
                 else:
                     optimizer[k]['callable'] = OPTIMIZERS_CALLABLES[k]
                 optim_list.append(optimizer[k]['callable'](model.parameters(), **optimizer[k]['kwargs']))
-                if 'scheduler' in v and v['scheduler'] is not None:
-                    scheduler_list.append(check_scheduler(v['scheduler'], optim_list[-1]))
-        
-    except ValueError as e:
-        print('\n[WARNING]: Please make sure you have registered'
-            ' a dict-like value to your "optimizer" key in your'
-            ' config file. Defaulting optimizer to None.\n')
+                scheduler_list.append(check_scheduler(v.get('scheduler'), optim_list[-1]))
+    except (TypeError, ValueError) as e:
+        print('\n[ERROR]: Please make sure you have registered'
+            ' a non-empty dict-like value to your "optimizer" key in your'
+            ' config file. Your optimizer dict might be empty (NoneType).')
         print(e, '\n')
-        optimizer = None
+        raise e
     except KeyError as e:
-        print('\n[WARNING]: Please make sure the name of your optimizer'
+        print('\n[ERROR]: Please make sure the name of your optimizer'
             ' registered in your config file match an entry'
-            ' in constant OPTIMIZERS_CALLABLES.'
-            ' Defaulting optimizer to None.\n')
+            ' in constant OPTIMIZERS_CALLABLES; or that you have provided a'
+            ' callable function if your optimizer\'s name is not pre-registered'
+            ' in OPTIMIZERS_CALLABLES.\n'
+            ' Please make sure your optimizer\'s and scheduler\'s kwargs keys'
+            ' are valid.\n')
         print(e, '\n')
-        optimizer = None
-
-    if len(optim_list) > 1 and len(scheduler_list) >= 1:
-        assert len(optim_list) == len(scheduler_list), "When using multiple optimizers, there should be as many schedulers as there are optimizers, or none at all."
+        raise e
 
     return optim_list, scheduler_list
 

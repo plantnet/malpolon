@@ -68,18 +68,30 @@ model:
 
 optimizer:
   optimizer:
-    # sgd:  # ['adam', 'sgd', 'adamw', 'adadelta', 'adagrad', 'adamax', 'rmsprop']
+    sgd:  # ['adam', 'sgd', 'adamw', 'adadelta', 'adagrad', 'adamax', 'rmsprop']
+      # callable: 'optim.SGD'
+      kwargs:
+        lr: 1e-2
+        weight_decay: 0
+        momentum: 0.9
+        nesterov: true
+      scheduler:  # Optional, delete key or leave empty to not use any learning rate scheduler
+        reduce_lr_on_plateau:
+          # callable: 'lr_scheduler.reduce_lr_on_plateau'
+          kwargs:
+            threshold: 0.001
+          lr_scheduler_config:
+            scheduler: reduce_lr_on_plateau  # Optional, the scheduler to use is the parent key
+            monitor: loss/val  # ['loss/train', 'loss/val', '<metric>/train', '<metric>/val', ...]
+    # adam:  # ['adam', 'sgd', 'adamw', 'adadelta', 'adagrad', 'adamax', 'rmsprop']
     #   # callable: 'optim.SGD'
     #   kwargs:
     #     lr: 1e-2
-    #     weight_decay: 0
-    #     momentum: 0.9
-    #     nesterov: true
     #   scheduler:
-        # reduce_lr_on_plateau:
-        #   # callable: 'lr_scheduler.reduce_lr_on_plateau'
-        #   kwargs:
-        #     threshold: 0.001
+    #     reduce_lr_on_plateau:
+    #       # callable: 'lr_scheduler.reduce_lr_on_plateau'
+    #       kwargs:
+    #         threshold: 0.001
   metrics:
     # binary_accuracy:
     #   # callable: 'Fmetrics.accuracy'
