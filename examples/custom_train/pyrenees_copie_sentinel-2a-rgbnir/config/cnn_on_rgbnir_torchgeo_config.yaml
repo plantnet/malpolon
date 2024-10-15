@@ -9,7 +9,6 @@ run:
 data:
   num_classes: 1
   dataset_path: "dataset/"
-  # labels_name: "labels.csv"
   labels_name: "20240212-Extraction_GN-and.cyl-subset.csv"
   train_batch_size: 4
   inference_batch_size: 2

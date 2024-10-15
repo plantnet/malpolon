@@ -22,22 +22,6 @@ from malpolon.data.datasets.torchgeo_datasets import (RasterBioclim,
 from malpolon.logging import Summary
 from malpolon.models import ClassificationSystem
 
-# class RasterPyrenees(RasterBioclim):
-#     """Raster dataset adapted for Sentinel-2 data.
-
-#     Inherits RasterTorchGeoDataset.
-#     """
-#     filename_glob = "bio_*.tif"
-#     filename_regex = r"(?P<band>bio_[\d][\d])"
-#     date_format = "%Y%m%dT%H%M%S"
-#     is_image = True
-#     separate_files = True
-#     all_bands = ['bio_' + str(x) for x in range(1, 43)]
-#     for k, v in enumerate(all_bands):
-#         if len(v) <= 5:
-#             all_bands[k] = v.replace('bio_', 'bio_0')
-#     plot_bands = all_bands
-
 
 class PyreneesDataModule(RasterGeoDataModule):
     def __init__(
