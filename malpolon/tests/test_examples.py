@@ -258,7 +258,7 @@ GLC24_PRE_EXTRACTED_EXAMPLE_PATHS = {
     ],
 }
 
-@pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
+# @pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
 def test_train_inference_examples():
     ckpt_path = ''
     for expe_name, v in EXAMPLE_PATHS.items():
