@@ -29,11 +29,11 @@ OPTIMIZERS_CALLABLES = {'sgd': optim.SGD,
                         'adadelta': optim.Adadelta,
                         'adagrad': optim.Adagrad,
                         'adamax': optim.Adamax,
-                        'rmsprop': optim.RMSprop,}
+                        'rmsprop': optim.RMSprop, }
 
 SCHEDULER_CALLABLES = {'step_lr': lr_scheduler.StepLR,
                        'reduce_lr_on_plateau': lr_scheduler.ReduceLROnPlateau,
-                       'cosine_annealing_lr': lr_scheduler.CosineAnnealingLR,}
+                       'cosine_annealing_lr': lr_scheduler.CosineAnnealingLR, }
 
 
 class CrashHandler():
