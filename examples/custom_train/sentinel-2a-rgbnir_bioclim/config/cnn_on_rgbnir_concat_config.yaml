@@ -44,15 +44,15 @@ task:
 
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
-  accelerator: "gpu"
+  accelerator: "gpu"  # ["cpu", "gpu"]
   devices: 'auto'
-  max_epochs: 5
-  # val_check_interval: 2
-  check_val_every_n_epoch: 1
-  log_every_n_steps: 10
+  max_epochs: 5  # Number of passes through the training data
+  check_val_every_n_epoch: 1  # Run validation every n epochs
+  # val_check_interval: 2  # Run validation every n steps (set to 0 to disable) /!\ can slow down training if too frequent
+  log_every_n_steps: 10  # Log every n steps (if None, takes the default value 50)
 
 model:
-  provider_name: "timm" # choose from ["timm", "torchvision"]
+  provider_name: "timm"  # ["timm", "torchvision"]
   model_name: "resnet18"
   model_kwargs:
     pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
