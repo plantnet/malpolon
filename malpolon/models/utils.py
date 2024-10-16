@@ -229,7 +229,7 @@ def check_optimizer(optimizer: Union[Optimizer, OmegaConf],
     if isinstance(optimizer, Optimizer):
         return [optimizer], [None]
 
-    try:        
+    try:
         if optimizer is not None:
             optimizer = OmegaConf.to_container(optimizer, resolve=True)
             # Loop over all optimizers
@@ -242,20 +242,19 @@ def check_optimizer(optimizer: Union[Optimizer, OmegaConf],
                 scheduler_list.append(check_scheduler(v.get('scheduler'), optim_list[-1]))
     except (TypeError, ValueError) as e:
         print('\n[ERROR]: Please make sure you have registered'
-            ' a non-empty dict-like value to your "optimizer" key in your'
-            ' config file. Your optimizer dict might be empty (NoneType).')
+              ' a non-empty dict-like value to your "optimizer" key in your'
+              ' config file. Your optimizer dict might be empty (NoneType).')
         print(e, '\n')
         raise e
     except KeyError as e:
         print('\n[ERROR]: Please make sure the name of your optimizer'
-            ' registered in your config file match an entry'
-            ' in constant OPTIMIZERS_CALLABLES; or that you have provided a'
-            ' callable function if your optimizer\'s name is not pre-registered'
-            ' in OPTIMIZERS_CALLABLES.\n'
-            ' Please make sure your optimizer\'s and scheduler\'s kwargs keys'
-            ' are valid.\n')
+              ' registered in your config file match an entry'
+              ' in constant OPTIMIZERS_CALLABLES; or that you have provided a'
+              ' callable function if your optimizer\'s name is not pre-registered'
+              ' in OPTIMIZERS_CALLABLES.\n'
+              ' Please make sure your optimizer\'s and scheduler\'s kwargs keys'
+              ' are valid.\n')
         print(e, '\n')
         raise e
 
     return optim_list, scheduler_list
-

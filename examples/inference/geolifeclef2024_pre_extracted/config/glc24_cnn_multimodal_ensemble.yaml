@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict_type: 'test_dataset'  # choose from ['test_dataset', 'test_point']
-  checkpoint_path: ???
+  checkpoint_path: 'outputs_training/glc24_cnn_multimodal_ensemble/runOK_2024-08-12_11-50-01/last.ckpt'
 
 data:
   root: "dataset/geolifeclef-2024/"
@@ -49,12 +49,17 @@ model:
       num_outputs: *num_classes
 
 optimizer:
-  lr: 0.00025
-  weight_decay: 0
-  momentum: 0.9
-  nesterov: true
   loss_kwargs:
     pos_weight: 10.0
+  optimizer:
+    adamw:
+      kwargs:
+        lr: 0.00025
+      scheduler:
+        cosine_annealing_lr:
+          kwargs:
+            T_max: 25
+            verbose: True
   metrics:
     multilabel_accuracy:
       # callable: 'Fmetrics.classification.multilabel_accuracy'

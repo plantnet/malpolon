@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 class GenericPredictionSystem(pl.LightningModule):
     """Generic prediction system providing standard methods.
 
-   
+
     """
 
     def __init__(
@@ -39,7 +39,7 @@ class GenericPredictionSystem(pl.LightningModule):
         scheduler: Union[torch.optim.Optimizer] = None,
         metrics: Optional[dict[str, Callable]] = None,
         save_hyperparameters: Optional[bool] = True,
-    ): 
+    ):
         """Class constructor.
 
         Parameters
@@ -447,6 +447,5 @@ class ClassificationSystem(GenericPredictionSystem):
                 "accuracy": {'callable': Fmetrics.classification.binary_accuracy,
                              'kwargs': {}}
             }
-        # from torch.optim import Optimizer, lr_scheduler
-        # sch = lr_scheduler.StepLR(optimizer, step_size=30, gamma=0.1)
+
         super().__init__(model, loss, optimizer, metrics=metrics)

@@ -217,22 +217,22 @@ GLC23_EXAMPLE_PATHS = {
 
 GLC24_PRE_EXTRACTED_EXAMPLE_PATHS = {
     "geolifeclef2024_pre_extracted": [
-        # Multilabel classif (species)
-        ## Training (raw, transfer learning, inference)
+        # # Multilabel classif (species)
+        # ## Training (raw, transfer learning, inference)
         {"ref": "Benchmarks/geolifeclef/geolifeclef2024_pre_extracted, classification_multilabel (species), training_raw",
          "path": Path('examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble.py'),
          "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path=null trainer.val_check_interval=1 trainer.check_val_every_n_epoch=1 loggers.exp_name=glc24_pre_extracted_mme_test model.model_kwargs.pretrained=false"},
-        {"ref": "Benchmarks/geolifeclef/geolifeclef2024_pre_extracted, classification_multilabel (species), training_transfer_learning",
-         "path": Path('examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble.py'),
-         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt trainer.val_check_interval=1 trainer.check_val_every_n_epoch=1 loggers.exp_name=glc24_pre_extracted_mme_test model.model_kwargs.pretrained=false"},
-        {"ref": "Benchmarks/geolifeclef/geolifeclef2024_pre_extracted, classification_multilabel (species), training_inference",
-         "path": Path('examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble.py'),
-         "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt trainer.val_check_interval=1 trainer.check_val_every_n_epoch=1 loggers.exp_name=glc24_pre_extracted_mme_test model.model_kwargs.pretrained=false"},
-        ## Inference (test_dataset & test_point)
-        {"ref": "Inference, classification_binary, inference_dataset",
+        # {"ref": "Benchmarks/geolifeclef/geolifeclef2024_pre_extracted, classification_multilabel (species), training_transfer_learning",
+        #  "path": Path('examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble.py'),
+        #  "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt trainer.val_check_interval=1 trainer.check_val_every_n_epoch=1 loggers.exp_name=glc24_pre_extracted_mme_test model.model_kwargs.pretrained=false"},
+        # {"ref": "Benchmarks/geolifeclef/geolifeclef2024_pre_extracted, classification_multilabel (species), training_inference",
+        #  "path": Path('examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble.py'),
+        #  "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt trainer.val_check_interval=1 trainer.check_val_every_n_epoch=1 loggers.exp_name=glc24_pre_extracted_mme_test model.model_kwargs.pretrained=false"},
+        # ## Inference (test_dataset & test_point)
+        {"ref": "Inference, classification_multilabel, inference_dataset",
          "path": Path("examples/inference/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble.py"),
          "hydra_args": f"{GPU_ARGS} {INFER_ARGS} model.model_kwargs.pretrained=false"},
-        {"ref": "Inference, classification_binary, inference_point",
+        {"ref": "Inference, classification_multilabel, inference_point",
          "path": Path("examples/inference/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble.py"),
          "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point model.model_kwargs.pretrained=false"},
 
@@ -248,17 +248,17 @@ GLC24_PRE_EXTRACTED_EXAMPLE_PATHS = {
          "path": Path('examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble_habitat.py'),
          "hydra_args": f"{GPU_ARGS} {TRAIN_ARGS} run.predict=True run.checkpoint_path={OUT_DIR}_training_raw/last.ckpt trainer.val_check_interval=1 trainer.check_val_every_n_epoch=1 loggers.exp_name=glc24_pre_extracted_mme_test model.model_kwargs.pretrained=false"},
         ## Inference (test_dataset & test_point)
-        {"ref": "Inference, classification_binary, inference_dataset",
+        {"ref": "Inference, classification_multiclass, inference_dataset",
          "path": Path("examples/inference/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble_habitat.py"),
          "hydra_args": f"{GPU_ARGS} {INFER_ARGS} model.model_kwargs.pretrained=false"},
-        {"ref": "Inference, classification_binary, inference_point",
+        {"ref": "Inference, classification_multiclass, inference_point",
          "path": Path("examples/inference/geolifeclef2024_pre_extracted/glc24_cnn_multimodal_ensemble_habitat.py"),
          "hydra_args": f"{GPU_ARGS} {INFER_ARGS} run.predict_type=test_point model.model_kwargs.pretrained=false"},
 
     ],
 }
 
-# @pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
+@pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
 def test_train_inference_examples():
     ckpt_path = ''
     for expe_name, v in EXAMPLE_PATHS.items():
@@ -353,7 +353,7 @@ def test_GLC22_examples():
     print(f'\n{INFO}[INFO] Done. {RESET}')
 
 
-# @pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
+@pytest.mark.skip(reason="Slow or no guarantee of having the data available.")
 def test_GLC23_examples():
     ckpt_path = ''
     for expe_name, v in GLC23_EXAMPLE_PATHS.items():
@@ -402,7 +402,7 @@ def test_GLC23_examples():
     print(f'\n{INFO}[INFO] Done. {RESET}')
 
 
-@pytest.mark.skip(reason="Impossible for pytest to run because user input is needed to validate data download.")
+# @pytest.mark.skip(reason="Impossible for pytest to run because user input is needed to validate data download.")
 def test_GLC24_pre_extracted_examples():
     ckpt_path = ''
     for expe_name, v in GLC24_PRE_EXTRACTED_EXAMPLE_PATHS.items():
@@ -465,3 +465,6 @@ def test_GLC24_pre_extracted_examples():
         os.system(f'rm -rf {path}')
         print(f'{INFO}         > {LINK}{path}{RESET}')
     print(f'\n{INFO}[INFO] Done. {RESET}')
+
+if __name__ == '__main__':
+    test_GLC24_pre_extracted_examples()

@@ -85,7 +85,7 @@ class ClassificationSystemGLC24(ClassificationSystem):
                 elif 'multiclass' in task:
                     num_classes = metrics['multiclass_f1-score'].kwargs.num_classes
             loss_kwargs['pos_weight'] = Tensor([loss_kwargs['pos_weight']] * num_classes)
-        super().__init__(model, optimizer, metrics, task, loss_kwargs, hparams_preprocess, checkpoint_path)
+        super().__init__(model, optimizer=optimizer, metrics=metrics, task=task, loss_kwargs=loss_kwargs, hparams_preprocess=hparams_preprocess, checkpoint_path=checkpoint_path)
         if self.model.pretrained and not self.checkpoint_path:
             self.download_weights("https://lab.plantnet.org/seafile/f/d780d4ab7f6b419194f9/?dl=1",
                                   weights_dir,

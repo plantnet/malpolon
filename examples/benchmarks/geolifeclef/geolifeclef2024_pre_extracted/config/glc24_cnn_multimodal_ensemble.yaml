@@ -55,9 +55,6 @@ optimizer:
     adamw:
       kwargs:
         lr: 0.00025
-        weight_decay: 0
-        momentum: 0.9
-        nesterov: true
       scheduler:
         cosine_annealing_lr:
           kwargs:
