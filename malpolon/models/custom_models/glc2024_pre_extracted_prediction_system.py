@@ -92,23 +92,6 @@ class ClassificationSystemGLC24(ClassificationSystem):
                                   filename="pretrained.ckpt",
                                   md5="69111dd8013fcd8e8f4504def774f3a5")
 
-    # def configure_optimizers(self):
-    #     """Override default optimizer and scheduler.
-
-    #     By default, SGD is selected and the scheduler is handled by
-    #     PyTorch Lightning's default one.
-
-    #     Returns
-    #     -------
-    #     (dict)
-    #         dictionary containing keys for optimizer and scheduler,
-    #         passed on to PyTorch Lightning
-    #     """
-    #     scheduler = CosineAnnealingLR(self.optimizer, T_max=25, verbose=True)
-    #     res = {'optimizer': self.optimizer,
-    #            'lr_scheduler': scheduler}
-    #     return res
-
     def forward(self, x, y, z):  # noqa: D102 pylint: disable=C0116
         return self.model(x, y, z)
 

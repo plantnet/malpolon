@@ -221,7 +221,9 @@ def check_optimizer(optimizer: Union[Optimizer, OmegaConf],
     Returns
     -------
     Optimizer
-        list of instantiated optimizer(s)
+        list of instantiated optimizer(s) and corresponding scheduler(s)
+        (for each optimizer with no scheduler, None is the corresponding value
+        in the schedulers list).
     """
     optim_list = []
     scheduler_list = []
