@@ -1,5 +1,9 @@
-# Custom train examples
-This directory contains dummy examples of custom training scripts that you can re-use to train a model on your own dataset.
+# Getting started with examples
+The `benchmark/` directory contains experiments to train a model (or run predictions) on specific datasets (namely GeoLifeCLEF datasets).
+
+The `custom_train/` directory contains dummy examples of custom training scripts that you can re-use to train a model on your own dataset.
+
+The `inference/` directory contains expriments linking to existing trained models to run predictions on GeoLifeCLEF dataset or on your own.
 
 ## Architecture
 Each examples' main components and their interactions are illustrated in the following diagram:
@@ -27,9 +31,13 @@ To run an experiment as is, simply run:
 python <SCRIPT_NAME>.py
 ```
 
-### How to run a benchmark experiment ?
+### How to run benchmark examples
 <details>
   <summary><i><u>Click here to toggle instructions</u></i></summary>
+
+Benchmark examples are custom tailored experiments we created to showcase the capabilities of Malpolon on specific datasets. They are mostly focused on the GeoLifeClef challenges from years 2022 to 2024.
+
+There is no tuning to do to run these examples. You could even run the same models on your own dataset by exactly following the same data formats, structures and modalities.
 
 </details>
 
@@ -206,6 +214,8 @@ Your **parameters** for this run are stored in a `hparams.yaml` file.
 
 **Logs** are saved in a `<SCRIPT_NAME>.log` file.
 
+</details>
+
 ### How to run predictions (inference) ?
 
 There are 2 ways to run predictions on your mmodel.
@@ -230,5 +240,3 @@ For a quick test, you can also:
 - Update the value of `run.checkpoint_path` to `outputs/<SCRIPT_NAME>/<DATE>/last.ckpt`.
 - Comment in your script the inference part you don't need (test dataset or data point)
 - Find your inference outputs in the newest `outputs/<SCRIPT_NAME>/<DATE>/` folder and merge them with your training outputs folder.
-
-</details>
