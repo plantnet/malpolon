@@ -24,7 +24,7 @@ When ran, the script will call the 3 main components of the Malpolon library:
 Additionally, a **toolbox** of useful pre-processing scripts is available in the `utils/` directory at the project's root.
 
 
-## Usage
+## Usage (examples)
 To run an experiment as is, simply run:
 
 ```script
@@ -242,5 +242,98 @@ For a quick test, you can also:
 - Update the value of `run.checkpoint_path` to `outputs/<SCRIPT_NAME>/<DATE>/last.ckpt`.
 - Comment in your script the inference part you don't need (test dataset or data point)
 - Find your inference outputs in the newest `outputs/<SCRIPT_NAME>/<DATE>/` folder and merge them with your training outputs folder.
+
+</details>
+
+
+## Parameters configuration (config files)
+
+Each example contains a `.yaml` configuration file in the `config/` directory which is called by the main function of the experiment's script. All hyperparameters are specified in this configuration file, which is transformed into a dictionary by the [**Hydra**](https://hydra.cc/docs/intro/) library.
+
+You can parametrize your models and your training routine through your `.yaml` config file which is split in main sections:
+
+- **run**: parameters related to prediction and transfer learning\
+  This section is passed on to your PyTorchLightning checkpoint loading method.
+- **data**: data related information such as the path to your dataset or batch size.\
+  This section is passed on to your data module _(e.g. `Sentinel2TorchGeoDataModule`)_.
+- **task**: defines the type of deep learning task chosen for your experiment (currently only supporting any of `['classification_binary', 'classification_multiclass', 'classification_multilabel']`)\
+  This section is passed on to your prediction system _(e.g. `ClassificationSystem`)_. If 'multiclass' is chosen, the **loss** will be set to `CrossEntropyLoss`; otherwise it will be `BCEWithLogitsLoss`.
+- **trainer**: parameters to tweak your training session via PyTorchLightning Trainer class\
+  This section is passed on to your PyTorchLightning trainer.
+- **model**: defines which model you want to load, from which source, and contains models hyperparameters. You can pass any model hyperparameter listed in your provider's model builder.\
+  This section is passed on to your prediction system _(e.g. `ClassificationSystem`)_.
+- **optim**: your loss parameters optimizer, scheduler and metrics hyperparameters.\
+  This section is passed on to your prediction system _(e.g. `ClassificationSystem`)_.
+
+Hereafter is a detailed list of every sub parameters:
+
+<details>
+  <summary><i><u>Click here to expand sub parameters</u></i></summary>
+
+- **run**
+  - **predict** _(bool)_: If set to `true`, runs your example in inference mode; if set to `false`, runs your example in training mode.
+  - **checkpoint\_path** _(str)_: Path to the PyTorch checkpoint you wish to load weights from either for inference mode, for resuming training or perform transfer learning.
+
+- **data**
+  - **num_classes** _(int)_: Number of classes for your classification task. This argument acts as a variable which is re-used through the config file for convenience.
+  - **dataset\_path** _(str)_: path to the dataset. At the moment, patches and rasters should be directly put in this directory.
+  - **labels\_name** _(str)_: name of the file containing the labels which should be located in the same directory as the data.
+  - **download\_data\_sample** _(bool)_: If `true`, a small sample of the example's dataset will be downloaded (if not already on your machine); if `false`, will not.
+  - **train\_batch\_size** _(int)_: size of train batches.
+  - **inference\_batch\_size** _(int)_: size of inference batches.
+  - **num\_workers** _(int)_: number of worker processes to use for loading the data. When you set the “number of workers” parameter to a value greater than 0, the DataLoader will load data in parallel using multiple worker processes.
+  - **units** _(str)_: unit system of the queries performed on the dataset. This value should be equal to the units of your observations, which can be different from you dataset's unit system. Takes any value in [`'crs'`, `'pixel'`, `'m'`, `'meter'`, `'metre'`] as input.
+  - **crs** _(int)_: coordinate reference system of the queries performed on the dataset. This value should be equal to the CRS of your observations, which can be different from your dataset's CRS.
+  - **dataset_kwargs**\
+    Parameters forwarded to the dataset constructor. You may add any parameter in this section belonging to your dataset's constructor. Leave empty (None) to use the dataset's default parameter value.\
+    In this example, the dataset is a concatenation of two datasets: the `RasterBioclim` and the `PatchesDataset`, passed as a list of dictionaries.
+    - **item n°k**
+      - **callable** _(str)_: String containing the name of the class you want to call. Can be any class of `geolifeclef2024`, `torchgeo_datasets` or `torchgeo_sentinel2` modules.
+      - **kwargs** _(dict)_: Dictionary containing the parameters you want to pass to your callable class.
+    - ...
+
+- **task**
+  - **task** _(str)_: deep learning task to be performed. At the moment, can take any value in [`'classification_binary'`, `'classification_multiclass'`, `'classification_multilabel'`].
+
+- **trainer**
+  - **accelerator** _(str)_: Selects the type of hardware you want your example to run on. Either `'gpu'` or `'cpu'`.
+  - **devices** _(int)_: Defines how many accelerator devices you want to use for parallelization.
+  - **max_epochs** _(int)_: The maximum number of training epochs.
+  - **val_check_interval** _(int)_: How often within one training epoch to check the validation set.
+  - **check_val_every_n_epoch** _(int)_: Defines the interval of epochs on which validation should be performed throughout training.
+  - **log_every_n_steps** _(int)_: How often to log within one training step (defaults to 50).
+
+- **model**
+  - **provider\_name** _(str)_: Defines the source you want to load your models from. Models from the timm and torchvision repositories can be downloaded with or without pre-trained weights and are fully PyTorch compatible. Either `'timm'` or `'torchvision'`.
+  - **model\_name** _(str)_: Name of the model you wish your provider to retrieve. For a complete list of available models, please refer to [timm's](https://timm.fast.ai/) and [torchvision's](https://pytorch.org/vision/stable/models.html) documentations.
+  - **model_kwargs**\
+    Parameters forwarded to the model constructor. You may add any parameter in this section belonging to your model's constructor. Leave empty (None) to use the model's default parameter value.
+    - **pretrained** _(bool)_: If `true`, your model will be retrieved with pre-trained weights; if `false`, your model will be retrieved with no weights and training will have to be conducted from scratch.
+    - **num_classes** _(int)_: Number of classes for you classification task.
+    - **in\_chans** _(int)_: Number of input channels.
+    - **output\_stride** _(int)_: Output stride value for CNN models. This parameter defines how much the convolution window is shifted when performing convolution.
+    - **global\_pool** _(str)_: Type of global pooling. Takes any value in [`'avg'`, `'max'`, `'avgmax'`, `'catavgmax'`].
+    - ...
+  - **modifiers**\
+    Malpolon's modifiers you can call to modify your model's structure or behavior.
+    - **change\_first\_convolutional\_layer**
+      - **num\_input\_channels** _(int)_: Number of input channels you would like your model to take instead of its default value.
+    - **change_last_layer**
+      - **num\_outputs** _(int)_: Number of output channels you would like your model to have instead of its default value.
+
+- **optim**
+  - **loss_kwargs** (optional): any key-value arguments compatible with the selected loss function. See [PyTorch documentation](https://pytorch.org/docs/stable/nn.html#loss-functions) for the complete list of kwargs to your loss function.
+  - **optimizer** (optional): Name of your optimizer. If not provided, by default SGD is selected with the following arguments `[lr=1e-2, momentum=0.9, nesterov=True]`
+    - **_\<optimizer name\>_** (optional) _(str)_: Name of an optimizer you want to call. Can either be a custom name or one of the keys listed in `malpolon.models.utils.OPTIMIZERS_CALLABLES`
+      - **callable** (optional) _(str)_: Name of the optimizer you want to call.
+      - **kwargs** (optional): any key-value arguments compatible with the selected optimizer such as `lr` (learning rate). See [PyTorch documentation](https://pytorch.org/docs/stable/optim.html) for the complete list of kwargs to your optimizer.
+  - **metrics**
+    - **_\<metric name\>_**: The name of your metric. Can either be a custom name or one of the keys listed in `malpolon.models.utils.FMETRICS_CALLABLES`. In the latter case, the _callable_ argument is not required.
+      - **callable** (optional) _(str)_: Name of the TorchMetrics functional metric to call _(e.g.: `'torchmetrics.functional.classification.multiclass_accuracy'`)_. Find all functional metrics on the TorchMetrics documentation page such as [here](https://torchmetrics.readthedocs.io/en/stable/classification/accuracy.html#functional-interface) in the "functional Interface" section. Learn more about functional metrics [here](https://lightning.ai/docs/torchmetrics/stable/pages/quickstart.html#functional-metrics).
+      - **_kwargs_** (optional): any key-value arguments compatible with the selected metric such as `num_classes` or `threshold`. See [TorchMetrics documentation](https://lightning.ai/docs/torchmetrics/stable/all-metrics.html) for the complete list of kwargs to your metric.
+
+
+
+
 
 </details>
