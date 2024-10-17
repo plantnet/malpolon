@@ -5,7 +5,7 @@ This directory contains dummy examples of custom training scripts that you can r
 Each examples' main components and their interactions are illustrated in the following diagram:
 
 <div align="center">
-  <img src="../../docs/resources/malpolon_main_components.png" alt="malopolon_main_components">
+  <img src="../docs/resources/malpolon_main_components.png" alt="malopolon_main_components">
 </div>
 
 Every example contains a main Python script file running the training or prediction of a model.
@@ -21,13 +21,22 @@ Additionally, a **toolbox** of useful pre-processing scripts is available in the
 
 
 ## Usage
-To run a model as is, simply run:
+To run an experiment as is, simply run:
 
 ```script
 python <SCRIPT_NAME>.py
 ```
 
-### How to customize your example
+### How to run a benchmark experiment ?
+<details>
+  <summary><i><u>Click here to toggle instructions</u></i></summary>
+
+</details>
+
+
+### How to customize and train your example
+<details>
+  <summary><i><u>Click here to toggle instructions</u></i></summary>
 To create a custom example, we recommend you duplicate an example that best fits your use case and follow these steps:
 
 #### 0. Drop your data in `dataset/`
@@ -44,13 +53,13 @@ Update your `.yaml` config file in the `config/` directory to match your dataset
 import timm
 timm.list_models()
 ```
-or via torchvision head over to: https://pytorch.org/vision/0.17/models.html
+For `torchvision` head over to: https://pytorch.org/vision/0.17/models.html
 
 ---
 
-#### 2. Create a dataset class (optional)
+#### 2. Create a dataset class
 
-If your dataset structure or data format is not supported by any of the existing `Dataset` classes, you will need to write your own inheriting our base class `malpolon.data.data_module.BaseDataModule`.
+If your dataset structure or data format is not supported by any of the existing `Dataset` classes, you will need to write your own, inheriting at least our base class `malpolon.data.data_module.BaseDataModule`.
 
 See `malpolon.data.datasets` for examples.
 
@@ -58,7 +67,7 @@ See `malpolon.data.datasets` for examples.
 
 In your script file, update your `DataModule` class to use the correct dataset class by re-defining the `get_dataset()` method.
 
-Here is an example of a custom `DataModule` class inheriting `RasterGeoDataModule`:
+Here is an example of a custom `DataModule` class inheriting `RasterGeoDataModule` before the `main` function:
 
 <details open>
   <summary><i><u>Click here to toggle instructions</u></i></summary>
@@ -174,9 +183,52 @@ class CustomDataModule(RasterGeoDataModule):
 
 #### 4. Call your custom data module
 
-In your script, update the line instanciating your datamodule to use your custom class:
+In your script `main` function, update the line instanciating your datamodule to use your custom class:
 
 ```python
 # Datamodule & Model
 datamodule = CustomDataModule(**cfg.data, **cfg.task)
 ```
+
+#### 5. Look at your results
+
+Your model weights, logs, metrics and predictions will be saved in the `outputs/<SCRIPT_NAME>/<DATE>/` folder.
+
+**Weights** are stored in a PyTorch checkpoint file either named `last.ckpt` or `pretrained.ckpt`.
+
+**Metrics** are saved in a `metrics.csv` file. Additionally, by default they are logged in a TensorBoard file which you can view by running the following command in a terminal:
+```script
+tensorboard --logdir tensorboard_logs/
+```
+and then `ctrl+click` on the `localhost` link that appears in the terminal.
+
+Your **parameters** for this run are stored in a `hparams.yaml` file.
+
+**Logs** are saved in a `<SCRIPT_NAME>.log` file.
+
+### How to run predictions (inference) ?
+
+There are 2 ways to run predictions on your mmodel.
+
+1. **The recommended way**
+
+- Create a new directory under `examples/inference/` containing your example script.
+- Create symbolic links to your dataset and training outputs (Linux/Mac command lines):
+  - `ln -s ../../custom_train/<EXAMPLE_NAME>/dataset/ dataset`
+  - `ln -s ../../custom_train/<EXAMPLE_NAME>/outputs/ outputs_training`
+- Copy your config file and:
+  - Change the key `run.predict` to `run.predict_type` with either `test_dataset` or `test_point` as value.
+  - Update the value of `run.checkpoint_path` to `outputs_training/<SCRIPT_NAME>/<DATE>/last.ckpt`.
+
+Then run your script as usual.
+
+1. **The manual way**
+
+For a quick test, you can also:
+
+- Update the `run.predict` key in your config file to `false`.
+- Update the value of `run.checkpoint_path` to `outputs/<SCRIPT_NAME>/<DATE>/last.ckpt`.
+- Comment in your script the inference part you don't need (test dataset or data point)
+- Find your inference outputs in the newest `outputs/<SCRIPT_NAME>/<DATE>/` folder and merge them with your training outputs folder.
+
+</details>
