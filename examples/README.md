@@ -265,7 +265,7 @@ You can parametrize your models and your training routine through your `.yaml` c
 - **optim**: your loss parameters optimizer, scheduler and metrics hyperparameters.\
   This section is passed on to your prediction system _(e.g. `ClassificationSystem`)_.
 
-Hereafter is a detailed list of every sub parameters (blue entries are dataset-specific):
+Hereafter is a detailed list of every sub parameters (<a style="color:DodgerBlue;">blue entries are dataset-specific</a>):
 
 <details>
   <summary><i><u>Click here to expand sub parameters</u></i></summary>

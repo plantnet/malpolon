@@ -109,6 +109,9 @@ pip install -r requirements_python3.10.txt
 
 - **Via `conda`**
 
+⚠️ Be aware that conda recently changed its licensing and you may subject to fees, or be limited in downloads. Sources: [anaconda website](https://www.anaconda.com/blog/update-on-anacondas-terms-of-service-for-academia-and-research),
+[datacamp blog recap](https://www.datacamp.com/blog/navigating-anaconda-licensing) ⚠️
+
 You can also use `conda` to install your packages.
 
 ```script
