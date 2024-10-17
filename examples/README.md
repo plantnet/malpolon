@@ -217,6 +217,8 @@ Your **parameters** for this run are stored in a `hparams.yaml` file.
 </details>
 
 ### How to run predictions (inference) ?
+<details>
+  <summary><i><u>Click here to toggle instructions</u></i></summary>
 
 There are 2 ways to run predictions on your mmodel.
 
@@ -240,3 +242,5 @@ For a quick test, you can also:
 - Update the value of `run.checkpoint_path` to `outputs/<SCRIPT_NAME>/<DATE>/last.ckpt`.
 - Comment in your script the inference part you don't need (test dataset or data point)
 - Find your inference outputs in the newest `outputs/<SCRIPT_NAME>/<DATE>/` folder and merge them with your training outputs folder.
+
+</details>
