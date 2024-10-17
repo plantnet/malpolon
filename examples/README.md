@@ -21,7 +21,7 @@ When ran, the script will call the 3 main components of the Malpolon library:
 2. **Data Module**: loads and preprocesses the data; makes the bridge between the dataset and the model trainer; holds any data-related hyperparameters _(batch size, number of workers, data transform functions...)_
 3. **Model**: defines the neural network architecture; holds any model-related hyperparameters & objects _(loss function, optimizer, metrics, model size...)_
 
-Additionally, a **toolbox** of useful pre-processing scripts is available in the `utils/` directory at the project's root.
+Additionally, a **toolbox** containing useful data pre-processing scripts is available at the project's root.
 
 
 ## Usage (examples)
