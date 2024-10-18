@@ -50,11 +50,23 @@ model:
     change_last_layer:
       num_outputs: *num_classes
 
-optimizer:
-  lr: 1e-2
-  weight_decay: 0
-  momentum: 0.9
-  nesterov: true
+optim:
+  optimizer:
+    sgd:  # ['adam', 'sgd', 'adamw', 'adadelta', 'adagrad', 'adamax', 'rmsprop']
+      # callable: 'optim.SGD'
+      kwargs:
+        lr: 1e-2
+        weight_decay: 0
+        momentum: 0.9
+        nesterov: true
+      scheduler:  # Optional, delete key or leave empty to not use any learning rate scheduler
+        reduce_lr_on_plateau:
+          # callable: 'lr_scheduler.reduce_lr_on_plateau'
+          kwargs:
+            threshold: 0.001
+          lr_scheduler_config:
+            scheduler: reduce_lr_on_plateau  # Optional, the scheduler to use is the parent key
+            monitor: loss/val  # ['loss/train', 'loss/val', '<metric>/train', '<metric>/val', ...]
   metrics:
     # binary_accuracy:
     #   # callable: 'Fmetrics.accuracy'
@@ -66,4 +78,4 @@ optimizer:
     multilabel_accuracy:
       # callable: 'Fmetrics.classification.multilabel_accuracy'
       kwargs:
-        num_labels: *num_classes
+        num_labels: ${data.num_classes}
