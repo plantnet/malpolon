@@ -13,7 +13,7 @@ trainer:
 run:
   predict: true
   checkpoint_path: "outputs/cnn_on_rgbnir_glc23_patches_multilabel/2024-02-21_17-40-10/checkpoint-epoch=02-step=39-val_multilabel_accuracy=0.6204.ckpt"
-                                                                                                                                       
+
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
   model_name: "resnet18"
@@ -29,11 +29,15 @@ model:
     change_last_layer:
       num_outputs: 96
 
-optimizer:
-  lr: 1e-2
-  weight_decay: 0
-  momentum: 0.9
-  nesterov: true
+optim:
+  optimizer:
+    sgd:  # ['adam', 'sgd', 'adamw', 'adadelta', 'adagrad', 'adamax', 'rmsprop']
+      # callable: 'optim.SGD'
+      kwargs:
+        lr: 1e-2
+        weight_decay: 0
+        momentum: 0.9
+        nesterov: true
   metrics:
     multilabel_accuracy:
       # callable: 'Fmetrics.classification.multilabel_accuracy'
@@ -56,7 +60,7 @@ data:
   inference_batch_size: 2
   num_workers: 8
   units: "pixel"
-  crs: 4326 
+  crs: 4326
 
 task:
-  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+  task: 'classification_multiclass'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']

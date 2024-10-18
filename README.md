@@ -26,7 +26,7 @@ If you're not a deep learning or PyTorch expert but nonetheless want to use visu
 
 ## 🧭 Usage
 
-Malpolon is destined to be used by various user profiles, some more experimented than others. To this end, we provide several examples of usage of the framework, organized by use case or _scenarios_. These examples can be found in the `examples` folder of the repository, each with a README file for more details on how to use the scripts.
+Malpolon is destined to be used by various user profiles, some more experimented than others. To this end, we provide several examples of usage of the framework, organized by use case or _scenarios_. These examples can be found in the `examples` folder of the repository, each with a README file for more details on how to use the scripts. Additionally, check out our guide "[**Getting started with examples**](examples/)".
 
 Here is a list of the currently available scenarios:
 
@@ -108,6 +108,9 @@ pip install -r requirements_python3.10.txt
 ```
 
 - **Via `conda`**
+
+⚠️ Be aware that conda recently changed its licensing and you may subject to fees, or be limited in downloads. Sources: [anaconda website](https://www.anaconda.com/blog/update-on-anacondas-terms-of-service-for-academia-and-research),
+[datacamp blog recap](https://www.datacamp.com/blog/navigating-anaconda-licensing) ⚠️
 
 You can also use `conda` to install your packages.
 
