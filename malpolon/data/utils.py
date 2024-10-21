@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 import re
 from copy import deepcopy
-from typing import Iterable, Union
+from typing import Iterable, Union, Callable
 
 import numpy as np
 import pandas as pd
@@ -293,3 +293,26 @@ def split_obs_per_species_frequency(input_path: str,
     else:
         print(f'Rare classes were not included in val. '
               f'{indivisible_sid_n_rows} rows were not included in val due to indivisibility by {val_ratio} (too few observations to split in at least 1 obs train / 1 obs val).')
+
+
+
+def check_transform(transform: Union[Callable, str]) -> Callable:
+    """Ensure provided transform is a callable.
+
+    Parameters
+    ----------
+    transform : Union[Callable, str]
+        Transform as provided by config file
+
+    Returns
+    -------
+    Callable to be applied to data.
+
+    """
+    if isinstance(transform, Callable):
+        return transform
+    elif isinstance(transform, str):
+        return eval(transform)
+    elif transform is None:
+        return None
+    raise ValueError(f"Transform must be provided as evaluable str.")
