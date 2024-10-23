@@ -342,3 +342,15 @@ Hereafter is a detailed list of every sub parameters (<a style="color:DodgerBlue
         - ...
 
 </details>
+
+## ⚒️ Troubleshooting
+### `ValueError: Expected more than 1 value per channel when training, got input size torch.Size([1, 256, 1, 1])`
+
+This error might occur when your model is trying to perform a forward pass on a layer which encounters division by 0 because of how small the data is.
+
+Typically, a ResNet block cannot run a `batch_norm` operation on a tensor of size `[1, 256, 1, 1]` because for each of the 256 channels, there is only 1 value to normalize. Since the operation is `value - mean / std`, the std is 0 and the operation is impossible.
+
+To solve this issue, you can either:
+- **Increase the batch size** of your dataloader. A small batch size can lead to the last one containing only 1 element _e.g.: a dataset of 99 elements with batch size of 2. Increasing the batch size to 4 would leave a remainder of 3 elements in the last batch [3, 256, 1, 1]_.
+- **Increase the input size of your data** so that the encoding layers don't reduce the size too much _e.g.: a patch size of 64 leads to [1, 256, 4, 4]_
+- **Change the model architecture** by removing the `batch_norm` layers (can lead to further issues).
