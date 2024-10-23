@@ -180,7 +180,11 @@ The result can be found in `docs/_build/html`.
 Commonly encountered errors when using the framework are compiled [here](examples/README.md#⚒️-troubleshooting).
 
 ## 🚀 Contributing
+- **Guidelines**
+
 Issues and PR templates are provided to help you start a contribution to the project.
+
+- **Unit tests**
 
 When submitting, make sure the unit tests all pass without errors. These tests are located at `malpolon/tests/` and can be ran all at once via command line:
 
@@ -198,6 +202,9 @@ if __name__ == '__main__':
 **This is especially useful for `malpolon/tests/test_examples.py` which tests all the provided examples**, ensuring they do not crash. However, these **require having all the datasets and take a while to run**. Some data you might not have local access to.\
 To skip a test function, add a decorator `@pytest.mark.skip()` above the function definition.
 
+- **Linting**
+
+Likewise, do care about writing a clean code. The project uses `flake8`, `Pylint` and `Pydocstyle` to check the good formatting and documentation of your code.
 
 ## 🚆 Roadmap
 
