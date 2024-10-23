@@ -61,7 +61,7 @@ def main(cfg: DictConfig):
 
     # Datamodule & Model
     datamodule = GLC24DatamoduleHabitats(**cfg.data, **cfg.task)
-    classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optimizer, **cfg.task,
+    classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optim, **cfg.task,
                                                checkpoint_path=cfg.run.checkpoint_path,
                                                weights_dir=log_dir,
                                                num_classes=cfg.data.num_classes)  # multiclass
