@@ -180,19 +180,32 @@ The result can be found in `docs/_build/html`.
 Commonly encountered errors when using the framework are compiled [here](examples/README.md#⚒️-troubleshooting).
 
 ## 🚀 Contributing
-- **Guidelines**
+### **Guidelines**
 
 Issues and PR templates are provided to help you start a contribution to the project.
 
-- **Unit tests**
+A checking script is also provided and can run checks relative to the 2 next sections with the following command:
 
-When submitting, make sure the unit tests all pass without errors. These tests are located at `malpolon/tests/` and can be ran all at once via command line:
-
-```python
-pytest malpolon/tests/
+```bash
+./checkMyCode all
 ```
 
-Or individually via `python malpolon/tests/test_<module>.py`. In that case, make sure to modify the files to call the functions you want to test with
+### **Unit tests**
+<details>
+  <summary><i><u>Click here to expand instructions</u></i></summary>
+
+When submitting, make sure the unit tests all pass without errors. These tests are located at `malpolon/tests/` and can be ran all at once, with a code coverage estimation, via command line:
+
+```bash
+./checkMyCode.sh t  # or `pytest malpolon/tests/`
+```
+Specify a file path as argument to run a single test file:
+
+```bash
+./checkMyCode.sh malpolon/tests/<TEST_FILE>.py  # or `pytest malpolon/tests/<TEST_FILE>.py`
+```
+
+Run individual test functions via `python malpolon/tests/test_<module>.py` by modifying the files beforehand to call the functions you want to test with:
 
 ```python
 if __name__ == '__main__':
@@ -202,9 +215,25 @@ if __name__ == '__main__':
 **This is especially useful for `malpolon/tests/test_examples.py` which tests all the provided examples**, ensuring they do not crash. However, these **require having all the datasets and take a while to run**. Some data you might not have local access to.\
 To skip a test function, add a decorator `@pytest.mark.skip()` above the function definition.
 
-- **Linting**
+</details>
 
-Likewise, do care about writing a clean code. The project uses `flake8`, `Pylint` and `Pydocstyle` to check the good formatting and documentation of your code.
+### **Linting**
+
+<details>
+  <summary><i><u>Click here to expand instructions</u></i></summary>
+
+Likewise, do care about writing a clean code. The project uses `flake8`, `Pylint` and `Pydocstyle` to check the good formatting and documentation of your code. To run linters check on your code you can either run each of these library independently or use the checking script:
+
+```bash
+./checkMyCode.sh l
+```
+
+Run linters on non-test file(s) :
+
+```bash
+./checkMyCode.sh <FILE_PATH_1> <FILE_PATH_2>
+```
+</details>
 
 ## 🚆 Roadmap
 
