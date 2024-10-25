@@ -486,12 +486,12 @@ class RegressionSystem(GenericPredictionSystem):
         self.checkpoint_path = checkpoint_path
         model = check_model(model)
 
-        optimizer = torch.optim.SGD(
+        optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=self.lr,
             weight_decay=self.weight_decay,
-            momentum=self.momentum,
-            nesterov=self.nesterov,
+            #momentum=self.momentum,
+            #nesterov=self.nesterov,
         )
         loss = check_loss(loss)(**loss_kwargs)
 
