@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING
 import timm
 from torch import nn
 from torchvision import models
-from terratorch.models.prithvi_model_factory import PrithviModelFactory
 
 from malpolon.models.custom_models.glc2024_multimodal_ensemble_model import \
     MultimodalEnsemble
@@ -158,13 +157,6 @@ def timm_model_provider(
         )
     return model
 
-
-def terra_model_provider(model_name, *model_args: Any, **model_kwargs: Any
-) -> nn.Module:
-
-    model = PrithviModelFactory().build_model(backbone=model_name, *model_args, **model_kwargs)
-
-    return(model)
 
 
 def malpolon_model_provider(
@@ -344,7 +336,7 @@ ModelBuilder = _ModelBuilder()
 ModelBuilder.register_provider("torchvision", torchvision_model_provider)
 ModelBuilder.register_provider("timm", timm_model_provider)
 ModelBuilder.register_provider("malpolon", malpolon_model_provider)
-ModelBuilder.register_provider("terra", terra_model_provider)
+
 
 ModelBuilder.register_modifier(
     "change_first_convolutional_layer",
