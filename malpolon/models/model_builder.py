@@ -158,7 +158,6 @@ def timm_model_provider(
     return model
 
 
-
 def malpolon_model_provider(
     model_name: str, *model_args: Any, **model_kwargs: Any
 ) -> nn.Module:
@@ -336,7 +335,6 @@ ModelBuilder = _ModelBuilder()
 ModelBuilder.register_provider("torchvision", torchvision_model_provider)
 ModelBuilder.register_provider("timm", timm_model_provider)
 ModelBuilder.register_provider("malpolon", malpolon_model_provider)
-
 
 ModelBuilder.register_modifier(
     "change_first_convolutional_layer",
