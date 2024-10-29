@@ -13,7 +13,7 @@ import pytorch_lightning as pl
 import torch
 import torchmetrics.functional as Fmetrics
 from torchvision.datasets.utils import (download_and_extract_archive,
-                                        download_url, extract_archive)
+                                        download_url)
 
 from malpolon.models.utils import check_metric
 
@@ -74,7 +74,7 @@ class GenericPredictionSystem(pl.LightningModule):
         self.loss = check_loss(loss)
         self.metrics = metrics or {}
         if len(self.optimizer) > 1:
-            print(f'[INFO] Multiple optimizers detected: setting automatic optimization to False... you are responsible for calling ``.backward()``, ``.step()``, ``.zero_grad()`` of your prediction system.')
+            print('[INFO] Multiple optimizers detected: setting automatic optimization to False... you are responsible for calling ``.backward()``, ``.step()``, ``.zero_grad()`` of your prediction system.')
             self.automatic_optimization = False
 
     def _check_integrity(self, fp: str) -> bool:

@@ -12,10 +12,8 @@ import omegaconf
 import torch
 from omegaconf import OmegaConf
 from torch import Tensor
-from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from malpolon.models.standard_prediction_systems import ClassificationSystem
-from malpolon.models.utils import check_optimizer
 
 
 class ClassificationSystemGLC24(ClassificationSystem):
@@ -103,7 +101,7 @@ class ClassificationSystemGLC24(ClassificationSystem):
         else:
             log_kwargs = {"on_step": True, "on_epoch": True, "sync_dist": True}
 
-        x_landsat, x_bioclim, x_sentinel, y, survey_id = batch
+        x_landsat, x_bioclim, x_sentinel, y, _ = batch  # x_landsat, x_bioclim, x_sentinel, y, survey_id
         y_hat = self(x_landsat, x_bioclim, x_sentinel)
 
         if 'pos_weight' in dir(self.loss):
@@ -126,5 +124,5 @@ class ClassificationSystemGLC24(ClassificationSystem):
         return loss
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):  # noqa: D102 pylint: disable=C0116
-        x_landsat, x_bioclim, x_sentinel, y, survey_id = batch
+        x_landsat, x_bioclim, x_sentinel, _, _ = batch  # x_landsat, x_bioclim, x_sentinel, y, survey_id
         return self(x_landsat, x_bioclim, x_sentinel)

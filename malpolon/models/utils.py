@@ -166,7 +166,7 @@ def check_scheduler(scheduler: Union[LRScheduler, dict],
         dictionary of LR scheduler config
     """
     if scheduler is None:
-        return
+        return None
 
     lr_sch_config = {'scheduler': None}
 
