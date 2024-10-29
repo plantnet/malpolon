@@ -26,7 +26,7 @@ If you're not a deep learning or PyTorch expert but nonetheless want to use visu
 
 ## 🧭 Usage
 
-Malpolon is destined to be used by various user profiles, some more experimented than others. To this end, we provide several examples of usage of the framework, organized by use case or _scenarios_. These examples can be found in the `examples` folder of the repository, each with a README file for more details on how to use the scripts.
+Malpolon is destined to be used by various user profiles, some more experimented than others. To this end, we provide several examples of usage of the framework, organized by use case or _scenarios_. These examples can be found in the `examples` folder of the repository, each with a README file for more details on how to use the scripts. Additionally, check out our guide "[**Getting started with examples**](examples/)".
 
 Here is a list of the currently available scenarios:
 
@@ -109,6 +109,9 @@ pip install -r requirements_python3.10.txt
 
 - **Via `conda`**
 
+⚠️ Be aware that conda recently changed its licensing and you may subject to fees, or be limited in downloads. Sources: [anaconda website](https://www.anaconda.com/blog/update-on-anacondas-terms-of-service-for-academia-and-research),
+[datacamp blog recap](https://www.datacamp.com/blog/navigating-anaconda-licensing) ⚠️
+
 You can also use `conda` to install your packages.
 
 ```script
@@ -172,6 +175,66 @@ make -C docs html
 
 The result can be found in `docs/_build/html`.
 
+
+## ⚒️ Troubleshooting
+Commonly encountered errors when using the framework are compiled [here](examples/README.md#⚒️-troubleshooting).
+
+## 🚀 Contributing
+### **Guidelines**
+
+Issues and PR templates are provided to help you start a contribution to the project.
+
+A checking script is also provided and can run checks relative to the 2 next sections with the following command:
+
+```bash
+./checkMyCode all
+```
+
+### **Unit tests**
+<details>
+  <summary><i><u>Click here to expand instructions</u></i></summary>
+
+When submitting, make sure the unit tests all pass without errors. These tests are located at `malpolon/tests/` and can be ran all at once, with a code coverage estimation, via command line:
+
+```bash
+./checkMyCode.sh t  # or `pytest malpolon/tests/`
+```
+Specify a file path as argument to run a single test file:
+
+```bash
+./checkMyCode.sh malpolon/tests/<TEST_FILE>.py  # or `pytest malpolon/tests/<TEST_FILE>.py`
+```
+
+Run individual test functions via `python malpolon/tests/test_<module>.py` by modifying the files beforehand to call the functions you want to test with:
+
+```python
+if __name__ == '__main__':
+  test_my_function()
+```
+
+**This is especially useful for `malpolon/tests/test_examples.py` which tests all the provided examples**, ensuring they do not crash. However, these **require having all the datasets and take a while to run**. Some data you might not have local access to.\
+To skip a test function, add a decorator `@pytest.mark.skip()` above the function definition.
+
+</details>
+
+### **Linting**
+
+<details>
+  <summary><i><u>Click here to expand instructions</u></i></summary>
+
+Likewise, do care about writing a clean code. The project uses `flake8`, `Pylint` and `Pydocstyle` to check the good formatting and documentation of your code. To run linters check on your code you can either run each of these library independently or use the checking script:
+
+```bash
+./checkMyCode.sh l
+```
+
+Run linters on non-test file(s) :
+
+```bash
+./checkMyCode.sh <FILE_PATH_1> <FILE_PATH_2>
+```
+</details>
+
 ## 🚆 Roadmap
 
 This roadmap outlines the planned features and milestones for the project. Please note that the roadmap is subject to change and may be updated as the project progress.
@@ -219,19 +282,6 @@ Here is an overview of the main Python librairies used in this project.
 * [![Matplotlib](https://img.shields.io/badge/Matplotlib-%2311557C.svg?logo=matplotlib&logoColor=white)](https://matplotlib.org/) - For displaying purposes
 * [![Hydra](https://img.shields.io/badge/Hydra-%23729DB1.svg?logo=hydra&logoColor=white)](https://hydra.cc/docs/intro/) - To handle models' hyperparameters
 * [![Cartopy](https://img.shields.io/badge/Cartopy-%2300A1D9.svg?logo=cartopy&logoColor=white)](https://scitools.org.uk/cartopy/docs/latest/) - To handle geographical data
-
-
-## ⚒️ Troubleshooting
-### `ValueError: Expected more than 1 value per channel when training, got input size torch.Size([1, 256, 1, 1])`
-
-This error might occur when your model is trying to perform a forward pass on a layer which encounters division by 0 because of how small the data is.
-
-Typically, a ResNet block cannot run a `batch_norm` operation on a tensor of size `[1, 256, 1, 1]` because for each of the 256 channels, there is only 1 value to normalize. Since the operation is `value - mean / std`, the std is 0 and the operation is impossible.
-
-To solve this issue, you can either:
-- **Increase the batch size** of your dataloader. A small batch size can lead to the last one containing only 1 element _e.g.: a dataset of 99 elements with batch size of 2. Increasing the batch size to 4 would leave a remainder of 3 elements in the last batch [3, 256, 1, 1]_.
-- **Increase the input size of your data** so that the encoding layers don't reduce the size too much _e.g.: a patch size of 64 leads to [1, 256, 4, 4]_
-- **Change the model architecture** by removing the `batch_norm` layers (can lead to further issues).
 
 ## Acknowledgments
 

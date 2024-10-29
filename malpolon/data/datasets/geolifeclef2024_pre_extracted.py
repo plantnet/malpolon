@@ -145,15 +145,16 @@ class TrainDataset(Dataset):
     """
     num_classes = 11255
 
-    def __init__(self,
-                 metadata: pd.DataFrame,
-                 num_classes: int = 11255,
-                 bioclim_data_dir: str = None,
-                 landsat_data_dir: str = None,
-                 sentinel_data_dir: str = None,
-                 transform: Callable = None,
-                 task: str = 'classification_multilabel',
-                 **kwargs,
+    def __init__(
+        self,
+        metadata: pd.DataFrame,
+        num_classes: int = 11255,
+        bioclim_data_dir: str = None,
+        landsat_data_dir: str = None,
+        sentinel_data_dir: str = None,
+        transform: Callable = None,
+        task: str = 'classification_multilabel',
+        **kwargs,
     ):
         """Class constructor.
 
@@ -241,14 +242,15 @@ class TestDataset(TrainDataset):
     """
     __test__ = False
 
-    def __init__(self,
-                 metadata: pd.DataFrame,
-                 num_classes: int = 11255,
-                 bioclim_data_dir: str = None,
-                 landsat_data_dir: str = None,
-                 sentinel_data_dir: str = None,
-                 transform: Callable = None,
-                 task: str = 'classification_multilabel'
+    def __init__(
+        self,
+        metadata: pd.DataFrame,
+        num_classes: int = 11255,
+        bioclim_data_dir: str = None,
+        landsat_data_dir: str = None,
+        sentinel_data_dir: str = None,
+        transform: Callable = None,
+        task: str = 'classification_multilabel'
     ):
         """Class constructor.
 
@@ -358,10 +360,11 @@ class GLC24Datamodule(BaseDataModule):
             self.download()
         self.task = task
 
-    def get_dataset(self,
-                    split: str,
-                    transform: Callable,
-                    **kwargs
+    def get_dataset(
+        self,
+        split: str,
+        transform: Callable,
+        **kwargs
     ):
         """Dataset getter.
 

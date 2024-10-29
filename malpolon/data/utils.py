@@ -7,12 +7,12 @@ from __future__ import annotations
 
 import os
 import re
-from copy import deepcopy
 from typing import Iterable, Union
 
 import numpy as np
 import pandas as pd
 from shapely import Point, Polygon
+from sklearn.preprocessing import LabelEncoder
 from torchgeo.datasets import BoundingBox
 from tqdm import tqdm
 from verde import train_test_split as spatial_tts
@@ -285,8 +285,8 @@ def split_obs_per_species_frequency(input_path: str,
     pa_train_val.to_csv(f'{output_name}_split-{val_ratio*100}%_all.csv', index=False)
     print('Exported train_without_val, val, and train_val_split_by_species_frequency csvs.')
 
-    rare_cls = label_encoder.inverse_transform(u_cls_sorted_desc[0])[np.where(u_cls_sorted_desc[1]<(1/val_ratio))]
-    rare_cls_counts = u_cls_sorted_desc[1][np.where(u_cls_sorted_desc[1]<(1/val_ratio))]
+    rare_cls = label_encoder.inverse_transform(u_cls_sorted_desc[0])[np.where(u_cls_sorted_desc[1] < (1 / val_ratio))]
+    rare_cls_counts = u_cls_sorted_desc[1][np.where(u_cls_sorted_desc[1] < (1 / val_ratio))]
     print(f'Rare classes were detected in the dataset: {dict(zip(rare_cls, rare_cls_counts))}')
     if keep_rares:
         print(f'{keep_rares} occurrences of rare classes have been included in val (if they contain at least {keep_rares + 1} occurrences).')

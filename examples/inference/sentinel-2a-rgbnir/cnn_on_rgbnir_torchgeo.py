@@ -38,7 +38,7 @@ def main(cfg: DictConfig) -> None:
 
     # Datamodule & Model
     datamodule = Sentinel2TorchGeoDataModule(**cfg.data, **cfg.task)
-    classif_system = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task)
+    classif_system = ClassificationSystem(cfg.model, **cfg.optim, **cfg.task)
     model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
                                                              model=classif_system.model,
                                                              hparams_preprocess=False)
