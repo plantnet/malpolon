@@ -40,6 +40,26 @@ class GenericPredictionSystem(pl.LightningModule):
         metrics: Optional[dict[str, Callable]] = None,
         save_hyperparameters: Optional[bool] = True,
     ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        model : Union[torch.nn.Module, Mapping]
+            Model to use.
+        loss : torch.nn.modules.loss._Loss
+             Loss used to fit the model.
+        optimizer : Union[torch.optim.Optimizer, Mapping]
+            Optimization algorithm(s) used to train the model. There can be
+            several optimizers passed as an Omegaconf mapping.
+        scheduler : Union[torch.optim.Optimizer, Mapping], optional
+            Learning rate scheduler(s) used to train the model. There can be
+            several schedulers passed as an Omegaconf mapping., by default None
+        metrics : Optional[dict[str, Callable]], optional
+            Dictionary containing the metrics to monitor during the training and
+            to compute at test time., by default None
+        save_hyperparameters : Optional[bool], optional
+            Save arguments to hparams attribute., by default True
+        """
         if save_hyperparameters:
             self.save_hyperparameters(ignore=['model', 'loss'])
         # Must be placed before the super call (or anywhere in other inheriting
