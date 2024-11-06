@@ -24,7 +24,7 @@ examples/inference/sentinel-2a-rgbnir/outputs/*
 
 examples/benchmarks/geolifeclef/geolifeclef2022/dataset
 examples/benchmarks/geolifeclef/geolifeclef2024/dataset
-examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/dataset
+# examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/dataset
 
 examples/benchmarks/cifar-10/dataset/*
 examples/benchmarks/cifar-10/outputs/*
