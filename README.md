@@ -26,7 +26,7 @@ If you're not a deep learning or PyTorch expert but nonetheless want to use visu
 
 ## 🧭 Usage
 
-Malpolon is destined to be used by various user profiles, some more experimented than others. To this end, we provide several examples of usage of the framework, organized by use case or _scenarios_. These examples can be found in the `examples` folder of the repository, each with a README file for more details on how to use the scripts.
+Malpolon is destined to be used by various user profiles, some more experimented than others. To this end, we provide several examples of usage of the framework, organized by use case or _scenarios_. These examples can be found in the `examples` folder of the repository, each with a README file for more details on how to use the scripts. Additionally, check out our guide "[**Getting started with examples**](examples/)".
 
 Here is a list of the currently available scenarios:
 
@@ -40,6 +40,7 @@ Here is a list of the currently available scenarios:
   - <u>Custom dataset</u> : I have my own dataset consisting of pre-extracted image patches and/or rasters and I want to train a model on it.
 - [**Inference**](examples/inference/) : I have an observations file (.csv) and I want to predict the presence of species on a given area using a model I trained previously and a selected dataset or a shapefile I would provide.
 
+## ⚙️ Installation
 ## ⚙️ Installation
 
 To install malpolon, you will first need to install **Python ≥ 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
@@ -109,6 +110,9 @@ pip install -r requirements_python3.10.txt
 
 - **Via `conda`**
 
+⚠️ Be aware that conda recently changed its licensing and you may subject to fees, or be limited in downloads. Sources: [anaconda website](https://www.anaconda.com/blog/update-on-anacondas-terms-of-service-for-academia-and-research),
+[datacamp blog recap](https://www.datacamp.com/blog/navigating-anaconda-licensing) ⚠️
+
 You can also use `conda` to install your packages.
 
 ```script
@@ -172,6 +176,66 @@ make -C docs html
 
 The result can be found in `docs/_build/html`.
 
+
+## ⚒️ Troubleshooting
+Commonly encountered errors when using the framework are compiled [here](examples/README.md#⚒️-troubleshooting).
+
+## 🚀 Contributing
+### **Guidelines**
+
+Issues and PR templates are provided to help you start a contribution to the project.
+
+A checking script is also provided and can run checks relative to the 2 next sections with the following command:
+
+```bash
+./checkMyCode all
+```
+
+### **Unit tests**
+<details>
+  <summary><i><u>Click here to expand instructions</u></i></summary>
+
+When submitting, make sure the unit tests all pass without errors. These tests are located at `malpolon/tests/` and can be ran all at once, with a code coverage estimation, via command line:
+
+```bash
+./checkMyCode.sh t  # or `pytest malpolon/tests/`
+```
+Specify a file path as argument to run a single test file:
+
+```bash
+./checkMyCode.sh malpolon/tests/<TEST_FILE>.py  # or `pytest malpolon/tests/<TEST_FILE>.py`
+```
+
+Run individual test functions via `python malpolon/tests/test_<module>.py` by modifying the files beforehand to call the functions you want to test with:
+
+```python
+if __name__ == '__main__':
+  test_my_function()
+```
+
+**This is especially useful for `malpolon/tests/test_examples.py` which tests all the provided examples**, ensuring they do not crash. However, these **require having all the datasets and take a while to run**. Some data you might not have local access to.\
+To skip a test function, add a decorator `@pytest.mark.skip()` above the function definition.
+
+</details>
+
+### **Linting**
+
+<details>
+  <summary><i><u>Click here to expand instructions</u></i></summary>
+
+Likewise, do care about writing a clean code. The project uses `flake8`, `Pylint` and `Pydocstyle` to check the good formatting and documentation of your code. To run linters check on your code you can either run each of these library independently or use the checking script:
+
+```bash
+./checkMyCode.sh l
+```
+
+Run linters on non-test file(s) :
+
+```bash
+./checkMyCode.sh <FILE_PATH_1> <FILE_PATH_2>
+```
+</details>
+
 ## 🚆 Roadmap
 
 This roadmap outlines the planned features and milestones for the project. Please note that the roadmap is subject to change and may be updated as the project progress.
@@ -233,6 +297,7 @@ To solve this issue, you can either:
 - **Increase the input size of your data** so that the encoding layers don't reduce the size too much _e.g.: a patch size of 64 leads to [1, 256, 4, 4]_
 - **Change the model architecture** by removing the `batch_norm` layers (can lead to further issues).
 
+## Acknowledgments
 ## Acknowledgments
 
 This work is made possible through public financing by the [European Commission](https://commission.europa.eu/index_en) on european projects [MAMBO](https://www.mambo-project.eu/) and [GUARDEN](https://guarden.org/).

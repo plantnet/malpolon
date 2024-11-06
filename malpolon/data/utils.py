@@ -13,6 +13,7 @@ from typing import Iterable, Union, Callable
 import numpy as np
 import pandas as pd
 from shapely import Point, Polygon
+from sklearn.preprocessing import LabelEncoder
 from torchgeo.datasets import BoundingBox
 from tqdm import tqdm
 from verde import train_test_split as spatial_tts
