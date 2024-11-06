@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path: 'outputs/cnn_on_rgbnir_concat/train_multilabel/last.ckpt'
+  checkpoint_path: # 'outputs/cnn_on_rgbnir_concat/train_multilabel/last.ckpt'
 
 data:
   num_classes: &num_classes 5
@@ -44,15 +44,15 @@ task:
 
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
-  accelerator: "gpu"
+  accelerator: "gpu"  # ["cpu", "gpu"]
   devices: 'auto'
-  max_epochs: 5
-  # val_check_interval: 2
-  check_val_every_n_epoch: 1
-  log_every_n_steps: 10
+  max_epochs: 5  # Number of passes through the training data
+  check_val_every_n_epoch: 1  # Run validation every n epochs
+  # val_check_interval: 2  # Run validation every n steps (set to 0 to disable) /!\ can slow down training if too frequent
+  log_every_n_steps: 10  # Log every n steps (if None, takes the default value 50)
 
 model:
-  provider_name: "timm" # choose from ["timm", "torchvision"]
+  provider_name: "timm"  # ["timm", "torchvision"]
   model_name: "resnet18"
   model_kwargs:
     pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
@@ -66,11 +66,32 @@ model:
     change_last_layer:
       num_outputs: *num_classes
 
-optimizer:
-  lr: 1e-2
-  weight_decay: 0
-  momentum: 0.9
-  nesterov: true
+optim:
+  optimizer:
+    sgd:  # ['adam', 'sgd', 'adamw', 'adadelta', 'adagrad', 'adamax', 'rmsprop']
+      # callable: 'optim.SGD'
+      kwargs:
+        lr: 1e-2
+        weight_decay: 0
+        momentum: 0.9
+        nesterov: true
+      scheduler:  # Optional, delete key or leave empty to not use any learning rate scheduler
+        reduce_lr_on_plateau:
+          # callable: 'lr_scheduler.reduce_lr_on_plateau'
+          kwargs:
+            threshold: 0.001
+          lr_scheduler_config:
+            scheduler: reduce_lr_on_plateau  # Optional, the scheduler to use is the parent key
+            monitor: loss/val  # ['loss/train', 'loss/val', '<metric>/train', '<metric>/val', ...]
+    # adam:  # ['adam', 'sgd', 'adamw', 'adadelta', 'adagrad', 'adamax', 'rmsprop']
+    #   # callable: 'optim.SGD'
+    #   kwargs:
+    #     lr: 1e-2
+    #   scheduler:
+    #     reduce_lr_on_plateau:
+    #       # callable: 'lr_scheduler.reduce_lr_on_plateau'
+    #       kwargs:
+    #         threshold: 0.001
   metrics:
     # binary_accuracy:
     #   # callable: 'Fmetrics.accuracy'
