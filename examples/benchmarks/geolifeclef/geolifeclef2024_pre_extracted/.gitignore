@@ -27,4 +27,3 @@ config/glc24_cnn_multimodal_ensemble_habitat_multilabel.yaml
 evaluate_inference_MME_habitat.py
 glc24_cnn_multimodal_ensemble_resnet18_only.py
 predictions_and_evaluation/habitats/
-glc24_cnn_multimodal_ensemble_habitat.py
