@@ -145,15 +145,16 @@ class TrainDataset(Dataset):
     """
     num_classes = 11255
 
-    def __init__(self,
-                 metadata: pd.DataFrame,
-                 num_classes: int = 11255,
-                 bioclim_data_dir: str = None,
-                 landsat_data_dir: str = None,
-                 sentinel_data_dir: str = None,
-                 transform: Callable = None,
-                 task: str = 'classification_multilabel',
-                 **kwargs,
+    def __init__(
+        self,
+        metadata: pd.DataFrame,
+        num_classes: int = 11255,
+        bioclim_data_dir: str = None,
+        landsat_data_dir: str = None,
+        sentinel_data_dir: str = None,
+        transform: Callable = None,
+        task: str = 'classification_multilabel',
+        **kwargs,
     ):
         """Class constructor.
 
@@ -241,14 +242,15 @@ class TestDataset(TrainDataset):
     """
     __test__ = False
 
-    def __init__(self,
-                 metadata: pd.DataFrame,
-                 num_classes: int = 11255,
-                 bioclim_data_dir: str = None,
-                 landsat_data_dir: str = None,
-                 sentinel_data_dir: str = None,
-                 transform: Callable = None,
-                 task: str = 'classification_multilabel'
+    def __init__(
+        self,
+        metadata: pd.DataFrame,
+        num_classes: int = 11255,
+        bioclim_data_dir: str = None,
+        landsat_data_dir: str = None,
+        sentinel_data_dir: str = None,
+        transform: Callable = None,
+        task: str = 'classification_multilabel'
     ):
         """Class constructor.
 
@@ -358,10 +360,11 @@ class GLC24Datamodule(BaseDataModule):
             self.download()
         self.task = task
 
-    def get_dataset(self,
-                    split: str,
-                    transform: Callable,
-                    **kwargs
+    def get_dataset(
+        self,
+        split: str,
+        transform: Callable,
+        **kwargs
     ):
         """Dataset getter.
 
@@ -392,16 +395,6 @@ class GLC24Datamodule(BaseDataModule):
                 self.dataset_test = dataset
         return dataset
 
-    def train_dataloader(self) -> DataLoader:
-        dataloader = DataLoader(
-            self.dataset_train,
-            batch_size=self.train_batch_size,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-            shuffle=True,
-        )
-        return dataloader
-
     def val_dataloader(self) -> DataLoader:
         dataloader = DataLoader(
             self.dataset_val,
@@ -409,27 +402,6 @@ class GLC24Datamodule(BaseDataModule):
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
             shuffle=True,
-        )
-        return dataloader
-
-    def test_dataloader(self) -> DataLoader:
-        dataloader = DataLoader(
-            self.dataset_test,
-            batch_size=self.inference_batch_size,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-            shuffle=False,
-        )
-        return dataloader
-
-    def predict_dataloader(self) -> DataLoader:
-        dataloader = DataLoader(
-            self.dataset_predict,
-            # sampler=self.sampler(self.dataset_predict, size=self.size, units=self.units),
-            batch_size=self.inference_batch_size,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-            shuffle=False,
         )
         return dataloader
 
@@ -555,7 +527,7 @@ class TrainDatasetHabitat(TrainDataset):
             self.metadata['speciesId'] = self.metadata['speciesId'].astype(int)
         else:
             self.metadata['speciesId'] = [None] * len(self.metadata)
-        self.metadata = self.metadata.drop_duplicates(subset=['surveyId', 'habitatId']).reset_index(drop=True)  # Should we ?
+        self.metadata = self.metadata.drop_duplicates(subset=["surveyId", "habitatId"]).reset_index(drop=True)  # Should we ?
         self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
         self.targets = self.metadata['speciesId'].values
         self.observation_ids = self.metadata['surveyId']
@@ -577,8 +549,6 @@ class TestDatasetHabitat(TestDataset):
         metadata.rename({'habitatId_encoded': 'speciesId'}, axis=1, inplace=True)
 
         super().__init__(metadata, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform, task=task)
-
-        self.metadata = self.metadata.drop_duplicates(subset=['surveyId', 'habitatId']).reset_index(drop=True)  # Should we ?
         self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
         self.targets = self.metadata['speciesId'].values
         self.observation_ids = self.metadata['surveyId']

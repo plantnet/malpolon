@@ -61,7 +61,7 @@ def main(cfg: DictConfig) -> None:
 
     # Datamodule & Model
     datamodule = GLC24Datamodule(**cfg.data, **cfg.task)
-    classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optimizer,
+    classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optim,
                                                checkpoint_path=cfg.run.checkpoint_path,
                                                weights_dir=log_dir)  # multilabel
     model_loaded = ClassificationSystemGLC24.load_from_checkpoint(classif_system.checkpoint_path,

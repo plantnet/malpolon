@@ -48,12 +48,17 @@ model:
     change_last_layer:
       num_outputs: *num_classes
 
-optimizer:
-  lr: 0.00025
-  weight_decay: 0
-  momentum: 0.9
-  nesterov: true
+optim:
   loss_kwargs:
+  optimizer:
+    adamw:
+      kwargs:
+        lr: 0.00025
+      scheduler:
+        cosine_annealing_lr:
+          kwargs:
+            T_max: 25
+            verbose: True
   metrics:
     multiclass_accuracy:
       # callable: 'Fmetrics.classification.multiclass_accuracy'

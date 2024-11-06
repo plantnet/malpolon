@@ -1,4 +1,4 @@
-Cartopy==0.21.1
+Cartopy==0.22.0
 cmake==3.26.3
 coverage==7.2.3
 docstring-parser==0.15

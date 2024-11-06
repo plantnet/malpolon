@@ -143,7 +143,7 @@ def main(cfg: DictConfig) -> None:
 
     # Datamodule & Model
     datamodule = GeoLifeCLEF2022DataModule(**cfg.data, **cfg.task)
-    classif_system = CustomClassificationSystem(**cfg.model, cfg_optimizer=cfg.optimizer, cfg_task=cfg.task,
+    classif_system = CustomClassificationSystem(**cfg.model, cfg_optimizer=cfg.optim, cfg_task=cfg.task,
                                                 checkpoint_path=cfg.run.checkpoint_path)
 
     # Lightning Trainer
