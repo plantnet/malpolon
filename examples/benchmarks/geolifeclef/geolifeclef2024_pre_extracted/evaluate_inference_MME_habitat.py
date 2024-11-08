@@ -27,7 +27,7 @@ LINK = '\033[94m'
 BOLD = "\033[1m"
 
 # 0. Load data
-df = pd.read_csv('GLC24_habitat_predictions_multiclass_val-dataset.csv')
+df = pd.read_csv('predictions_and_evaluation/predictions_GLC24_SOLUTION_FILE.csv')
 df['target_habitat_id'] = df['target_habitat_id'].astype(str)
 df_gt = df.copy()
 df_preds = df.copy()
@@ -104,12 +104,6 @@ if TASK == 'multilabel':
 
 elif TASK == 'multiclass':
     # 1. Convert data to usable types and compute one-hot encodings
-    res = pd.DataFrame(columns=['Accuracy',
-                                'Precision_micro', 'Recall_micro', 'F1_micro',
-                                'Precision_samples', 'Recall_samples', 'F1_samples',
-                                'Precision_macro', 'Recall_macro', 'F1_macro',
-                                'AUC_micro', 'AUC_samples', 'AUC_macro'])
-
     idx = np.arange(len(all_predictions_topk_oh)).reshape(-1, 1)
     all_targets_oh[idx, targets] = 1  # One-hot encode the targets
     all_probas = probas[idx, np.argsort(preds, axis=1)]  # Sort the probabilities in class order
@@ -135,6 +129,6 @@ elif TASK == 'multiclass':
         print(f"Top-{topk} Accuracy_multiclass: {acc}")
 
     # 4. Save results
-    res.loc[0] = prfs | accs
+    res = pd.DataFrame({k: [v] for k, v in (prfs | accs).items()})
     res.to_csv('Inference_PRC-ACC.csv', index=False)
     print('\nResults saved to Inference_PRC-ACC.csv')

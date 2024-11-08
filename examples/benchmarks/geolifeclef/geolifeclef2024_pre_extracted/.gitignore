@@ -1,5 +1,4 @@
 # Heavy output files
-predictions_and_evaluation/GLC24_SOLUTION_FILE.csv
 predictions_and_evaluation/predictions_GLC24_SOLUTION_FILE.csv
 predictions_and_evaluation/predictions_GLC24_SOLUTION_FILE_CNN-bioclim.csv
 predictions_and_evaluation/predictions_GLC24_SOLUTION_FILE_CNN-landsat.csv
@@ -10,6 +9,20 @@ predictions_and_evaluation/predictions_GLC24_SOLUTION_FILE_sigmoid_CNN-bioclim.c
 predictions_and_evaluation/predictions_GLC24_SOLUTION_FILE_sigmoid_CNN-landsat.csv
 predictions_and_evaluation/predictions_GLC24_SOLUTION_FILE_sigmoid_CNN-sentinel.csv
 
+# Private files
+predictions_and_evaluation/GLC24_SOLUTION_FILE.csv
+predictions_and_evaluation/GLC24_PA_metadata_test.csv
+
+# Datasets
+dataset/geolifeclef-2024/
+dataset/geolifeclef-2024_habitats/debugging
+
 # Other
 ALEXIS_inference_bioclim_time_series_resnet_softmax_binary_loss.py
 *.sh
+
+# Preliminary results not ready for sharing
+config/glc24_cnn_multimodal_ensemble_resnet18_only.yaml
+config/glc24_cnn_multimodal_ensemble_habitat_multilabel.yaml
+glc24_cnn_multimodal_ensemble_resnet18_only.py
+predictions_and_evaluation/habitats/

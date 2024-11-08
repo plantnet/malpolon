@@ -144,7 +144,7 @@ def main(cfg: DictConfig) -> None:
     # Datamodule & Model
     datamodule = MicroGeoLifeCLEF2022DataModule(**cfg.data)
     cfg_model = hydra.utils.instantiate(cfg.model)
-    classif_system = ClassificationSystem(cfg_model, **cfg.optimizer, **cfg.task,
+    classif_system = ClassificationSystem(cfg_model, **cfg.optim, **cfg.task,
                                           checkpoint_path=cfg.run.checkpoint_path)
 
     # Lightning Trainer
