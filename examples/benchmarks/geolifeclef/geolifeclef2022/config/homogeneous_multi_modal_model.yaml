@@ -24,11 +24,15 @@ model:
       change_last_layer_to_identity:
   num_outputs: 100
 
-optimizer:
-  lr: 1e-2
-  weight_decay: 0
-  momentum: 0.9
-  nesterov: true
+optim:
+  optimizer:
+    sgd:  # ['adam', 'sgd', 'adamw', 'adadelta', 'adagrad', 'adamax', 'rmsprop']
+      # callable: 'optim.SGD'
+      kwargs:
+        lr: 1e-2
+        weight_decay: 0
+        momentum: 0.9
+        nesterov: true
   metrics:
     multiclass_accuracy:
       kwargs:

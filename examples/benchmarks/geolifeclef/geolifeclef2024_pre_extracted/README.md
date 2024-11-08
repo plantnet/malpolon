@@ -27,6 +27,6 @@ It consists of points extractions from Sentinel-2A patches, Landsat time series,
 The model used in this example is the Multimodal Ensemble model. This model is a simple ensemble of 3 models:
 - ResNet18 for Landsat time series extractions
 - ReNet18 for Bioclim time series extractions
-- Swin Transformer for Sentinel-2A patches extractions
+- Swin V2 Transformer for Sentinel-2A patches extractions
 
-These 3 models are then merged with a simple late fusion strategy (concatenation of features + Mmulti-Layer Perceptron (MLP)). A single loss is used for the training of the 3 models.
+These 3 models are then merged with a simple late fusion strategy (concatenation of features + Multi-Layer Perceptron (MLP)). A single loss is used for the training of the 3 models.

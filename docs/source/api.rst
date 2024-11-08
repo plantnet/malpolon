@@ -24,19 +24,29 @@ malpolon.models.standard_prediction_systems
 .. automodule:: malpolon.models.standard_prediction_systems
    :members:
 
-malpolon.models.geolifeclef2024_multimodal_ensemble
-===================================================
-.. automodule:: malpolon.models.geolifeclef2024_multimodal_ensemble
-   :members:
-
-malpolon.models.multi_modal
-===========================
-.. automodule:: malpolon.models.multi_modal
-   :members:
-
 malpolon.models.utils
 =====================
 .. automodule:: malpolon.models.utils
+   :members:
+
+malpolon.models.custom_models.glc2024_multimodal_ensemble_model_modality_specific
+=================================================================================
+.. automodule:: malpolon.models.custom_models.glc2024_multimodal_ensemble_model_modality_specific
+   :members:
+
+malpolon.models.custom_models.glc2024_multimodal_ensemble_model
+===============================================================
+.. automodule:: malpolon.models.custom_models.glc2024_multimodal_ensemble_model
+   :members:
+
+malpolon.models.custom_models.glc2024_pre_extracted_prediction_system
+=====================================================================
+.. automodule:: malpolon.models.custom_models.glc2024_pre_extracted_prediction_system
+   :members:
+
+malpolon.models.custom_models.multi_modal
+=========================================
+.. automodule:: malpolon.models.custom_models.multi_modal
    :members:
 
 
@@ -77,23 +87,17 @@ malpolon.data.datasets.torchgeo_sentinel2
    :members:
 
 malpolon.data.datasets.torchgeo_concat
-----------------------------------------
+--------------------------------------
 .. automodule:: malpolon.data.datasets.torchgeo_concat
    :members:
 
 malpolon.data.datasets.geolifeclef2022
 --------------------------------------
 
-GeoLifeCLEF2022Dataset
-^^^^^^^^^^^^^^^^^^^^^^
+GeoLifeCLEF2022: datasets
+^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: malpolon.data.datasets.geolifeclef2022.GeoLifeCLEF2022Dataset
-
-MiniGeoLifeCLEF2022Dataset
-^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: malpolon.data.datasets.geolifeclef2022.MiniGeoLifeCLEF2022Dataset
-
-MicroGeoLifeCLEF2022Dataset
-^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. automodule:: malpolon.data.datasets.geolifeclef2022.MicroGeoLifeCLEF2022Dataset
 
 malpolon.data.datasets.geolifeclef2023
@@ -140,8 +144,27 @@ GeoLifeCLEF2024: providers
 
 malpolon.data.datasets.geolifeclef2024_pre_extracted
 ----------------------------------------------------
-.. automodule:: malpolon.data.datasets.geolifeclef2024_pre_extracted
+.. autofunction:: malpolon.data.datasets.geolifeclef2024_pre_extracted.construct_patch_path
+.. autofunction:: malpolon.data.datasets.geolifeclef2024_pre_extracted.load_landsat
+.. autofunction:: malpolon.data.datasets.geolifeclef2024_pre_extracted.load_bioclim
+.. autofunction:: malpolon.data.datasets.geolifeclef2024_pre_extracted.load_sentinel
+
+GeoLifeCLEF2024 pre-extracted: datamodules
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: malpolon.data.datasets.geolifeclef2024_pre_extracted.GLC24Datamodule
+   :exclude-members: __len__, __getitem__
    :members:
+
+.. autoclass:: malpolon.data.datasets.geolifeclef2024_pre_extracted.GLC24DatamoduleHabitats
+   :exclude-members: __len__, __getitem__
+   :members:
+
+GeoLifeCLEF2024 pre-extracted: datasets
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: malpolon.data.datasets.geolifeclef2024_pre_extracted.TrainDataset
+.. autoclass:: malpolon.data.datasets.geolifeclef2024_pre_extracted.TestDataset
+.. autoclass:: malpolon.data.datasets.geolifeclef2024_pre_extracted.TrainDatasetHabitat
+.. autoclass:: malpolon.data.datasets.geolifeclef2024_pre_extracted.TestDatasetHabitat
 
 
 malpolon.plot

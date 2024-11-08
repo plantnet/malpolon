@@ -6,13 +6,8 @@ Author: Lukas Picek <lukas.picek@inria.fr>
 License: GPLv3
 Python version: 3.10.6
 """
-from typing import Any, Callable, Mapping, Optional, Union
-
-import omegaconf
 import torch
-from omegaconf import OmegaConf
-from torch import Tensor, nn
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch import nn
 from torchvision import models
 
 
