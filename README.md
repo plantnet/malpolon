@@ -32,7 +32,7 @@ Here is a list of the currently available scenarios:
 
 - [**Benchmarks**](examples/benchmarks/) : I want to compare the performance of different models on a given known dataset;\
   or I am a potential kaggle participant on the GeoLifeClef challenge. I want to train a model on the provided datasets without having to worry about the data loading, starting from a plug-and-play example.
-  - [<u>GeoLifeClef2022</u>](examples/benchmarks/geolifeclef2022/) : contains a fully functionnal example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction.
+  - [<u>GeoLifeClef2022</u>](examples/benchmarks/geolifeclef2022/) : contains a fully functional example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction.
   - [<u>GeoLifeClef2023</u>](examples/benchmarks/geolifeclef2023/) : contains dataloaders for the GeoLifeClef2023 dataset (different from the GLC2022 dataloaders). The training and prediction scripts are not provided.
   - [<u>GeoLifeClef2024 (pre-extracted)</u>](examples/benchmarks/geolifeclef2024_pre_extracted/) : contains a fully functional example of a multimodal ensemble model used to provide a strong baseline for the [GeoLifeClef2024 kaggle competition](https://www.kaggle.com/competitions/geolifeclef-2024). The example uses unique dataloaders and models to handle pre-extracted values from satellite patches, satellite time series and bioclimatic time series.
 - [**Train (custom datasets)**](examples/custom_train/) : I have a dataset of my own and I want to train a model on it. I want to be able to easily customize the training process and the model architecture.
@@ -66,7 +66,7 @@ Before proceeding, please make sure the following packages are installed on your
   - [`CUDA Installation guide`](https://docs.nvidia.com/cuda/index.html)
   - [`CuDNN Installation guide`](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html)
 
-The following instructions show installation commands for Python 3.10, but can be adapted for any of the compatible Python versions metionned above by simply changing the version number.
+The following instructions show installation commands for Python 3.10, but can be adapted for any of the compatible Python versions mentioned above by simply changing the version number.
 
 ### Install from `PyPi`
 
@@ -165,7 +165,7 @@ An online code documentation is available via GitHub pages at [this link](https:
 
 Alternatively, you can generate the documention locally by following these steps :
 
-1. Install the additional dependences contained in `docs/docs_requirements.txt` must be installed
+1. Install the additional dependencies contained in `docs/docs_requirements.txt` must be installed
 
 ```script
 pip install -r docs/docs_requirements.txt
@@ -282,7 +282,7 @@ This roadmap outlines the planned features and milestones for the project. Pleas
 
 ## Libraries
 
-Here is an overview of the main Python librairies used in this project.
+Here is an overview of the main Python libraries used in this project.
 
 - [![PyTorch](https://img.shields.io/badge/PyTorch-%23ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/) - To handle deep learning loops and dataloaders
 - [![PyTorch Lightning](https://img.shields.io/badge/PyTorch%20Lightning-%23792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/docs/pytorch/stable/) - Deep learning framework which simplifies the usage of PyTorch elements
@@ -313,7 +313,7 @@ This work is currently under development and maintained by the [Pl@ntNet](https:
 
 ## Licensing
 
-This framework is ditributed under the [MIT license](https://opensource.org/license/mit/), as is the Pl@ntNet project. See LICENSE.md for more information.
+This framework is distributed under the [MIT license](https://opensource.org/license/mit/), as is the Pl@ntNet project. See LICENSE.md for more information.
 
 ## Citation & credits
 
@@ -333,10 +333,10 @@ Malpolon is a project developed by the [Pl@ntNet](https://plantnet.org/) team wi
 
 Authors include :
 
-- [Théo Larcher](https://github.com/tlarcher) (current lead developper) ([email](mailto:theo.larcher@inria.fr))
+- [Théo Larcher](https://github.com/tlarcher) (current lead developer) ([email](mailto:theo.larcher@inria.fr))
 - [Maximilien Servajean](https://github.com/maximiliense)
 - [Alexis Joly](https://github.com/alexisjoly)
 
 Former developpers include :
 
-- [Titouan Lorieul](https://github.com/tlorieul) (former lead developper) ([email](mailto:titouan.lorieul@gmail.com))
+- [Titouan Lorieul](https://github.com/tlorieul) (former lead developer) ([email](mailto:titouan.lorieul@gmail.com))
