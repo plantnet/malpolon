@@ -26,7 +26,7 @@ if TYPE_CHECKING:
     Provider = Callable[..., nn.Module]
     Modifier = Callable[..., nn.Module]
 
-MALPOLON_MODELS = {'glc24_multimodal_ensemble': MultimodalEnsemble,}
+MALPOLON_MODELS = {'glc24_multimodal_ensemble': MultimodalEnsemble, }
 
 
 class _ModelBuilder:
@@ -157,6 +157,7 @@ def timm_model_provider(
         )
     return model
 
+
 def malpolon_model_provider(
     model_name: str, *model_args: Any, **model_kwargs: Any
 ) -> nn.Module:
@@ -178,6 +179,7 @@ def malpolon_model_provider(
     model = MALPOLON_MODELS[model_name]
     model = model(*model_args, **model_kwargs)
     return model
+
 
 def _find_module_of_type(
     module: nn.Module, module_type: type, order: str

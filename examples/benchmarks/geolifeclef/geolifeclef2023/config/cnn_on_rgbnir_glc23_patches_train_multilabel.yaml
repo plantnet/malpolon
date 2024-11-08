@@ -10,7 +10,7 @@ data:
   inference_batch_size: 2
   num_workers: 8
   units: "pixel"
-  crs: 4326 
+  crs: 4326
 
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
@@ -22,8 +22,8 @@ trainer:
 
 run:
   predict: false
-  checkpoint_path: 
-                                                                                                                                       
+  checkpoint_path:
+
 model:
   provider_name: "timm"  # choose from ["timm", "torchvision"]
   model_name: "resnet18"
@@ -39,11 +39,15 @@ model:
     change_last_layer:
       num_outputs: ${data.num_classes}
 
-optimizer:
-  lr: 1e-2
-  weight_decay: 0
-  momentum: 0.9
-  nesterov: true
+optim:
+  optimizer:
+    sgd:  # ['adam', 'sgd', 'adamw', 'adadelta', 'adagrad', 'adamax', 'rmsprop']
+      # callable: 'optim.SGD'
+      kwargs:
+        lr: 1e-2
+        weight_decay: 0
+        momentum: 0.9
+        nesterov: true
   metrics:
     multilabel_accuracy:
       # callable: 'Fmetrics.classification.multilabel_accuracy'
@@ -60,4 +64,4 @@ optimizer:
         average: 'macro'
 
 task:
-  task: 'classification_multilabel'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']  
+  task: 'classification_multilabel'  # ['classification_binary', 'classification_multiclass', 'classification_multilabel']

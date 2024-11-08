@@ -175,7 +175,7 @@ def main(cfg: DictConfig) -> None:
 
     # Datamodule & Model
     datamodule = Sentinel2PatchesDataModule(**cfg.data, **cfg.task)
-    classif_system = ClassificationSystem(cfg.model, **cfg.optimizer, **cfg.task,
+    classif_system = ClassificationSystem(cfg.model, **cfg.optim, **cfg.task,
                                           checkpoint_path=cfg.run.checkpoint_path)
 
     # Lightning Trainer
@@ -217,8 +217,7 @@ def main(cfg: DictConfig) -> None:
                        'crs': 4326}
         test_data_point = test_data_point[0].resize_(1, *test_data_point[0].shape)
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
-                                                test_data_point,
-                                                ['model.', ''])
+                                                test_data_point)
         preds, probas = datamodule.predict_logits_to_class(prediction,
                                                            np.arange(0, max(datamodule.get_test_dataset().targets)+1))
         datamodule.export_predict_csv(preds,

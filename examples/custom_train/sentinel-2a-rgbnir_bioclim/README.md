@@ -51,7 +51,7 @@ Species include:
 | Species | Himantoglossum hircinum | Mentha suaveolens | Ophrys apifera | Orchis purpurea | Stachys byzantina |
 |:-:|:-:|:-:|:-:|:-:|:-:|
 | Photo |![Himantoglossum_hircinum](../../../docs/resources/Himantoglossum_hircinum.jpg "Himantoglossum hircinum") | ![Mentha_suaveolens](../../../docs/resources/Mentha_suaveolens.jpg "Mentha suaveolens") | ![Ophrys_apifera](../../../docs/resources/Ophrys_apifera.jpg "Ophrys apifera") | ![Orchis_purpurea](../../../docs/resources/Orchis_purpurea.jpg "Orchis purpurea") | ![Stachys_byzantina](../../../docs/resources/Stachys_byzantina.jpg "Stachys byzantina") |
-| Source |[Wikipedia: Himantoglossum hircinum](https://en.wikipedia.org/wiki/Himantoglossum_hircinum) | [Wikipedia: Mentha suaveolens](https://en.wikipedia.org/wiki/Mentha_suaveolens) | [Wikipedia: Ophrys apifera](https://en.wikipedia.org/wiki/Ophrys_apifera) | [Wikipedia: Orchis purpurea](https://en.wikipedia.org/wiki/Orchis_purpurea) | [Wikipedia: Stachys byzantina](https://en.wikipedia.org/wiki/Stachys_byzantina) | 
+| Source |[Wikipedia: Himantoglossum hircinum](https://en.wikipedia.org/wiki/Himantoglossum_hircinum) | [Wikipedia: Mentha suaveolens](https://en.wikipedia.org/wiki/Mentha_suaveolens) | [Wikipedia: Ophrys apifera](https://en.wikipedia.org/wiki/Ophrys_apifera) | [Wikipedia: Orchis purpurea](https://en.wikipedia.org/wiki/Orchis_purpurea) | [Wikipedia: Stachys byzantina](https://en.wikipedia.org/wiki/Stachys_byzantina) |
 | Author | [Jörg Hempel](https://commons.wikimedia.org/wiki/User:LC-de) <br> (24/05/2014) | [Broly0](https://commons.wikimedia.org/wiki/User:Smithh05) <br> (12/05/2009) |  [Orchi](https://commons.wikimedia.org/wiki/User:Orchi) <br> (15/06/2005) | [Francesco Scelsa](https://commons.wikimedia.org/w/index.php?title=User:Francesco_Scelsa&action=edit&redlink=1) <br> (10/05/2020) | [Jean-Pol GRANDMONT](https://commons.wikimedia.org/wiki/User:Jean-Pol_GRANDMONT) <br> (09/06/2010) |
 | License | CC BY-SA 3.0 de | CC0 | CC BY-SA 3.0 | CC BY-SA 4.0 | CC BY-SA 3.0 |
 
@@ -149,7 +149,7 @@ Config parameters provided in this example are listed in the [Parameters](#param
 
 This example is configured to run in training mode by default but if you want to re-use it for prediction, follow these steps:
 
-- Change config file parameter `run.predict` to `true` 
+- Change config file parameter `run.predict` to `true`
 - Specify a path to your model checkpoint in parameter `run.checkpoint_path`
 
 Note that any of these parameters can also be passed through command line like shown in the previous section and overrule those of the config file.
@@ -172,7 +172,7 @@ You can parametrize your models and your training routine through your `.yaml` c
   This section is passed on to your PyTorchLightning trainer.
 - **model**: defines which model you want to load, from which source, and contains models hyperparameters. You can pass any model hyperparameter listed in your provider's model builder.\
   This section is passed on to your prediction system _(e.g. `ClassificationSystem`)_.
-- **optimizer**: your optimizer and metrics hyperparameters.\
+- **optimizer**: your loss parameters optimizer, scheduler and metrics hyperparameters.\
   This section is passed on to your prediction system _(e.g. `ClassificationSystem`)_.
 
 Hereafter is a detailed list of every sub parameters:
@@ -232,13 +232,14 @@ Hereafter is a detailed list of every sub parameters:
       - **num\_outputs** _(int)_: Number of output channels you would like your model to have instead of its default value.
 
 - **optimizer**
-  - **lr** (_float)_: Learning rate.
-  - **weight\_decay** _(float)_: Model's regularization parameter that penalizes large weights. Takes any floating value in `[0, 1]`.
-  - **momentum** _(float)_: Model's momentum factor which acts on the model's gradient descent by minimizing its oscillations thus accelerating the convergence and avoiding being trapped in local minimas. Takes ano floating value in `[0, 1]`.
-  - **nesterov** _(bool)_: If `true`, adopts nesterov momentum; if `false`, adopts PyTorch's default strategy.
+  - **loss_kwargs** (optional): any key-value arguments compatible with the selected loss function. See [PyTorch documentation](https://pytorch.org/docs/stable/nn.html#loss-functions) for the complete list of kwargs to your loss function.
+  - **optimizer** (optional): Name of your optimizer. If not provided, by default SGD is selected with the following arguments `[lr=1e-2, momentum=0.9, nesterov=True]`
+    - **_\<optimizer name\>_** (optional) _(str)_: Name of an optimizer you want to call. Can either be a custom name or one of the keys listed in `malpolon.models.utils.OPTIMIZERS_CALLABLES`
+      - **callable** (optional) _(str)_: Name of the optimizer you want to call.
+      - **kwargs** (optional): any key-value arguments compatible with the selected optimizer such as `lr` (learning rate). See [PyTorch documentation](https://pytorch.org/docs/stable/optim.html) for the complete list of kwargs to your optimizer.
   - **metrics**
     - **_\<metric name\>_**: The name of your metric. Can either be a custom name or one of the keys listed in `malpolon.models.utils.FMETRICS_CALLABLES`. In the latter case, the _callable_ argument is not required.
-      - **callable** (optional) _(str)_: Name of the TorchMetrics functional metric to call _(e.g.: `'torchmetrics.functional.classification.multiclass_accuracy'`)_. Find all functional metrics on the TorchMetrics documentation page such as [here](https://torchmetrics.readthedocs.io/en/stable/classification/accuracy.html#functional-interface) in the "functional Interface" section. Learn more about functional metrics [here](https://lightning.ai/docs/torchmetrics/stable/pages/quickstart.html#functional-metrics). Takes a string as input.
+      - **callable** (optional) _(str)_: Name of the TorchMetrics functional metric to call _(e.g.: `'torchmetrics.functional.classification.multiclass_accuracy'`)_. Find all functional metrics on the TorchMetrics documentation page such as [here](https://torchmetrics.readthedocs.io/en/stable/classification/accuracy.html#functional-interface) in the "functional Interface" section. Learn more about functional metrics [here](https://lightning.ai/docs/torchmetrics/stable/pages/quickstart.html#functional-metrics).
       - **_kwargs_** (optional): any key-value arguments compatible with the selected metric such as `num_classes` or `threshold`. See [TorchMetrics documentation](https://lightning.ai/docs/torchmetrics/stable/all-metrics.html) for the complete list of kwargs to your metric.
 
 

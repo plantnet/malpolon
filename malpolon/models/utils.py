@@ -14,12 +14,27 @@ from typing import Mapping, Union
 import torchmetrics.functional as Fmetrics
 from omegaconf import OmegaConf
 from torch import nn, optim
+from torch.optim import Optimizer, lr_scheduler
+from torch.optim.lr_scheduler import LRScheduler
 
 from .model_builder import ModelBuilder
 
 FMETRICS_CALLABLES = {'binary_accuracy': Fmetrics.classification.binary_accuracy,
                       'multiclass_accuracy': Fmetrics.classification.multiclass_accuracy,
                       'multilabel_accuracy': Fmetrics.classification.multilabel_accuracy, }
+
+OPTIMIZERS_CALLABLES = {'sgd': optim.SGD,
+                        'adam': optim.Adam,
+                        'adamw': optim.AdamW,
+                        'adadelta': optim.Adadelta,
+                        'adagrad': optim.Adagrad,
+                        'adamax': optim.Adamax,
+                        'rmsprop': optim.RMSprop, }
+
+SCHEDULER_CALLABLES = {'step_lr': lr_scheduler.StepLR,
+                       'reduce_lr_on_plateau': lr_scheduler.ReduceLROnPlateau,
+                       'cosine_annealing_lr': lr_scheduler.CosineAnnealingLR, }
+
 
 class CrashHandler():
     """Saves the model in case of unexpected crash or user interruption."""
@@ -129,21 +144,119 @@ def check_model(model: Union[nn.Module, Mapping]) -> nn.Module:
     )
 
 
-def check_optimizer(optimizer: optim.Optimizer) -> optim.Optimizer:
-    """Ensure input optimizer is a pytorch optimizer.
+def check_scheduler(scheduler: Union[LRScheduler, dict],
+                    optimizer: optim.Optimizer) -> dict:
+    """Ensure input scheduler is a pytorch scheduler.
 
-    Args:
-        optimizer (optim.Optimizer): input optimizer.
+    Input can either be an Omegaconf mapping (passed through a hydra config
+    file) or a pytorch scheduler object. Several scheduler can be passed as
+    input through an Omegaconf mapping which will be instantiated and returned
+    as a list of scheduler.
 
-    Raises:
-        ValueError: if input optimizer isn't a pytorch optimizer object.
+    Parameters
+    ----------
+    scheduler : Union[LRScheduler, dict]
+        input scheduler(s)
+    optimizer : optim.Optimizer
+        associated optimizer
 
-    Returns:
-        optim.Optimizer: the pytorch input optimizer itself.
+    Returns
+    -------
+    dict
+        dictionary of LR scheduler config
     """
-    if isinstance(optimizer, optim.Optimizer):
-        return optimizer
-    raise ValueError(
-        "Optimizer must be of type optim.Optimizer,"
-        f"given type {type(optimizer)} instead"
-    )
+    if scheduler is None:
+        return None
+
+    lr_sch_config = {'scheduler': None}
+
+    if isinstance(scheduler, LRScheduler):
+        lr_sch_config['scheduler'] = scheduler
+        return lr_sch_config
+
+    try:
+        k, v = next(iter(scheduler.items()))  # Get 1st key & value of scheduler dict as there can only be 1 scheduler per optimizer
+        if 'lr_scheduler_config' in v and v['lr_scheduler_config'] is not None:
+            lr_sch_config = lr_sch_config | v['lr_scheduler_config']
+        if 'callable' in v:
+            v['callable'] = eval(v['callable'])
+        else:
+            v['callable'] = SCHEDULER_CALLABLES[k]
+        scheduler = v['callable'](optimizer, **v['kwargs'])
+    except ValueError as e:
+        print('\n[ERROR]: Please make sure you have registered'
+              ' a dict-like value to your "scheduler" key in your'
+              ' config file.\n')
+        print(e, '\n')
+        raise e
+    except KeyError as e:
+        print('\n[ERROR]: Please make sure the name of your scheduler'
+              ' registered in your config file match an entry'
+              ' in constant SCHEDULER_CALLABLES; or that you have provided a'
+              ' callable function if your scheduler\'s name is not pre-registered'
+              ' in SCHEDULER_CALLABLES.\n')
+        print(e, '\n')
+        raise e
+
+    lr_sch_config['scheduler'] = scheduler
+    return lr_sch_config
+
+
+def check_optimizer(optimizer: Union[Optimizer, OmegaConf],
+                    model: nn.Module) -> Optimizer:
+    """Ensure input optimizer is a pytorch scheduler.
+
+    Input can either be an Omegaconf mapping (passed through a hydra config
+    file) or a pytorch optimizer object. Several optimizers can be passed as
+    input through an Omegaconf mapping which will be instantiated and returned
+    as a list of optimizers.
+
+    Parameters
+    ----------
+    optimizer : Union[Optimizer, OmegaConf]
+        input scheduler(s)
+    model : nn.Module, optional
+        associated model
+
+    Returns
+    -------
+    Optimizer
+        list of instantiated optimizer(s) and corresponding scheduler(s)
+        (for each optimizer with no scheduler, None is the corresponding value
+        in the schedulers list).
+    """
+    optim_list = []
+    scheduler_list = []
+
+    if isinstance(optimizer, Optimizer):
+        return [optimizer], [None]
+
+    try:
+        if optimizer is not None:
+            optimizer = OmegaConf.to_container(optimizer, resolve=True)
+            # Loop over all optimizers
+            for k, v in optimizer.items():
+                if 'callable' in v:
+                    optimizer[k]['callable'] = eval(v['callable'])
+                else:
+                    optimizer[k]['callable'] = OPTIMIZERS_CALLABLES[k]
+                optim_list.append(optimizer[k]['callable'](model.parameters(), **optimizer[k]['kwargs']))
+                scheduler_list.append(check_scheduler(v.get('scheduler'), optim_list[-1]))
+    except (TypeError, ValueError) as e:
+        print('\n[ERROR]: Please make sure you have registered'
+              ' a non-empty dict-like value to your "optimizer" key in your'
+              ' config file. Your optimizer dict might be empty (NoneType).')
+        print(e, '\n')
+        raise e
+    except KeyError as e:
+        print('\n[ERROR]: Please make sure the name of your optimizer'
+              ' registered in your config file match an entry'
+              ' in constant OPTIMIZERS_CALLABLES; or that you have provided a'
+              ' callable function if your optimizer\'s name is not pre-registered'
+              ' in OPTIMIZERS_CALLABLES.\n'
+              ' Please make sure your optimizer\'s and scheduler\'s kwargs keys'
+              ' are valid.\n')
+        print(e, '\n')
+        raise e
+
+    return optim_list, scheduler_list

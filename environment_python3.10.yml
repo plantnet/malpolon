@@ -1,7 +1,7 @@
 name: malpolon_3.10
 channels:
-  - defaults
   - conda-forge
+  - nodefaults
 dependencies:
   - python==3.10.12
   - cmake==3.26.3

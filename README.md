@@ -26,13 +26,13 @@ If you're not a deep learning or PyTorch expert but nonetheless want to use visu
 
 ## 🧭 Usage
 
-Malpolon is destined to be used by various user profiles, some more experimented than others. To this end, we provide several examples of usage of the framework, organized by use case or _scenarios_. These examples can be found in the `examples` folder of the repository, each with a README file for more details on how to use the scripts.
+Malpolon is destined to be used by various user profiles, some more experimented than others. To this end, we provide several examples of usage of the framework, organized by use case or _scenarios_. These examples can be found in the `examples` folder of the repository, each with a README file for more details on how to use the scripts. Additionally, check out our guide "[**Getting started with examples**](examples/)".
 
 Here is a list of the currently available scenarios:
 
 - [**Benchmarks**](examples/benchmarks/) : I want to compare the performance of different models on a given known dataset;\
   or I am a potential kaggle participant on the GeoLifeClef challenge. I want to train a model on the provided datasets without having to worry about the data loading, starting from a plug-and-play example.
-  - [<u>GeoLifeClef2022</u>](examples/benchmarks/geolifeclef2022/) : contains a fully functionnal example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction.
+  - [<u>GeoLifeClef2022</u>](examples/benchmarks/geolifeclef2022/) : contains a fully functional example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction.
   - [<u>GeoLifeClef2023</u>](examples/benchmarks/geolifeclef2023/) : contains dataloaders for the GeoLifeClef2023 dataset (different from the GLC2022 dataloaders). The training and prediction scripts are not provided.
   - [<u>GeoLifeClef2024 (pre-extracted)</u>](examples/benchmarks/geolifeclef2024_pre_extracted/) : contains a fully functional example of a multimodal ensemble model used to provide a strong baseline for the [GeoLifeClef2024 kaggle competition](https://www.kaggle.com/competitions/geolifeclef-2024). The example uses unique dataloaders and models to handle pre-extracted values from satellite patches, satellite time series and bioclimatic time series.
 - [**Train (custom datasets)**](examples/custom_train/) : I have a dataset of my own and I want to train a model on it. I want to be able to easily customize the training process and the model architecture.
@@ -40,7 +40,7 @@ Here is a list of the currently available scenarios:
   - <u>Custom dataset</u> : I have my own dataset consisting of pre-extracted image patches and/or rasters and I want to train a model on it.
 - [**Inference**](examples/inference/) : I have an observations file (.csv) and I want to predict the presence of species on a given area using a model I trained previously and a selected dataset or a shapefile I would provide.
 
-## 🔧 Installation
+## ⚙️ Installation
 
 To install malpolon, you will first need to install **Python ≥ 3.10**, and several python packages. To do so, it is best practice to create a virtual environment containing all these packages locally.
 
@@ -66,7 +66,7 @@ Before proceeding, please make sure the following packages are installed on your
   - [`CUDA Installation guide`](https://docs.nvidia.com/cuda/index.html)
   - [`CuDNN Installation guide`](https://docs.nvidia.com/deeplearning/cudnn/install-guide/index.html)
 
-The following instructions show installation commands for Python 3.10, but can be adapted for any of the compatible Python versions metionned above by simply changing the version number.
+The following instructions show installation commands for Python 3.10, but can be adapted for any of the compatible Python versions mentioned above by simply changing the version number.
 
 ### Install from `PyPi`
 The backend side of malpolon is distributed as a package on `PyPi`. To install it, simply run the following command:
@@ -108,6 +108,9 @@ pip install -r requirements_python3.10.txt
 ```
 
 - **Via `conda`**
+
+⚠️ Be aware that conda recently changed its licensing and you may subject to fees, or be limited in downloads. Sources: [anaconda website](https://www.anaconda.com/blog/update-on-anacondas-terms-of-service-for-academia-and-research),
+[datacamp blog recap](https://www.datacamp.com/blog/navigating-anaconda-licensing) ⚠️
 
 You can also use `conda` to install your packages.
 
@@ -158,7 +161,7 @@ An online code documentation is available via GitHub pages at [this link](https:
 
 Alternatively, you can generate the documention locally by following these steps :
 
-1. Install the additional dependences contained in `docs/docs_requirements.txt` must be installed
+1. Install the additional dependencies contained in `docs/docs_requirements.txt` must be installed
 
 ```script
 pip install -r docs/docs_requirements.txt
@@ -171,6 +174,66 @@ make -C docs html
 ```
 
 The result can be found in `docs/_build/html`.
+
+
+## ⚒️ Troubleshooting
+Commonly encountered errors when using the framework are compiled [here](examples/README.md#⚒️-troubleshooting).
+
+## 🚀 Contributing
+### **Guidelines**
+
+Issues and PR templates are provided to help you start a contribution to the project.
+
+A checking script is also provided and can run checks relative to the 2 next sections with the following command:
+
+```bash
+./checkMyCode all
+```
+
+### **Unit tests**
+<details>
+  <summary><i><u>Click here to expand instructions</u></i></summary>
+
+When submitting, make sure the unit tests all pass without errors. These tests are located at `malpolon/tests/` and can be ran all at once, with a code coverage estimation, via command line:
+
+```bash
+./checkMyCode.sh t  # or `pytest malpolon/tests/`
+```
+Specify a file path as argument to run a single test file:
+
+```bash
+./checkMyCode.sh malpolon/tests/<TEST_FILE>.py  # or `pytest malpolon/tests/<TEST_FILE>.py`
+```
+
+Run individual test functions via `python malpolon/tests/test_<module>.py` by modifying the files beforehand to call the functions you want to test with:
+
+```python
+if __name__ == '__main__':
+  test_my_function()
+```
+
+**This is especially useful for `malpolon/tests/test_examples.py` which tests all the provided examples**, ensuring they do not crash. However, these **require having all the datasets and take a while to run**. Some data you might not have local access to.\
+To skip a test function, add a decorator `@pytest.mark.skip()` above the function definition.
+
+</details>
+
+### **Linting**
+
+<details>
+  <summary><i><u>Click here to expand instructions</u></i></summary>
+
+Likewise, do care about writing a clean code. The project uses `flake8`, `Pylint` and `Pydocstyle` to check the good formatting and documentation of your code. To run linters check on your code you can either run each of these library independently or use the checking script:
+
+```bash
+./checkMyCode.sh l
+```
+
+Run linters on non-test file(s) :
+
+```bash
+./checkMyCode.sh <FILE_PATH_1> <FILE_PATH_2>
+```
+</details>
 
 ## 🚆 Roadmap
 
@@ -210,7 +273,7 @@ This roadmap outlines the planned features and milestones for the project. Pleas
 </details>
 
 ## Libraries
-Here is an overview of the main Python librairies used in this project.
+Here is an overview of the main Python libraries used in this project.
 
 * [![PyTorch](https://img.shields.io/badge/PyTorch-%23ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/) - To handle deep learning loops and dataloaders
 * [![PyTorch Lightning](https://img.shields.io/badge/PyTorch%20Lightning-%23792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/docs/pytorch/stable/) - Deep learning framework which simplifies the usage of PyTorch elements
@@ -220,7 +283,7 @@ Here is an overview of the main Python librairies used in this project.
 * [![Hydra](https://img.shields.io/badge/Hydra-%23729DB1.svg?logo=hydra&logoColor=white)](https://hydra.cc/docs/intro/) - To handle models' hyperparameters
 * [![Cartopy](https://img.shields.io/badge/Cartopy-%2300A1D9.svg?logo=cartopy&logoColor=white)](https://scitools.org.uk/cartopy/docs/latest/) - To handle geographical data
 
- ## Acknowledgments
+## Acknowledgments
 
 This work is made possible through public financing by the [European Commission](https://commission.europa.eu/index_en) on european projects [MAMBO](https://www.mambo-project.eu/) and [GUARDEN](https://guarden.org/).
 
@@ -240,15 +303,15 @@ This work is currently under development and maintained by the [Pl@ntNet](https:
 </div>
 
 ## Licensing
-This framework is ditributed under the [MIT license](https://opensource.org/license/mit/), as is the Pl@ntNet project. See LICENSE.md for more information.
+This framework is distributed under the [MIT license](https://opensource.org/license/mit/), as is the Pl@ntNet project. See LICENSE.md for more information.
 
 ## Citation & credits
 Malpolon is a project developed by the [Pl@ntNet](https://plantnet.org/) team within the [INRIA](https://www.inria.fr/en) research institute. If you use this framework in your research, please cite this repository in your paper.
 
 Authors include :
-- [Théo Larcher](https://github.com/tlarcher) (current lead developper) ([email](mailto:theo.larcher@inria.fr))
+- [Théo Larcher](https://github.com/tlarcher) (current lead developer) ([email](mailto:theo.larcher@inria.fr))
 - [Maximilien Servajean](https://github.com/maximiliense)
 - [Alexis Joly](https://github.com/alexisjoly)
 
 Former developpers include :
-- [Titouan Lorieul](https://github.com/tlorieul) (former lead developper) ([email](mailto:titouan.lorieul@gmail.com))
+- [Titouan Lorieul](https://github.com/tlorieul) (former lead developer) ([email](mailto:titouan.lorieul@gmail.com))

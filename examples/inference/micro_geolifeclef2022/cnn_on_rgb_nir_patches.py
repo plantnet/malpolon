@@ -139,7 +139,7 @@ def main(cfg: DictConfig) -> None:
     # Datamodule & Model
     datamodule = MicroGeoLifeCLEF2022DataModule(**cfg.data)
     cfg_model = hydra.utils.instantiate(cfg.model)
-    classif_system = ClassificationSystem(cfg_model, **cfg.optimizer, **cfg.task)
+    classif_system = ClassificationSystem(cfg_model, **cfg.optim, **cfg.task)
     change_first_convolutional_layer_modifier(classif_system,
                                               num_input_channels=4,
                                               new_conv_layer_init_func=NewConvolutionalLayerInitFuncStrategy(
@@ -181,8 +181,7 @@ def main(cfg: DictConfig) -> None:
         test_data_point = test_data_point.resize_(1, *test_data_point.shape)
 
         prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
-                                                test_data_point,
-                                                ['model.', ''])
+                                                test_data_point)
         preds, probas = datamodule.predict_logits_to_class(prediction,
                                                            list(range(test_data.n_classes)))
         datamodule.export_predict_csv(preds, probas,
