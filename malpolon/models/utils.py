@@ -104,7 +104,7 @@ def check_metric(metrics: OmegaConf) -> OmegaConf:
     return metrics
 
 
-def check_loss(loss: nn.modules.loss._Loss) -> nn.modules.loss._Loss:
+def check_loss(loss: Union[nn.modules.loss._Loss, str]) -> nn.modules.loss._Loss:
     """Ensure input loss is a pytorch loss.
 
     Args:
@@ -118,7 +118,9 @@ def check_loss(loss: nn.modules.loss._Loss) -> nn.modules.loss._Loss:
     """
     if isinstance(loss, nn.modules.loss._Loss):  # pylint: disable=protected-access  # noqa
         return loss
-    raise ValueError(f"Loss must be of type nn.modules.loss. "
+    elif isinstance(loss, str):
+        return eval(loss)
+    raise ValueError(f"Loss must be of type nn.modules.loss or callable string"
                      f"Loss given type {type(loss)} instead")
 
 

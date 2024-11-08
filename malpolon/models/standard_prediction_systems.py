@@ -449,3 +449,71 @@ class ClassificationSystem(GenericPredictionSystem):
             }
 
         super().__init__(model, loss, optimizer, metrics=metrics)
+
+
+class RegressionSystem(GenericPredictionSystem):
+    """Regression task class."""
+    def __init__(
+        self,
+        model: Union[torch.nn.Module, Mapping],
+        loss: Union[torch.nn.modules.loss._Loss, str],
+        optimizer: Union[torch.nn.Module, Mapping] = None,
+        lr: float = 1e-2,
+        weight_decay: float = 0,
+        metrics: Optional[dict[str, Callable]] = None,
+        task: str = 'regression_multilabel',
+        loss_kwargs: Optional[dict] = {},
+        hparams_preprocess: bool = True,
+        checkpoint_path: Optional[str] = None
+    ):
+        """Class constructor.
+        Parameters
+        ----------
+        model : dict
+            model to use
+        lr : float
+            learning rate
+        weight_decay : float
+            weight decay
+        momentum : float
+            value of momentum
+        nesterov : bool
+            if True, uses Nesterov's momentum
+        metrics : dict
+            dictionnary containing the metrics to compute.
+            Keys must match metrics' names and have a subkey with each
+            metric's functional methods as value. This subkey is either
+            created from the `malpolon.models.utils.FMETRICS_CALLABLES`
+            constant or supplied, by the user directly.
+        task : str, optional
+            Machine learning task (used to format labels accordingly),
+            by default 'classification_multiclass'. The value determines
+            the loss to be selected. if 'multilabel' or 'binary' is
+            in the task, the BCEWithLogitsLoss is selected, otherwise
+            the CrossEntropyLoss is used.
+        hparams_preprocess : bool, optional
+            if True performs preprocessing operations on the hyperparameters,
+            by default True
+        """
+        if hparams_preprocess:
+            task = task.split('regression_')[1]
+            metrics = check_metric(metrics)
+
+        self.lr = lr
+        self.weight_decay = weight_decay
+
+        self.checkpoint_path = checkpoint_path
+        model = check_model(model)
+
+        if optimizer is None:
+            print(f'[INFO] No optimizer provided: using AdamW with lr={lr}, weight_decay={weight_decay}')
+            optimizer = torch.optim.AdamW(
+                model.parameters(),
+                lr=self.lr,
+                weight_decay=self.weight_decay
+            )
+
+
+        loss = check_loss(loss)(**loss_kwargs)
+
+        super().__init__(model, loss, optimizer, metrics=metrics)
