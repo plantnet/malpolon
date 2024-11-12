@@ -462,6 +462,7 @@ class RegressionSystem(GenericPredictionSystem):
         weight_decay: float = 0,
         metrics: Optional[dict[str, Callable]] = None,
         task: str = 'regression_multilabel',
+        loss_kwargs: Optional[dict] = {},
         hparams_preprocess: bool = True,
         checkpoint_path: Optional[str] = None
     ):
@@ -490,6 +491,8 @@ class RegressionSystem(GenericPredictionSystem):
             the loss to be selected. if 'multilabel' or 'binary' is
             in the task, the BCEWithLogitsLoss is selected, otherwise
             the CrossEntropyLoss is used.
+        loss_kwargs: Optional[dict] = {}
+            Arguments to be passed to loss constructor.
         hparams_preprocess : bool, optional
             if True performs preprocessing operations on the hyperparameters,
             by default True

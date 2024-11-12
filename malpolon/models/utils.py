@@ -126,7 +126,7 @@ def check_loss(loss: Union[nn.modules.loss._Loss, str]) -> nn.modules.loss._Loss
     elif isinstance(loss, str):
         if loss in LOSS_CALLABLES:
             return(LOSS_CALLABLES[loss])
-    raise ValueError(f"Loss must be of type nn.modules.loss or callable string"
+    raise ValueError(f"Loss must be of type nn.modules.loss or string from LOSS_CALLABLES"
                      f"Loss given type {type(loss)} instead")
 
 
