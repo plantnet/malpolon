@@ -461,9 +461,7 @@ class RegressionSystem(GenericPredictionSystem):
         lr: float = 1e-2,
         weight_decay: float = 0,
         metrics: Optional[dict[str, Callable]] = None,
-        task: str = 'regression_multilabel',
         loss_kwargs: Optional[dict] = {},
-        hparams_preprocess: bool = True,
         checkpoint_path: Optional[str] = None
     ):
         """Class constructor.
@@ -485,23 +483,13 @@ class RegressionSystem(GenericPredictionSystem):
             metric's functional methods as value. This subkey is either
             created from the `malpolon.models.utils.FMETRICS_CALLABLES`
             constant or supplied, by the user directly.
-        task : str, optional
-            Machine learning task (used to format labels accordingly),
-            by default 'classification_multiclass'. The value determines
-            the loss to be selected. if 'multilabel' or 'binary' is
-            in the task, the BCEWithLogitsLoss is selected, otherwise
-            the CrossEntropyLoss is used.
         loss_kwargs: Optional[dict] = {}
             Arguments to be passed to loss constructor.
-        hparams_preprocess : bool, optional
-            if True performs preprocessing operations on the hyperparameters,
-            by default True
         checkpoint_path : str
             Checkpoint to use for training or inference.
         """
-        if hparams_preprocess:
-            task = task.split('regression_')[1]
-            metrics = check_metric(metrics)
+
+        metrics = check_metric(metrics)
 
         self.lr = lr
         self.weight_decay = weight_decay
