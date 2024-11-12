@@ -462,7 +462,6 @@ class RegressionSystem(GenericPredictionSystem):
         weight_decay: float = 0,
         metrics: Optional[dict[str, Callable]] = None,
         task: str = 'regression_multilabel',
-        loss_kwargs: Optional[dict] = {},
         hparams_preprocess: bool = True,
         checkpoint_path: Optional[str] = None
     ):
@@ -471,14 +470,14 @@ class RegressionSystem(GenericPredictionSystem):
         ----------
         model : dict
             model to use
+        loss : Union[torch.nn.modules.loss._Loss, str]
+            loss or string from the predifined LOSS_CALLABLES. 
+        optimizer : Union[torch.nn.Module, Mapping]
+            optional custom optimizer to use for training
         lr : float
             learning rate
         weight_decay : float
             weight decay
-        momentum : float
-            value of momentum
-        nesterov : bool
-            if True, uses Nesterov's momentum
         metrics : dict
             dictionnary containing the metrics to compute.
             Keys must match metrics' names and have a subkey with each
@@ -494,6 +493,8 @@ class RegressionSystem(GenericPredictionSystem):
         hparams_preprocess : bool, optional
             if True performs preprocessing operations on the hyperparameters,
             by default True
+        checkpoint_path : str
+            Checkpoint to use for training or inference.
         """
         if hparams_preprocess:
             task = task.split('regression_')[1]
