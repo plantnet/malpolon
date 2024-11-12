@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Mapping, Union
 
 import torchmetrics.functional as Fmetrics
+from torchmetrics import Metric
 from omegaconf import OmegaConf
 from torch import nn, optim
 from torch.optim import Optimizer, lr_scheduler
@@ -55,6 +56,30 @@ class CrashHandler():
         sys.exit(0)
 
 
+def get_callable_by_name(submodule, name, matching_class):
+    """
+    Retrieves a package class by name if it exists in the package's submodule.
+    
+    Args:
+        name (str): The name of the class to retrieve.
+        
+    Returns:
+        callable: The class from package.submodule if found, else None.
+    """
+    # Convert the name to lowercase for case-insensitive matching
+    name = name.lower()
+    
+    # Create a dictionary mapping lowercase optimizer names to their classes
+    callables = {opt_name.lower(): opt_class for opt_name, opt_class in submodule.__dict__.items() 
+                if callable(opt_class) and isinstance(opt_class, type) and issubclass(opt_class, matching_class)}
+
+    # Return the optimizer class if found, otherwise None
+    res = callables.get(name, None)
+    if res is None:
+        print(f"[WARNING] Callable {name} not found in {submodule.__name__}. Returning None.")
+    return res
+
+
 def check_metric(metrics: OmegaConf) -> OmegaConf:
     """Ensure user's model metrics are valid.
 
@@ -85,7 +110,7 @@ def check_metric(metrics: OmegaConf) -> OmegaConf:
         metrics = OmegaConf.to_container(metrics, resolve=True)
         for k, v in metrics.items():
             if 'callable' in v:
-                metrics[k]['callable'] = eval(v['callable'])
+                metrics[k]['callable'] = get_callable_by_name(Fmetrics, v['callable'], Metric)
             else:
                 metrics[k]['callable'] = FMETRICS_CALLABLES[k]
     except ValueError as e:
@@ -179,7 +204,7 @@ def check_scheduler(scheduler: Union[LRScheduler, dict],
         if 'lr_scheduler_config' in v and v['lr_scheduler_config'] is not None:
             lr_sch_config = lr_sch_config | v['lr_scheduler_config']
         if 'callable' in v:
-            v['callable'] = eval(v['callable'])
+            v['callable'] = get_callable_by_name(lr_scheduler, v['callable'], lr_scheduler.LRScheduler)
         else:
             v['callable'] = SCHEDULER_CALLABLES[k]
         scheduler = v['callable'](optimizer, **v['kwargs'])
@@ -237,7 +262,7 @@ def check_optimizer(optimizer: Union[Optimizer, OmegaConf],
             # Loop over all optimizers
             for k, v in optimizer.items():
                 if 'callable' in v:
-                    optimizer[k]['callable'] = eval(v['callable'])
+                    optimizer[k]['callable'] = get_callable_by_name(optim, v['callable'], optim.Optimizer)
                 else:
                     optimizer[k]['callable'] = OPTIMIZERS_CALLABLES[k]
                 optim_list.append(optimizer[k]['callable'](model.parameters(), **optimizer[k]['kwargs']))

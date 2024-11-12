@@ -164,7 +164,7 @@ class GenericPredictionSystem(pl.LightningModule):
 
         for metric_name, metric_func in self.metrics.items():
             if isinstance(metric_func, dict):
-                score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
+                score = metric_func['callable'](y_hat, y, **metric_func.get('kwargs', {}))
             else:
                 score = metric_func(y_hat, y)
             self.log(f"{metric_name}/{split}", score, **log_kwargs)
