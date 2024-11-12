@@ -41,11 +41,22 @@ model:
     change_last_layer:
       num_outputs: 1
 
-optimizer:
-  lr: 1.0e-04
-  weight_decay: 1.0e-05
-  momentum: 0.9
-  nesterov: true
+optim:
+  optimizer:
+    adamw: # ['adam', 'sgd', 'adamw', 'adadelta', 'adagrad', 'adamax', 'rmsprop']
+      # callable: 'optim.SGD'
+      kwargs:
+        lr: 1e-4
+        weight_decay: 1.0e-05
+      scheduler: # Optional, delete key or leave empty to not use any learning rate scheduler
+        reduce_lr_on_plateau:
+          # callable: 'lr_scheduler.reduce_lr_on_plateau'
+          kwargs:
+            threshold: 0.001
+          lr_scheduler_config:
+            scheduler: reduce_lr_on_plateau  # Optional, the scheduler to use is the parent key
+            monitor: loss/val  # ['loss/train', 'loss/val', '<metric>/train', '<metric>/val', ...]
+
   metrics:
     regression_R2score:
       callable: Fmetrics.regression.r2_score

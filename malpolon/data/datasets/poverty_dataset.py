@@ -6,10 +6,10 @@ import numpy as np
 import rasterio
 import pandas as pd
 from matplotlib import pyplot
+from pathlib import Path
 
 import torch
 from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
 from torchvision import transforms
 
 from malpolon.data.data_module import BaseDataModule
@@ -26,6 +26,7 @@ class PovertyDataModule(BaseDataModule):
             train_batch_size: int = 32,
             inference_batch_size: int = 16,
             num_workers: int = 8,
+            task: str = 'regression',
             **kwargs
     ):
 
@@ -41,17 +42,17 @@ class PovertyDataModule(BaseDataModule):
             transform (torchvision.transforms): transform to apply to the data"""
 
         super().__init__()
-        dataframe = pd.read_csv(dataset_path + labels_name)
+        dataframe = pd.read_csv(Path(dataset_path) / Path(labels_name))
         self.dataframe = dataframe
         self.dataframe_train = dataframe[dataframe['subset'] == 'train']
         self.dataframe_val = dataframe[dataframe['subset'] == 'val']
         self.dataframe_test = dataframe[dataframe['subset'] == 'test']
-        self.tif_dir = dataset_path + tif_dir
+        self.tif_dir = Path(dataset_path) / Path(tif_dir)
         self.train_batch_size = train_batch_size
         self.inference_batch_size = inference_batch_size
         self.dict_normalize = json.load(open('examples/poverty/mean_std_normalize.json', 'r'))
         self.num_workers = num_workers
-        self.task = 'regression'
+        self.task = task
 
     def train_transform(self) -> Callable:
         return transforms.Compose([
@@ -75,18 +76,6 @@ class PovertyDataModule(BaseDataModule):
         elif split == 'test':
             dataset = MSDataset(self.dataframe_test, self.tif_dir, transform=self.test_transform())
         return dataset
-
-    def train_dataloader(self):
-        return DataLoader(self.get_train_dataset(), batch_size=self.train_batch_size, shuffle=True,
-                          num_workers=self.num_workers, persistent_workers=True)
-
-    def val_dataloader(self):
-        return DataLoader(self.get_val_dataset(), batch_size=self.inference_batch_size, num_workers=self.num_workers,
-                          persistent_workers=True)
-
-    def test_dataloader(self):
-        return DataLoader(self.get_test_dataset(), batch_size=self.inference_batch_size, num_workers=self.num_workers,
-                          persistent_workers=True)
 
 
 class MSDataset(Dataset):

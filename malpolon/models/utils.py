@@ -11,7 +11,6 @@ import sys
 from pathlib import Path
 from typing import Mapping, Union
 
-import torchmetrics
 import torchmetrics.functional as Fmetrics
 from omegaconf import OmegaConf
 from torch import nn, optim

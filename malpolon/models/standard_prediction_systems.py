@@ -31,38 +31,34 @@ if TYPE_CHECKING:
 class GenericPredictionSystem(pl.LightningModule):
     """Generic prediction system providing standard methods.
 
-
+    Parameters
+    ----------
+    model: torch.nn.Module
+        Model to use.
+    loss: torch.nn.modules.loss._Loss
+        Loss used to fit the model.
+    optimizer : Union[torch.optim.Optimizer, Mapping]
+            Optimization algorithm(s) used to train the model. There can be
+            several optimizers passed as an Omegaconf mapping.
+    scheduler : Union[torch.optim.Optimizer, Mapping], optional
+        Learning rate scheduler(s) used to train the model. There can be
+        several schedulers passed as an Omegaconf mapping., by default None
+    metrics: dict
+        Dictionary containing the metrics to monitor during the training and
+        to compute at test time.
+    save_hyperparameters: bool
+        Save arguments to hparams attribute.
     """
 
     def __init__(
         self,
         model: Union[torch.nn.Module, Mapping],
         loss: torch.nn.modules.loss._Loss,
-        optimizer: Union[torch.optim.Optimizer, Mapping],
+        optimizer: torch.optim.Optimizer,
         scheduler: Union[torch.optim.Optimizer] = None,
         metrics: Optional[dict[str, Callable]] = None,
         save_hyperparameters: Optional[bool] = True,
     ):
-        """Class constructor.
-
-        Parameters
-        ----------
-        model : Union[torch.nn.Module, Mapping]
-            Model to use.
-        loss : torch.nn.modules.loss._Loss
-             Loss used to fit the model.
-        optimizer : Union[torch.optim.Optimizer, Mapping]
-            Optimization algorithm(s) used to train the model. There can be
-            several optimizers passed as an Omegaconf mapping.
-        scheduler : Union[torch.optim.Optimizer, Mapping], optional
-            Learning rate scheduler(s) used to train the model. There can be
-            several schedulers passed as an Omegaconf mapping., by default None
-        metrics : Optional[dict[str, Callable]], optional
-            Dictionary containing the metrics to monitor during the training and
-            to compute at test time., by default None
-        save_hyperparameters : Optional[bool], optional
-            Save arguments to hparams attribute., by default True
-        """
         if save_hyperparameters:
             self.save_hyperparameters(ignore=['model', 'loss'])
         # Must be placed before the super call (or anywhere in other inheriting
@@ -162,19 +158,16 @@ class GenericPredictionSystem(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
 
-        loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
-        self.log(f"loss_{split}", loss, **log_kwargs)
+        loss = self.loss(y_hat, self._cast_type_to_loss(
+            y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
+        self.log(f"loss/{split}", loss, **log_kwargs)
 
         for metric_name, metric_func in self.metrics.items():
             if isinstance(metric_func, dict):
-                if metric_func['kwargs']:
-
-                    score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
-                else:
-                    score = metric_func['callable'](y_hat, y)
+                score = metric_func['callable'](y_hat, y, metric_func.get('kwargs', {}))
             else:
                 score = metric_func(y_hat, y)
-            self.log(f"{metric_name}_{split}", score, **log_kwargs)
+            self.log(f"{metric_name}/{split}", score, **log_kwargs)
 
         return loss
 
@@ -464,10 +457,9 @@ class RegressionSystem(GenericPredictionSystem):
     def __init__(
         self,
         model: Union[torch.nn.Module, Mapping],
+        optimizer: Union[torch.nn.Module, Mapping] = None,
         lr: float = 1e-2,
         weight_decay: float = 0,
-        momentum: float = 0.9,
-        nesterov: bool = True,
         metrics: Optional[dict[str, Callable]] = None,
         task: str = 'regression',
         hparams_preprocess: bool = True,
@@ -482,10 +474,6 @@ class RegressionSystem(GenericPredictionSystem):
             learning rate
         weight_decay : float
             weight decay
-        momentum : float
-            value of momentum
-        nesterov : bool
-            if True, uses Nesterov's momentum
         metrics : dict
             dictionnary containing the metrics to compute.
             Keys must match metrics' names and have a subkey with each
@@ -504,22 +492,18 @@ class RegressionSystem(GenericPredictionSystem):
             assert task == 'regression', "Regression task must be specified."
             metrics = check_metric(metrics)
 
-
         self.lr = lr
         self.weight_decay = weight_decay
-        self.momentum = momentum
-        self.nesterov = nesterov
 
         model = check_model(model)
 
-        optimizer = torch.optim.AdamW(model.parameters(),
-                                      lr=lr,
-                                      weight_decay=weight_decay)
+        if optimizer is None:
+            print(f'[INFO] No optimizer provided: using AdamW with lr={lr}, weight_decay={weight_decay}')
+            optimizer = torch.optim.AdamW(model.parameters(),
+                                          lr=lr,
+                                          weight_decay=weight_decay)
 
-        print(optimizer)
-
-        if 'regression' in task:
-            loss = torch.nn.MSELoss()
+        loss = torch.nn.MSELoss()
 
         if metrics is None:
             metrics = {
@@ -527,21 +511,4 @@ class RegressionSystem(GenericPredictionSystem):
                                        'kwargs': {}}
             }
 
-        super().__init__(model, loss, optimizer, metrics=metrics)
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.AdamW(self.model.parameters(),
-                                      lr=self.lr,
-                                      weight_decay=self.weight_decay)
-
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer=optimizer, mode='min', factor=0.1,
-                                                               patience=4, threshold=0.0001, threshold_mode='rel',
-                                                               cooldown=0, min_lr=0, eps=1e-08)
-        return {
-            "optimizer": optimizer,
-            "lr_scheduler": {
-                "scheduler": scheduler,
-                "monitor": 'loss_val_epoch',
-                "frequency": 1,
-            },
-        }
+        super().__init__(model, loss, optimizer, metrics)

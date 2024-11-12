@@ -46,7 +46,7 @@ def main(cfg: DictConfig) -> None:
     logger_tb.log_hyperparams(cfg)
 
     datamodule = PovertyDataModule(**cfg.data, **cfg.task)
-    model = RegressionSystem(cfg.model, **cfg.optimizer, **cfg.task)
+    model = RegressionSystem(cfg.model, **cfg.optim, **cfg.task)
 
     callbacks = [
         Summary(),
