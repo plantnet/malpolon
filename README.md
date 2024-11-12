@@ -282,7 +282,7 @@ This roadmap outlines the planned features and milestones for the project. Pleas
 
 ## Libraries
 
-Here is an overview of the main Python librairies used in this project.
+Here is an overview of the main Python libraries used in this project.
 
 - [![PyTorch](https://img.shields.io/badge/PyTorch-%23ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/) - To handle deep learning loops and dataloaders
 - [![PyTorch Lightning](https://img.shields.io/badge/PyTorch%20Lightning-%23792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/docs/pytorch/stable/) - Deep learning framework which simplifies the usage of PyTorch elements
@@ -313,7 +313,7 @@ This work is currently under development and maintained by the [Pl@ntNet](https:
 
 ## Licensing
 
-This framework is ditributed under the [MIT license](https://opensource.org/license/mit/), as is the Pl@ntNet project. See LICENSE.md for more information.
+This framework is distributed under the [MIT license](https://opensource.org/license/mit/), as is the Pl@ntNet project. See LICENSE.md for more information.
 
 ## Citation & credits
 
@@ -333,10 +333,10 @@ Malpolon is a project developed by the [Pl@ntNet](https://plantnet.org/) team wi
 
 Authors include :
 
-- [Théo Larcher](https://github.com/tlarcher) (current lead developper) ([email](mailto:theo.larcher@inria.fr))
+- [Théo Larcher](https://github.com/tlarcher) (current lead developer) ([email](mailto:theo.larcher@inria.fr))
 - [Maximilien Servajean](https://github.com/maximiliense)
 - [Alexis Joly](https://github.com/alexisjoly)
 
 Former developpers include :
 
-- [Titouan Lorieul](https://github.com/tlorieul) (former lead developper) ([email](mailto:titouan.lorieul@gmail.com))
+- [Titouan Lorieul](https://github.com/tlorieul) (former lead developer) ([email](mailto:titouan.lorieul@gmail.com))
