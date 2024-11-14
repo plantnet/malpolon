@@ -1,4 +1,5 @@
 <p align="center">
+  <a href="https://arxiv.org/abs/2409.18102"><img src="https://img.shields.io/badge/arXiv-2409.18102-f9f107.svg" alt="arxiv paper"></a>
   <a href="https://pypi.org/project/malpolon/"><img src="https://img.shields.io/pypi/v/malpolon" alt="Python version"></a>
   <a href="https://www.python.org/downloads/release/python-3100/"><img src="https://img.shields.io/pypi/pyversions/malpolon" alt="Python version"></a>
   <a href="https://github.com/plantnet/malpolon/issues"><img src="https://img.shields.io/github/issues/plantnet/malpolon" alt="GitHub issues"></a>
