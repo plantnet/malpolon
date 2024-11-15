@@ -1,8 +1,8 @@
 from setuptools import find_packages, setup
 
 setup(name="malpolon",
-      version="2.1.0",
-      description="Malpolon v2.1.0",
+      version="2.1.1",
+      description="Malpolon v2.1.1",
       author="Theo Larcher, Titouan Lorieul, Benjamin Deneu, Lukas Picek",
       author_email="theo.larcher@inria.fr, titouan.lorieul@gmail.com, benjamin.deneu@wsl.ch, lukas.picek@inria.fr",
       url="https://github.com/plantnet/malpolon",
