@@ -1,4 +1,5 @@
 <p align="center">
+  <a href="https://arxiv.org/abs/2409.18102"><img src="https://img.shields.io/badge/arXiv-2409.18102-f9f107.svg" alt="arxiv paper"></a>
   <a href="https://pypi.org/project/malpolon/"><img src="https://img.shields.io/pypi/v/malpolon" alt="Python version"></a>
   <a href="https://www.python.org/downloads/release/python-3100/"><img src="https://img.shields.io/pypi/pyversions/malpolon" alt="Python version"></a>
   <a href="https://github.com/plantnet/malpolon/issues"><img src="https://img.shields.io/github/issues/plantnet/malpolon" alt="GitHub issues"></a>
@@ -32,9 +33,9 @@ Here is a list of the currently available scenarios:
 
 - [**Benchmarks**](examples/benchmarks/) : I want to compare the performance of different models on a given known dataset;\
   or I am a potential kaggle participant on the GeoLifeClef challenge. I want to train a model on the provided datasets without having to worry about the data loading, starting from a plug-and-play example.
-  - [<u>GeoLifeClef2022</u>](examples/benchmarks/geolifeclef2022/) : contains a fully functional example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction.
-  - [<u>GeoLifeClef2023</u>](examples/benchmarks/geolifeclef2023/) : contains dataloaders for the GeoLifeClef2023 dataset (different from the GLC2022 dataloaders). The training and prediction scripts are not provided.
-  - [<u>GeoLifeClef2024 (pre-extracted)</u>](examples/benchmarks/geolifeclef2024_pre_extracted/) : contains a fully functional example of a multimodal ensemble model used to provide a strong baseline for the [GeoLifeClef2024 kaggle competition](https://www.kaggle.com/competitions/geolifeclef-2024). The example uses unique dataloaders and models to handle pre-extracted values from satellite patches, satellite time series and bioclimatic time series.
+  - [<u>GeoLifeClef2022</u>](examples/benchmarks/geolifeclef/geolifeclef2022/) : contains a fully functional example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction.
+  - [<u>GeoLifeClef2023</u>](examples/benchmarks/geolifeclef/geolifeclef2023/) : contains dataloaders for the GeoLifeClef2023 dataset (different from the GLCgeolifeclef/2022 dataloaders). The training and prediction scripts are not provided.
+  - [<u>GeoLifeClef2024 (pre-extracted)</u>](examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/) : contains a fully functional example of a multimodal ensemble model used to provide a strong baseline for the [GeoLifeClef2024 kaggle competition](https://www.kaggle.com/competitions/geolifeclef-2024). The example uses unique dataloaders and models to handle pre-extracted values from satellite patches, satellite time series and bioclimatic time series.
 - [**Train (custom datasets)**](examples/custom_train/) : I have a dataset of my own and I want to train a model on it. I want to be able to easily customize the training process and the model architecture.
   - <u>Drop and play</u> : I have an observations file (.csv) and I want to train a model on different environmental variables (rasters, satellite imagery) without having to worry about the data loading.
   - <u>Custom dataset</u> : I have my own dataset consisting of pre-extracted image patches and/or rasters and I want to train a model on it.
@@ -69,19 +70,22 @@ Before proceeding, please make sure the following packages are installed on your
 The following instructions show installation commands for Python 3.10, but can be adapted for any of the compatible Python versions mentioned above by simply changing the version number.
 
 ### Install from `PyPi`
+
 The backend side of malpolon is distributed as a package on `PyPi`. To install it, simply run the following command:
 
 ```script
 pip install malpolon
 ```
 
-However, versions available on PyPi are non-experimental and possibly behind the repository's `main` and `dev` branches. To know which version you want download, please refer to the *tags* section of the repository and match it with PyPi.
+However, versions available on PyPi are non-experimental and possibly behind the repository's `main` and `dev` branches. To know which version you want download, please refer to the _tags_ section of the repository and match it with PyPi.
 Furthermore, the PyPi package does not include the examples and the documentation. If you want to install the full repository, follow the next steps.
 
 ### Install from `GitHub`
+
 #### 1. Clone the repository
 
 Clone the Malpolon repository using `git` in the directory of your choice:
+
 ```script
 git clone https://github.com/plantnet/malpolon.git
 ```
@@ -102,6 +106,7 @@ source ./malpolon_3.10/bin/activate
 ```
 
 Once the env is activated, install the python packages listed in `requirements_python3.10.txt`:
+
 ```script
 pip install --upgrade setuptools
 pip install -r requirements_python3.10.txt
@@ -175,11 +180,12 @@ make -C docs html
 
 The result can be found in `docs/_build/html`.
 
-
 ## ⚒️ Troubleshooting
+
 Commonly encountered errors when using the framework are compiled [here](examples/README.md#⚒️-troubleshooting).
 
 ## 🚀 Contributing
+
 ### **Guidelines**
 
 Issues and PR templates are provided to help you start a contribution to the project.
@@ -191,6 +197,7 @@ A checking script is also provided and can run checks relative to the 2 next sec
 ```
 
 ### **Unit tests**
+
 <details>
   <summary><i><u>Click here to expand instructions</u></i></summary>
 
@@ -199,6 +206,7 @@ When submitting, make sure the unit tests all pass without errors. These tests a
 ```bash
 ./checkMyCode.sh t  # or `pytest malpolon/tests/`
 ```
+
 Specify a file path as argument to run a single test file:
 
 ```bash
@@ -233,6 +241,7 @@ Run linters on non-test file(s) :
 ```bash
 ./checkMyCode.sh <FILE_PATH_1> <FILE_PATH_2>
 ```
+
 </details>
 
 ## 🚆 Roadmap
@@ -244,13 +253,13 @@ This roadmap outlines the planned features and milestones for the project. Pleas
   <br>
 
 - [ ] Data support
-    - [x] Images (pre-extracted patches)
-    - [x] Rasters
-    - [ ] Time series
-      - [x] Via GLC23 loaders (.csv)
-      - [ ] Via generic loader
-    - [ ] Shapefiles
-    - [ ] Fuse several data types in one training
+  - [x] Images (pre-extracted patches)
+  - [x] Rasters
+  - [ ] Time series
+    - [x] Via GLC23 loaders (.csv)
+    - [ ] Via generic loader
+  - [ ] Shapefiles
+  - [ ] Fuse several data types in one training
 - [ ] Deep learning tasks
   - [x] Binary classification
   - [x] Multi-class classification
@@ -273,15 +282,16 @@ This roadmap outlines the planned features and milestones for the project. Pleas
 </details>
 
 ## Libraries
+
 Here is an overview of the main Python libraries used in this project.
 
-* [![PyTorch](https://img.shields.io/badge/PyTorch-%23ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/) - To handle deep learning loops and dataloaders
-* [![PyTorch Lightning](https://img.shields.io/badge/PyTorch%20Lightning-%23792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/docs/pytorch/stable/) - Deep learning framework which simplifies the usage of PyTorch elements
-* [![Numpy](https://img.shields.io/badge/Numpy-%234D77CF.svg?logo=numpy&logoColor=white)](https://numpy.org/) - For common computational operations
-* [![Torchgeo](https://img.shields.io/badge/Torchgeo-%23EE4C2C.svg?logo=torchgeo&logoColor=white)](https://torchgeo.readthedocs.io/en/stable/) - To handle data rasters
-* [![Matplotlib](https://img.shields.io/badge/Matplotlib-%2311557C.svg?logo=matplotlib&logoColor=white)](https://matplotlib.org/) - For displaying purposes
-* [![Hydra](https://img.shields.io/badge/Hydra-%23729DB1.svg?logo=hydra&logoColor=white)](https://hydra.cc/docs/intro/) - To handle models' hyperparameters
-* [![Cartopy](https://img.shields.io/badge/Cartopy-%2300A1D9.svg?logo=cartopy&logoColor=white)](https://scitools.org.uk/cartopy/docs/latest/) - To handle geographical data
+- [![PyTorch](https://img.shields.io/badge/PyTorch-%23ee4c2c.svg?logo=pytorch&logoColor=white)](https://pytorch.org/) - To handle deep learning loops and dataloaders
+- [![PyTorch Lightning](https://img.shields.io/badge/PyTorch%20Lightning-%23792EE5.svg?logo=lightning&logoColor=white)](https://lightning.ai/docs/pytorch/stable/) - Deep learning framework which simplifies the usage of PyTorch elements
+- [![Numpy](https://img.shields.io/badge/Numpy-%234D77CF.svg?logo=numpy&logoColor=white)](https://numpy.org/) - For common computational operations
+- [![Torchgeo](https://img.shields.io/badge/Torchgeo-%23EE4C2C.svg?logo=torchgeo&logoColor=white)](https://torchgeo.readthedocs.io/en/stable/) - To handle data rasters
+- [![Matplotlib](https://img.shields.io/badge/Matplotlib-%2311557C.svg?logo=matplotlib&logoColor=white)](https://matplotlib.org/) - For displaying purposes
+- [![Hydra](https://img.shields.io/badge/Hydra-%23729DB1.svg?logo=hydra&logoColor=white)](https://hydra.cc/docs/intro/) - To handle models' hyperparameters
+- [![Cartopy](https://img.shields.io/badge/Cartopy-%2300A1D9.svg?logo=cartopy&logoColor=white)](https://scitools.org.uk/cartopy/docs/latest/) - To handle geographical data
 
 ## Acknowledgments
 
@@ -303,15 +313,31 @@ This work is currently under development and maintained by the [Pl@ntNet](https:
 </div>
 
 ## Licensing
+
 This framework is distributed under the [MIT license](https://opensource.org/license/mit/), as is the Pl@ntNet project. See LICENSE.md for more information.
 
 ## Citation & credits
-Malpolon is a project developed by the [Pl@ntNet](https://plantnet.org/) team within the [INRIA](https://www.inria.fr/en) research institute. If you use this framework in your research, please cite this repository in your paper.
+
+Malpolon is a project developed by the [Pl@ntNet](https://plantnet.org/) team within the [INRIA](https://www.inria.fr/en) research institute. If you use this framework in your research, please cite our software paper:
+
+```latex
+@misc{larcher2024malpolonframeworkdeepspecies,
+      title={MALPOLON: A Framework for Deep Species Distribution Modeling},
+      author={Theo Larcher and Lukas Picek and Benjamin Deneu and Titouan Lorieul and Maximilien Servajean and Alexis Joly},
+      year={2024},
+      eprint={2409.18102},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2409.18102},
+}
+```
 
 Authors include :
+
 - [Théo Larcher](https://github.com/tlarcher) (current lead developer) ([email](mailto:theo.larcher@inria.fr))
 - [Maximilien Servajean](https://github.com/maximiliense)
 - [Alexis Joly](https://github.com/alexisjoly)
 
 Former developpers include :
+
 - [Titouan Lorieul](https://github.com/tlorieul) (former lead developer) ([email](mailto:titouan.lorieul@gmail.com))
