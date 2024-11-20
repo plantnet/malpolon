@@ -33,6 +33,9 @@ examples/benchmarks/cifar-10/outputs/*
 dist/
 build/
 
+# Training / Inference outputs
+outputs/
+
 # Resources
 docs/resources/Amap_logo.png
 docs/resources/Malpolon_python_v2_image.png
@@ -49,3 +52,6 @@ examples/custom_train/sentinel-2a-rgbnir/test_bug_rasterio.md
 packages_malpolon.png
 classes_malpolon.png
 classes_yourpackage.png
+
+*.tif
+landsat_tiles/

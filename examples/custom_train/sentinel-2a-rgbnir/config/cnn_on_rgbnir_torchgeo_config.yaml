@@ -31,7 +31,7 @@ trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
   accelerator: "gpu"
   devices: 1
-  max_epochs: 3
+  max_epochs: 10
   # val_check_interval: 2
   check_val_every_n_epoch: 1
   log_every_n_steps: 10
@@ -78,6 +78,6 @@ optim:
     #   kwargs:
     #     num_classes: *num_classes
     multilabel_accuracy:
-      # callable: 'Fmetrics.classification.multilabel_accuracy'
+      callable: 'Fmetrics.classification.multilabel_accuracy'
       kwargs:
         num_labels: ${data.num_classes}

@@ -8,13 +8,16 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING
+import json
 
 import pytorch_lightning as pl
 import torch
 import torchmetrics.functional as Fmetrics
 from torchvision.datasets.utils import (download_and_extract_archive,
-                                        download_url)
+                                        download_url, extract_archive)
+import torchvision.models
 
+from torchmetrics.regression import R2Score
 from malpolon.models.utils import check_metric
 
 from .utils import check_loss, check_model, check_optimizer, check_scheduler
@@ -28,38 +31,34 @@ if TYPE_CHECKING:
 class GenericPredictionSystem(pl.LightningModule):
     """Generic prediction system providing standard methods.
 
-
+    Parameters
+    ----------
+    model: torch.nn.Module
+        Model to use.
+    loss: torch.nn.modules.loss._Loss
+        Loss used to fit the model.
+    optimizer : Union[torch.optim.Optimizer, Mapping]
+            Optimization algorithm(s) used to train the model. There can be
+            several optimizers passed as an Omegaconf mapping.
+    scheduler : Union[torch.optim.Optimizer, Mapping], optional
+        Learning rate scheduler(s) used to train the model. There can be
+        several schedulers passed as an Omegaconf mapping., by default None
+    metrics: dict
+        Dictionary containing the metrics to monitor during the training and
+        to compute at test time.
+    save_hyperparameters: bool
+        Save arguments to hparams attribute.
     """
 
     def __init__(
         self,
         model: Union[torch.nn.Module, Mapping],
         loss: torch.nn.modules.loss._Loss,
-        optimizer: Union[torch.optim.Optimizer, Mapping],
+        optimizer: torch.optim.Optimizer,
         scheduler: Union[torch.optim.Optimizer] = None,
         metrics: Optional[dict[str, Callable]] = None,
         save_hyperparameters: Optional[bool] = True,
     ):
-        """Class constructor.
-
-        Parameters
-        ----------
-        model : Union[torch.nn.Module, Mapping]
-            Model to use.
-        loss : torch.nn.modules.loss._Loss
-             Loss used to fit the model.
-        optimizer : Union[torch.optim.Optimizer, Mapping]
-            Optimization algorithm(s) used to train the model. There can be
-            several optimizers passed as an Omegaconf mapping.
-        scheduler : Union[torch.optim.Optimizer, Mapping], optional
-            Learning rate scheduler(s) used to train the model. There can be
-            several schedulers passed as an Omegaconf mapping., by default None
-        metrics : Optional[dict[str, Callable]], optional
-            Dictionary containing the metrics to monitor during the training and
-            to compute at test time., by default None
-        save_hyperparameters : Optional[bool], optional
-            Save arguments to hparams attribute., by default True
-        """
         if save_hyperparameters:
             self.save_hyperparameters(ignore=['model', 'loss'])
         # Must be placed before the super call (or anywhere in other inheriting
@@ -159,12 +158,13 @@ class GenericPredictionSystem(pl.LightningModule):
         x, y = batch
         y_hat = self(x)
 
-        loss = self.loss(y_hat, self._cast_type_to_loss(y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
+        loss = self.loss(y_hat, self._cast_type_to_loss(
+            y))  # Shape mismatch for binary: need to 'y = y.unsqueeze(1)' (or use .reshape(2)) to cast from [2] to [2,1] and cast y to float with .float()
         self.log(f"loss/{split}", loss, **log_kwargs)
 
         for metric_name, metric_func in self.metrics.items():
             if isinstance(metric_func, dict):
-                score = metric_func['callable'](y_hat, y, **metric_func['kwargs'])
+                score = metric_func['callable'](y_hat, y, metric_func.get('kwargs', {}))
             else:
                 score = metric_func(y_hat, y)
             self.log(f"{metric_name}/{split}", score, **log_kwargs)
@@ -448,4 +448,66 @@ class ClassificationSystem(GenericPredictionSystem):
                              'kwargs': {}}
             }
 
-        super().__init__(model, loss, optimizer, metrics=metrics)
+        super().__init__(model, loss, optimizer, metrics)
+
+
+class RegressionSystem(GenericPredictionSystem):
+    """Regression task class."""
+    def __init__(
+        self,
+        model: Union[torch.nn.Module, Mapping],
+        optimizer: Union[torch.nn.Module, Mapping] = None,
+        lr: float = 1e-2,
+        weight_decay: float = 0,
+        metrics: Optional[dict[str, Callable]] = None,
+        task: str = 'regression',
+        hparams_preprocess: bool = True,
+    ):
+        """Class constructor.
+
+        Parameters
+        ----------
+        model : dict
+            model to use
+        lr : float
+            learning rate
+        weight_decay : float
+            weight decay
+        metrics : dict
+            dictionnary containing the metrics to compute.
+            Keys must match metrics' names and have a subkey with each
+            metric's functional methods as value. This subkey is either
+            created from the `malpolon.models.utils.FMETRICS_CALLABLES`
+            constant or supplied, by the user directly.
+        task : str, optional
+            Machine learning task (used to format labels accordingly),
+            by default 'regression'. The value determines
+            the loss to be selected.
+        hparams_preprocess : bool, optional
+            if True performs preprocessing operations on the hyperparameters,
+            by default True
+        """
+        if hparams_preprocess:
+            assert task == 'regression', "Regression task must be specified."
+            metrics = check_metric(metrics)
+
+        self.lr = lr
+        self.weight_decay = weight_decay
+
+        model = check_model(model)
+
+        if optimizer is None:
+            print(f'[INFO] No optimizer provided: using AdamW with lr={lr}, weight_decay={weight_decay}')
+            optimizer = torch.optim.AdamW(model.parameters(),
+                                          lr=lr,
+                                          weight_decay=weight_decay)
+
+        loss = torch.nn.MSELoss()
+
+        if metrics is None:
+            metrics = {
+                "regression_R2score": {'callable': Fmetrics.regression.r2_score,
+                                       'kwargs': {}}
+            }
+
+        super().__init__(model, loss, optimizer, metrics)

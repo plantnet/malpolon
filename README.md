@@ -1,4 +1,5 @@
 <p align="center">
+  <a href="https://arxiv.org/abs/2409.18102"><img src="https://img.shields.io/badge/arXiv-2409.18102-f9f107.svg" alt="arxiv paper"></a>
   <a href="https://pypi.org/project/malpolon/"><img src="https://img.shields.io/pypi/v/malpolon" alt="Python version"></a>
   <a href="https://www.python.org/downloads/release/python-3100/"><img src="https://img.shields.io/pypi/pyversions/malpolon" alt="Python version"></a>
   <a href="https://github.com/plantnet/malpolon/issues"><img src="https://img.shields.io/github/issues/plantnet/malpolon" alt="GitHub issues"></a>
@@ -32,9 +33,9 @@ Here is a list of the currently available scenarios:
 
 - [**Benchmarks**](examples/benchmarks/) : I want to compare the performance of different models on a given known dataset;\
   or I am a potential kaggle participant on the GeoLifeClef challenge. I want to train a model on the provided datasets without having to worry about the data loading, starting from a plug-and-play example.
-  - [<u>GeoLifeClef2022</u>](examples/benchmarks/geolifeclef2022/) : contains a fully functional example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction.
-  - [<u>GeoLifeClef2023</u>](examples/benchmarks/geolifeclef2023/) : contains dataloaders for the GeoLifeClef2023 dataset (different from the GLC2022 dataloaders). The training and prediction scripts are not provided.
-  - [<u>GeoLifeClef2024 (pre-extracted)</u>](examples/benchmarks/geolifeclef2024_pre_extracted/) : contains a fully functional example of a multimodal ensemble model used to provide a strong baseline for the [GeoLifeClef2024 kaggle competition](https://www.kaggle.com/competitions/geolifeclef-2024). The example uses unique dataloaders and models to handle pre-extracted values from satellite patches, satellite time series and bioclimatic time series.
+  - [<u>GeoLifeClef2022</u>](examples/benchmarks/geolifeclef/geolifeclef2022/) : contains a fully functional example of a model training on the GeoLifeClef2022 dataset, from data download, to training and prediction.
+  - [<u>GeoLifeClef2023</u>](examples/benchmarks/geolifeclef/geolifeclef2023/) : contains dataloaders for the GeoLifeClef2023 dataset (different from the GLCgeolifeclef/2022 dataloaders). The training and prediction scripts are not provided.
+  - [<u>GeoLifeClef2024 (pre-extracted)</u>](examples/benchmarks/geolifeclef/geolifeclef2024_pre_extracted/) : contains a fully functional example of a multimodal ensemble model used to provide a strong baseline for the [GeoLifeClef2024 kaggle competition](https://www.kaggle.com/competitions/geolifeclef-2024). The example uses unique dataloaders and models to handle pre-extracted values from satellite patches, satellite time series and bioclimatic time series.
 - [**Train (custom datasets)**](examples/custom_train/) : I have a dataset of my own and I want to train a model on it. I want to be able to easily customize the training process and the model architecture.
   - <u>Drop and play</u> : I have an observations file (.csv) and I want to train a model on different environmental variables (rasters, satellite imagery) without having to worry about the data loading.
   - <u>Custom dataset</u> : I have my own dataset consisting of pre-extracted image patches and/or rasters and I want to train a model on it.
