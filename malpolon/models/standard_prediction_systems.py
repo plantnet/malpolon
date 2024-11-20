@@ -348,7 +348,6 @@ class GenericPredictionSystem(pl.LightningModule):
         """
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.model.to(device)
-        data = data.to(device)
 
         ckpt = torch.load(checkpoint_path, map_location=device)
         if state_dict_replace_key:
