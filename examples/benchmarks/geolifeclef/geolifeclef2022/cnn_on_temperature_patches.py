@@ -105,6 +105,7 @@ class GeoLifeCLEF2022DataModule(BaseDataModule):
 def main(cfg: DictConfig) -> None:
     # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    log_dir = log_dir.split(hydra.utils.get_original_cwd())[1][1:]  # Transforming absolute path to relative path
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(Path(log_dir)/Path(cfg.loggers.log_dir_name), name=cfg.loggers.exp_name, version="")

@@ -52,6 +52,7 @@ def main(cfg: DictConfig) -> None:
     set_seed(69)
     # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    log_dir = log_dir.split(hydra.utils.get_original_cwd())[1][1:]  # Transforming absolute path to relative path
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version=cfg.loggers.exp_name)
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name=cfg.loggers.log_dir_name, version=cfg.loggers.exp_name)
@@ -73,7 +74,7 @@ def main(cfg: DictConfig) -> None:
     callbacks = [
         Summary(),
         ModelCheckpoint(
-            dirpath=log_dir,
+            dirpath=log_dir.split(hydra.utils.get_original_cwd())[1][1:],
             filename="checkpoint-{epoch:02d}-{step}-{" + f"loss/val" + ":.4f}",
             monitor=f"loss/val",
             mode="min",
