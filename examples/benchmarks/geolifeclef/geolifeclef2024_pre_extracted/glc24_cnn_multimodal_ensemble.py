@@ -86,7 +86,8 @@ def main(cfg: DictConfig) -> None:
         model_loaded = ClassificationSystemGLC24.load_from_checkpoint(classif_system.checkpoint_path,
                                                                       model=classif_system.model,
                                                                       hparams_preprocess=False,
-                                                                      strict=False)
+                                                                      strict=False,
+                                                                      weights_dir=log_dir)
 
         predictions = model_loaded.predict(datamodule, trainer)
         preds, probas = datamodule.predict_logits_to_class(predictions,

@@ -68,13 +68,14 @@ def main(cfg: DictConfig) -> None:
     model_loaded = ClassificationSystemGLC24.load_from_checkpoint(classif_system.checkpoint_path,
                                                                   model=classif_system.model,
                                                                   hparams_preprocess=False,
-                                                                  strict=False)
+                                                                  strict=False,
+                                                                  weights_dir=log_dir)
 
     # Lightning Trainer
     callbacks = [
         Summary(),
         ModelCheckpoint(
-            dirpath=log_dir.split(hydra.utils.get_original_cwd())[1][1:],
+            dirpath=log_dir,
             filename="checkpoint-{epoch:02d}-{step}-{" + f"loss/val" + ":.4f}",
             monitor=f"loss/val",
             mode="min",

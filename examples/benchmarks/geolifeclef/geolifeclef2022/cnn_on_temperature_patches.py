@@ -134,7 +134,8 @@ def main(cfg: DictConfig) -> None:
     if cfg.run.predict:
         model_loaded = ClassificationSystem.load_from_checkpoint(classif_system.checkpoint_path,
                                                                        model=classif_system.model,
-                                                                       hparams_preprocess=False)
+                                                                       hparams_preprocess=False,
+                                                                       weights_dir=log_dir)
 
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
         predictions = model_loaded.predict(datamodule, trainer)

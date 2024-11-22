@@ -42,7 +42,8 @@ def main(cfg: DictConfig) -> None:
     classif_model = ClassificationSystem(cfg.model, **cfg.optim, **cfg.task)
     model_loaded = ClassificationSystem.load_from_checkpoint(cfg.run.checkpoint_path,
                                                              model=classif_model.model,
-                                                             hparams_preprocess=False)
+                                                             hparams_preprocess=False,
+                                                             weights_dir=log_dir)
 
     # Lightning Trainer
     callbacks = [
