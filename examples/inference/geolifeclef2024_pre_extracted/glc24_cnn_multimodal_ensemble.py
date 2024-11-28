@@ -52,6 +52,7 @@ def main(cfg: DictConfig) -> None:
     set_seed(69)
     # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    log_dir = log_dir.split(hydra.utils.get_original_cwd())[1][1:]  # Transforming absolute path to relative path
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version=cfg.loggers.exp_name)
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name=cfg.loggers.log_dir_name, version=cfg.loggers.exp_name)
@@ -67,7 +68,8 @@ def main(cfg: DictConfig) -> None:
     model_loaded = ClassificationSystemGLC24.load_from_checkpoint(classif_system.checkpoint_path,
                                                                   model=classif_system.model,
                                                                   hparams_preprocess=False,
-                                                                  strict=False)
+                                                                  strict=False,
+                                                                  weights_dir=log_dir)
 
     # Lightning Trainer
     callbacks = [
