@@ -462,7 +462,6 @@ class RegressionSystem(GenericPredictionSystem):
         weight_decay: float = 0,
         metrics: Optional[dict[str, Callable]] = None,
         loss_kwargs: Optional[dict] = {},
-        checkpoint_path: Optional[str] = None
     ):
         """Class constructor.
         Parameters
@@ -485,8 +484,6 @@ class RegressionSystem(GenericPredictionSystem):
             constant or supplied, by the user directly.
         loss_kwargs: Optional[dict] = {}
             Arguments to be passed to loss constructor.
-        checkpoint_path : str
-            Checkpoint to use for training or inference.
         """
 
         metrics = check_metric(metrics)
@@ -494,7 +491,6 @@ class RegressionSystem(GenericPredictionSystem):
         self.lr = lr
         self.weight_decay = weight_decay
 
-        self.checkpoint_path = checkpoint_path
         model = check_model(model)
 
         if optimizer is None:
