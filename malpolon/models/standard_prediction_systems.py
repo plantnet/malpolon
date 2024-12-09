@@ -501,7 +501,10 @@ class RegressionSystem(GenericPredictionSystem):
                 weight_decay=self.weight_decay
             )
 
-
-        loss = check_loss(loss)(**loss_kwargs)
+        if isinstance(loss, torch.nn.modules.loss._Loss):
+            # If loss is already instantiated, no need to provide kwargs
+            loss = check_loss(loss)
+        else:
+            loss = check_loss(loss)(**loss_kwargs)
 
         super().__init__(model, loss, optimizer, metrics=metrics)
