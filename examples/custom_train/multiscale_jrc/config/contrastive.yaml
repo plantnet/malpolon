@@ -1,0 +1,91 @@
+hydra:
+  run:
+    dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
+
+run:
+  predict: false
+  checkpoint_path: # "outputs/glc24_cnn_multimodal_ensemble/2024-11-20_17-53-58/pretrained.ckpt"
+
+data:
+  root: "dataset/geolifeclef-2024/"
+  data_paths:
+    train:
+      landsat_data_dir: "${data.root}TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-train-landsat_time_series/"
+      bioclim_data_dir: "${data.root}TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-train-bioclimatic_monthly/"
+      sentinel_data_dir: "${data.root}PA_Train_SatellitePatches_RGB/pa_train_patches_rgb/"
+    test:
+      landsat_data_dir: "${data.root}TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-test-landsat_time_series/"
+      bioclim_data_dir: "${data.root}TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-test-bioclimatic_monthly/"
+      sentinel_data_dir: "${data.root}PA_Test_SatellitePatches_RGB/pa_test_patches_rgb/"
+  metadata_paths:
+    train: "${data.root}GLC24_PA_metadata_train_train-10.0min.csv"
+    val: "${data.root}GLC24_PA_metadata_train_val-10.0min.csv"
+    test: "${data.root}GLC24_PA_metadata_test.csv"
+  num_classes: &num_classes 11255
+  download_data: True
+  train_batch_size: 64
+  inference_batch_size: 16
+  num_workers: 16
+
+task:
+  task: "classification_multilabel" # ['classification_binary', 'classification_multiclass', 'classification_multilabel']
+
+trainer:
+  # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
+  accelerator: "gpu"
+  devices: "auto"
+  max_epochs: 20
+  # val_check_interval: 5000
+  check_val_every_n_epoch: 1
+  # log_every_n_steps: 100
+
+model:
+  provider_name: "malpolon" # choose from ["malpolon", "timm", "torchvision"]
+  model_name: "jrc_multiscale_geo_encoder"
+  model_kwargs:
+    pretrained: false # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
+  modifiers:
+    change_last_layer:
+      num_outputs: *num_classes
+
+optim:
+  loss_kwargs:
+    pos_weight: 10.0
+  optimizer:
+    adamw:
+      kwargs:
+        lr: 0.00025
+      scheduler:
+        cosine_annealing_lr:
+          kwargs:
+            T_max: 25
+            verbose: True
+  metrics:
+    multilabel_accuracy:
+      # callable: 'Fmetrics.classification.multilabel_accuracy'
+      kwargs:
+        num_labels: *num_classes
+        # threshold: 0.1
+        average: micro
+    multilabel_recall:
+      callable: "Fmetrics.classification.multilabel_recall"
+      kwargs:
+        num_labels: *num_classes
+        # threshold: 0.1
+        average: micro
+    multilabel_precision:
+      callable: "Fmetrics.classification.multilabel_precision"
+      kwargs:
+        num_labels: *num_classes
+        # threshold: 0.1
+        average: micro
+    multilabel_f1-score:
+      callable: "Fmetrics.classification.multilabel_f1_score"
+      kwargs:
+        num_labels: *num_classes
+        # threshold: 0.1
+        average: micro
+
+loggers:
+  exp_name: "rerun_mme_from_scratch" # Name of your experiment
+  log_dir_name: "tensorboard_logs/" # Name of the logs directory
