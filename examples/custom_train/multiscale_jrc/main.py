@@ -17,9 +17,10 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 
 from malpolon.data.datasets.geolifeclef2024_pre_extracted import \
     GLC24Datamodule
+from malpolon.data.datasets.torchgeo_concat import ConcatTorchGeoDataModule
 from malpolon.logging import Summary
-from malpolon.models.custom_models.glc2024_pre_extracted_prediction_system import \
-    ClassificationSystemGLC24
+from malpolon.models.custom_models.jrc_multiscale_geo_encoder_contrastive_system import \
+    MultiScaleGeoContrastiveSystem
 
 
 def set_seed(seed):
@@ -39,7 +40,7 @@ def set_seed(seed):
         torch.backends.cudnn.benchmark = False
 
 
-@hydra.main(version_base="1.3", config_path="config/", config_name="glc24_cnn_multimodal_ensemble")
+@hydra.main(version_base="1.3", config_path="config/", config_name="contrastive")
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
 
@@ -52,7 +53,6 @@ def main(cfg: DictConfig) -> None:
     set_seed(69)
     # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
-    log_dir = log_dir.split(hydra.utils.get_original_cwd())[1][1:]  # Transforming absolute path to relative path
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version=cfg.loggers.exp_name)
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(log_dir, name=cfg.loggers.log_dir_name, version=cfg.loggers.exp_name)
@@ -61,15 +61,10 @@ def main(cfg: DictConfig) -> None:
     logger.addHandler(logging.FileHandler(f"{log_dir}/core.log"))
 
     # Datamodule & Model
-    datamodule = GLC24Datamodule(**cfg.data, **cfg.task)
-    classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optim,
-                                               checkpoint_path=cfg.run.checkpoint_path,
-                                               weights_dir=log_dir)  # multilabel
-    model_loaded = ClassificationSystemGLC24.load_from_checkpoint(classif_system.checkpoint_path,
-                                                                  model=classif_system.model,
-                                                                  hparams_preprocess=False,
-                                                                  strict=False,
-                                                                  weights_dir=log_dir)
+    datamodule = GLC24Datamodule(**cfg.data, **cfg.task)  # TODO: change the datamodule for one that can handle all dataset classes of the multiscale collection. TorchgeoConcatDataModule peut le faire mais nécessite d'incorporer bcp du fonctionnement de GLC24DataModule dedans...
+    classif_system = MultiScaleGeoContrastiveSystem(cfg.model, **cfg.optim,
+                                                    checkpoint_path=cfg.run.checkpoint_path,
+                                                    weights_dir=log_dir)  # multilabel
 
     # Lightning Trainer
     callbacks = [
@@ -79,13 +74,20 @@ def main(cfg: DictConfig) -> None:
             filename="checkpoint-{epoch:02d}-{step}-{" + f"loss/val" + ":.4f}",
             monitor=f"loss/val",
             mode="min",
+            save_on_train_epoch_end=True,
+            save_last=True,
+            every_n_train_steps=100,
         ),
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer, deterministic=True)
 
     # Run
-    if cfg.run.predict_type == 'test_dataset':
-        # Option 1: Predict on the entire test dataset (Pytorch Lightning)
+    if cfg.run.predict:
+        model_loaded = ClassificationSystemGLC24.load_from_checkpoint(classif_system.checkpoint_path,
+                                                                      model=classif_system.model,
+                                                                      hparams_preprocess=False,
+                                                                      strict=False)
+
         predictions = model_loaded.predict(datamodule, trainer)
         preds, probas = datamodule.predict_logits_to_class(predictions,
                                                            np.arange(cfg.data.num_classes),
@@ -94,24 +96,9 @@ def main(cfg: DictConfig) -> None:
                                       out_dir=log_dir, out_name='predictions_test_dataset', top_k=25, return_csv=True)
         print('Test dataset prediction (extract) : ', predictions[:1])
 
-    elif cfg.run.predict_type == 'test_point':
-        # Option 2: Predict 1 data point (Pytorch)
-        test_data = datamodule.get_test_dataset()
-        test_data_point = list(test_data[0][:3])
-        for i, d in enumerate(test_data_point):
-            test_data_point[i] = d.unsqueeze(0)
-        query_point = {'observation_id': [test_data[0][-1]],
-                       'lon': None, 'lat': None,
-                       'crs': None,
-                       'species_id': [test_data[0][-1]]}
-        prediction = model_loaded.predict_point(cfg.run.checkpoint_path,
-                                                test_data_point)
-        preds, probas = datamodule.predict_logits_to_class(prediction,
-                                                           np.arange(cfg.data.num_classes))
-        datamodule.export_predict_csv(preds, probas,
-                                      out_dir=log_dir, out_name='prediction_point', single_point_query=query_point, return_csv=True)
-        print('Point prediction : ', prediction.shape, prediction)
-
+    else:
+        trainer.fit(classif_system, datamodule=datamodule, ckpt_path=classif_system.checkpoint_path)
+        trainer.validate(classif_system, datamodule=datamodule)
 
 
 if __name__ == "__main__":

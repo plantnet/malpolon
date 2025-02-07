@@ -110,6 +110,7 @@ def main(cfg: DictConfig) -> None:
     """
     # Loggers
     log_dir = hydra.core.hydra_config.HydraConfig.get().runtime.output_dir
+    log_dir = log_dir.split(hydra.utils.get_original_cwd())[1][1:]  # Transforming absolute path to relative path
     logger_csv = pl.loggers.CSVLogger(log_dir, name="", version="")
     logger_csv.log_hyperparams(cfg)
     logger_tb = pl.loggers.TensorBoardLogger(Path(log_dir)/Path(cfg.loggers.log_dir_name), name=cfg.loggers.exp_name, version="")
@@ -139,7 +140,8 @@ def main(cfg: DictConfig) -> None:
     if cfg.run.predict:
         model_loaded = ClassificationSystem.load_from_checkpoint(classif_system.checkpoint_path,
                                                                  model=classif_system.model,
-                                                                 hparams_preprocess=False)
+                                                                 hparams_preprocess=False,
+                                                                 weights_dir=log_dir)
 
         # Option 1: Predict on the entire test dataset (Pytorch Lightning)
         predictions = model_loaded.predict(datamodule, trainer)
