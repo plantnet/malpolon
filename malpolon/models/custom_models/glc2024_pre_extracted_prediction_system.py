@@ -85,10 +85,10 @@ class ClassificationSystemGLC24(ClassificationSystem):
             loss_kwargs['pos_weight'] = Tensor([loss_kwargs['pos_weight']] * num_classes)
         super().__init__(model, optimizer=optimizer, metrics=metrics, task=task, loss_kwargs=loss_kwargs, hparams_preprocess=hparams_preprocess, checkpoint_path=checkpoint_path)
         if self.model.pretrained and not self.checkpoint_path:
-            self.download_weights("https://lab.plantnet.org/seafile/f/755f49a508db4552b7db/?dl=1",
+            self.download_weights("https://lab.plantnet.org/seafile/f/eb90daeb510c44349fb5/?dl=1",
                                   weights_dir,
                                   filename="pretrained.ckpt",
-                                  md5="3c2c17d0781016cf71c231761ae73dcc")
+                                  md5="680a6a8f66480dff21ead28031ab1ca0")
 
     def forward(self, x, y, z):  # noqa: D102 pylint: disable=C0116
         return self.model(x, y, z)
