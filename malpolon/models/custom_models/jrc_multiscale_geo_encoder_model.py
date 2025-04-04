@@ -78,8 +78,7 @@ def init_pn_model(class_mapping="class_mapping.txt",
     data_config = timm.data.resolve_model_data_config(model)
     transforms = timm.data.create_transform(**data_config, is_training=False)
 
-class MultiScaleGeoEncoder(nn.Module,
-                           **kwargs):
+class MultiScaleGeoEncoder(nn.Module):
     # Need to add 4 encoders:
     # 1. Pl@ntNet encoder (species scale)
     # 2. MME encoder (satellite scale)
