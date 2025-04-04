@@ -28,8 +28,9 @@ if TYPE_CHECKING:
     Provider = Callable[..., nn.Module]
     Modifier = Callable[..., nn.Module]
 
-MALPOLON_MODELS = {'glc24_multimodal_ensemble': MultimodalEnsemble, 
-                   'jrc_multiscale_geo_encoder': MultiScaleGeoEncoder, }
+MALPOLON_MODELS = {'glc24_multimodal_ensemble': MultimodalEnsemble,
+                   'jrc_multiscale_geo_encoder': MultiScaleGeoEncoder,
+                  }
 
 
 class _ModelBuilder:
