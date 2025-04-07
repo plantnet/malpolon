@@ -9,6 +9,7 @@ from typing import Callable
 
 import numpy as np
 import pandas as pd
+import rasterio
 import torch
 from PIL import Image
 from tqdm import tqdm
@@ -16,6 +17,24 @@ from tqdm import tqdm
 INFO = '\033[93m'
 RESET = '\033[0m'
 LINK = '\033[94m'
+
+
+def load_raster(fp: str):
+    """Load an raster from a file path.
+
+    Parameters
+    ----------
+    fp : str
+        file path to the image.
+
+    Returns
+    -------
+    (array)
+        raster as a numpy array.
+    """
+    with rasterio.open(fp) as dataset:
+        raster = dataset.read(out_dtype=np.float32)
+    return raster
 
 
 def load_img(fp: str):
@@ -194,22 +213,27 @@ def main(paths_file: str,
     t1 = time()
     with open(paths_file, 'r', encoding="utf-8") as f:
         fps = f.read().splitlines()
-    fps = fps[:max_items]
+    # fps = fps[:max_items]
+    fps = np.array(fps)[np.random.choice(len(fps), size=min(len(fps), max_items), replace=False)]
     ims = iterative_mean_std
     if per_channel and data_type == 'img':
         ims = iterative_mean_std_img_per_channel
 
     if data_type == 'img':
         it_mean, it_std = ims(fps, load_img, compare_numpy)
-        print(f'Processed {INFO}{len(fps)}{RESET} images. Iterative mean: {INFO}{it_mean}{RESET}, Iterative std: {INFO}{it_std}{RESET} in {LINK}{(time() - t1):.3f}{RESET}s')
+        print(f'Processed {INFO}{len(fps)}{RESET} images.')
+    if data_type == 'tiff':
+        it_mean, it_std = ims(fps, load_raster, compare_numpy)
+        print(f'Processed {INFO}{len(fps)}{RESET} raster.')
     elif data_type == 'csv':
         it_mean, it_std = ims(fps, load_csv, compare_numpy)
-        print(f'Processed {INFO}{len(fps)}{RESET} csv pre-extracted obs files. Iterative mean: {INFO}{it_mean}{RESET}, Iterative std: {INFO}{it_std}{RESET} in {LINK}{(time() - t1):.3f}{RESET}s')
+        print(f'Processed {INFO}{len(fps)}{RESET} csv pre-extracted obs files.')
     elif data_type == 'pt':
         it_mean, it_std = ims(fps, load_pt, compare_numpy)
-        print(f'Processed {INFO}{len(fps)}{RESET} pytorch cubes. Iterative mean: {INFO}{it_mean}{RESET}, Iterative std: {INFO}{it_std}{RESET} in {LINK}{(time() - t1):.3f}{RESET}s')
+        print(f'Processed {INFO}{len(fps)}{RESET} pytorch cubes.')
     else:
         raise ValueError(f"Type {data_type} not recognized.")
+    print(f'Iterative mean: {INFO}{it_mean}{RESET}, Iterative std: {INFO}{it_std}{RESET} in {LINK}{(time() - t1):.3f}{RESET}s')
 
     if output:
         it_mean = [it_mean] if not isinstance(it_mean, list) else it_mean
@@ -231,11 +255,11 @@ if __name__ == "__main__":
                         type=str)
     parser.add_argument("--max_items",
                         help="Max number of items to process. Default is 1000.",
-                        default=None,
+                        default=1000,
                         type=int)
     parser.add_argument("--type",
                         help="Type of files to process.",
-                        choices=['img', 'csv', 'pt'],
+                        choices=['img', 'tiff', 'csv', 'pt'],
                         type=str)
     parser.add_argument("--per_channel",
                         help="Compute mean/std over each channel seperately.",
