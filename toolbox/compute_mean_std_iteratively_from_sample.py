@@ -6,7 +6,7 @@ This dataset can be a representative sample of a bigger dataset.
 import argparse
 from time import time
 from typing import Callable
-
+import warnings
 import numpy as np
 import pandas as pd
 import rasterio
@@ -116,15 +116,23 @@ def iterative_mean_std(fps: list,
     mean = 0
     mean2 = 0
     data = []
+    n_skips = 0
     for k, fp in tqdm(enumerate(fps), total=len(fps)):
         x = load_fun(fp)  # Giving a large type is important to avoid value overflow with mean squared
         if compare_numpy:
             data.append(x)
-        mean += (np.nanmean(x) - mean) / (k + 1)
+        nanmean = np.nanmean(x)
+        if np.isnan(nanmean):
+            n_skips += 1
+            warnings.warn(f'File {fp} contains only NaN values. Skipping...')
+            continue
+        mean += (nanmean - mean) / (k + 1)
         mean2 += (np.nanmean(x**2) - mean2) / (k + 1)
     var = mean2 - mean**2
     if compare_numpy:
         print(f'Numpy mean: {INFO}{np.mean(data)}{RESET}, Numpy std: {INFO}{np.std(data)}{RESET}')
+    if n_skips > 0:
+        print(f'Skipped {INFO}{n_skips}{RESET} files due to: containing only NaN values.')
     return mean, np.sqrt(var)
 
 def iterative_mean_std_img_per_channel(fps: list,
