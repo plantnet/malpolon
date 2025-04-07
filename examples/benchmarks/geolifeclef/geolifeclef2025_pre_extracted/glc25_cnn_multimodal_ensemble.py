@@ -39,7 +39,7 @@ def set_seed(seed):
         torch.backends.cudnn.benchmark = False
 
 
-@hydra.main(version_base="1.3", config_path="config/", config_name="glc24_cnn_multimodal_ensemble")
+@hydra.main(version_base="1.3", config_path="config/", config_name="glc25_cnn_multimodal_ensemble")
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
 

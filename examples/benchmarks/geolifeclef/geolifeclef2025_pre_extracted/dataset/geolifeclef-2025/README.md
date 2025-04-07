@@ -12,6 +12,9 @@ To compute the mean and standard deviation values of each modality of our datase
 
 In a Python terminal session:
 ```python
+import os
+import pandas as pd
+
 def construct_patch_path(data_path, survey_id):
     path = data_path
     for d in (str(survey_id)[-2:], str(survey_id)[-4:-2]):
@@ -26,19 +29,19 @@ df_val = pd.read_csv('GLC25_PA_metadata_train_val-0.6min.csv')
 fps_train_bioclim = list(df_train['surveyId'].apply(lambda x: f'BioclimTimeSeries/cubes/PA-train/GLC25-PA-train-bioclimatic_monthly_{x}_cube.pt').values)
 with open('fps_bioclim_train_train-0.6min.txt', 'w') as f:
     for string in fps_train_bioclim:
-    f.write(string + '\n')
+        f.write(string + '\n')
     
 # Example for landsat time series
 fps_train_landsat = list(df_train['surveyId'].apply(lambda x: f'SatelliteTimeSeries-Landsat/cubes/PA-train/GLC25-PA-train-landsat-time-series_{x}_cube.pt').values)
 with open('fps_landsat_train_train-0.6min.txt', 'w') as f:
     for string in fps_train_landsat:
-    f.write(string + '\n')
+        f.write(string + '\n')
     
 # Example for satellite patches
 fps_val_satellite = list(df_val['surveyId'].apply(lambda x: construct_patch_path('SatellitePatches/PA-train/', x)).values)
-with open('fps_landsat_train_val-0.6min.txt', 'w') as f:
+with open('fps_satellite_train_val-0.6min.txt', 'w') as f:
     for string in fps_val_satellite:
-    f.write(string + '\n')
+        f.write(string + '\n')
 ```
 
 2. Run the moments computation script.
