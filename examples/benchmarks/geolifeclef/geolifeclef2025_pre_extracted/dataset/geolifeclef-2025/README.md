@@ -50,6 +50,8 @@ with open('fps_satellite_train_val-0.6min.txt', 'w') as f:
 python ../../../../../../toolbox/compute_mean_std_iteratively_from_sample.py -p fps_bioclim_train_val-0.6min.txt -o Stats_bioclim_val.csv --type tiff --max_items 10000
 ```
 
+For Satellite patches (Sentinel-2A), add the argumen `--per_channel` to compute the moments for each of the 4 channels: red, green, blue, nir. The output CSV contains the values for those channels in the same order row-wise. You can verify the order of bands with the command `gdalinfo <path>/<patch_name>.tiff`.
+
 ### Glossary
 - fps: filepaths
 - PA: Presence Absence
