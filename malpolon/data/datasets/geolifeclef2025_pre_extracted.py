@@ -213,7 +213,9 @@ class TrainDataset(Dataset):
         else:
             self.metadata['speciesId'] = [None] * len(self.metadata)
         self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
-        self.metadata = self.metadata.drop_duplicates(subset="surveyId").reset_index(drop=True)
+        if 'multiclass' in self.task:
+            self.metadata = self.metadata.drop_duplicates(subset="surveyId")
+        self.metadata = self.metadata.reset_index(drop=True)
 
     def __len__(self):
         return len(self.metadata)
@@ -279,7 +281,7 @@ class TestDataset(TrainDataset):
         See TrainDataset description.
         """
         self.transform = transform if transform else {'landsat': None, 'bioclim': None, 'sentinel': None}
-        super().__init__(metadata, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform)
+        super().__init__(metadata, num_classes=num_classes, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform, subset=subset, task=task)
         self.targets = np.array([0] * len(self.metadata))
         self.observation_ids = self.metadata['surveyId']
         self.coordinates = self.metadata[['lon', 'lat']].values
