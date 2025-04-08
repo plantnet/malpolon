@@ -91,9 +91,9 @@ def load_landsat(path, transform=None):
     (array)
         numpy array of loaded transformed data
     """
-    landsat_sample = torch.nan_to_num(torch.load(path))
+    landsat_sample = torch.nan_to_num(torch.load(path, weights_only=True))
     if isinstance(landsat_sample, torch.Tensor):
-        landsat_sample = landsat_sample.permute(1, 2, 0)  # Change tensor shape from (C, H, W) to (H, W, C)
+        # landsat_sample = landsat_sample.permute(1, 2, 0)  # Change tensor shape from (C, H, W) to (H, W, C)
         landsat_sample = landsat_sample.numpy()  # Convert tensor to numpy array
     if transform:
         landsat_sample = transform(landsat_sample)
@@ -118,9 +118,9 @@ def load_bioclim(path, transform=None):
     (array)
         numpy array of loaded transformed data
     """
-    bioclim_sample = torch.nan_to_num(torch.load(path), weights_only=True)
+    bioclim_sample = torch.nan_to_num(torch.load(path, weights_only=True))
     if isinstance(bioclim_sample, torch.Tensor):
-        bioclim_sample = bioclim_sample.permute(1, 2, 0)  # Change tensor shape from (C, H, W) to (H, W, C)
+        # bioclim_sample = bioclim_sample.permute(1, 2, 0)  # Change tensor shape from (C, H, W) to (H, W, C)
         bioclim_sample = bioclim_sample.numpy()  # Convert tensor to numpy array
     if transform:
         bioclim_sample = transform(bioclim_sample)
@@ -150,8 +150,7 @@ def load_sentinel(path, transform=None):
     with rasterio.open(path) as dataset:
         image = dataset.read(out_dtype=np.float32)  # Read all bands
         image = np.array([quantile_normalize(band) for band in image])  # Apply quantile normalization
-
-        image = np.transpose(image, (1, 2, 0))  # Convert to HWC format
+        # image = np.transpose(image, (1, 2, 0))  # Convert to HWC format
     if transform:
         image = transform(image)
     return image
@@ -214,7 +213,7 @@ class TrainDataset(Dataset):
         else:
             self.metadata['speciesId'] = [None] * len(self.metadata)
         self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
-        self.metadata = self.metadata.drop_duplicates(subset="surveyId").reset_index(drop=True)
+        self.metadata = self.metadata.drop_duplicates(subset="surveyId").reset_index(drop=True).sample(1000)
 
     def __len__(self):
         return len(self.metadata)
@@ -282,7 +281,9 @@ class TestDataset(TrainDataset):
         self.transform = transform if transform else {'landsat': None, 'bioclim': None, 'sentinel': None}
         super().__init__(metadata, bioclim_data_dir=bioclim_data_dir, landsat_data_dir=landsat_data_dir, sentinel_data_dir=sentinel_data_dir, transform=transform)
         self.targets = np.array([0] * len(self.metadata))
-        self.observation_ids = metadata['surveyId']
+        self.observation_ids = self.metadata['surveyId']
+        self.coordinates = self.metadata[['lon', 'lat']].values
+        self.subset = 'test'
 
     def __getitem__(self, idx):
         survey_id = self.metadata.surveyId[idx]
@@ -417,7 +418,7 @@ class GLC25Datamodule(BaseDataModule):
             batch_size=self.inference_batch_size,
             num_workers=self.num_workers,
             pin_memory=self.pin_memory,
-            shuffle=True,
+            shuffle=False,
         )
         return dataloader
 
@@ -435,7 +436,7 @@ class GLC25Datamodule(BaseDataModule):
                  'GLC25_PA_metadata_test.csv', 'GLC25_SAMPLE_SUBMISSION.csv']
         downloaded = all(map(lambda x: (self.root / x).exists(), paths))
 
-        split = (self.root / "GLC25_PA_metadata_train_train-10.0min.csv").exists()
+        split = (self.root / "GLC25_PA_metadata_train_train-0.6min.csv").exists()
         if downloaded and not split:
             print('Data already downloaded but not split. Splitting data spatially into train (90%) & val (10%) sets.')
             split_obs_spatially(str(self.root / "GLC25_PA_metadata_train.csv"), val_size=0.10, spacing=0.01)

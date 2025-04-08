@@ -4,22 +4,22 @@ hydra:
 
 run:
   predict: false
-  checkpoint_path: # "outputs/glc25_cnn_multimodal_ensemble/???/last.ckpt"
+  checkpoint_path: # "outputs/glc25_cnn_multimodal_ensemble/2025-04-08_14-52-54/last.ckpt"
 
 data:
   root: "dataset/geolifeclef-2025/"
   data_paths:
     train:
-      landsat_data_dir:  "${data.root}SateliteTimeSeries-Landsat/cubes/PA-train/"
-      bioclim_data_dir:  "${data.root}BioclimTimeSeries/cubes/PA-train/"
-      sentinel_data_dir:  "${data.root}SatelitePatches/PA-train/"
+      landsat_data_dir: "${data.root}SateliteTimeSeries-Landsat/cubes/PA-train/"
+      bioclim_data_dir: "${data.root}BioclimTimeSeries/cubes/PA-train/"
+      sentinel_data_dir: "${data.root}SatelitePatches/PA-train/"
     test:
-      landsat_data_dir:  "${data.root}SateliteTimeSeries-Landsat/cubes/PA-test/"
-      bioclim_data_dir:  "${data.root}BioclimTimeSeries/cubes/PA-test/"
-      sentinel_data_dir:  "${data.root}SatelitePatches/PA-test/"
+      landsat_data_dir: "${data.root}SateliteTimeSeries-Landsat/cubes/PA-test/"
+      bioclim_data_dir: "${data.root}BioclimTimeSeries/cubes/PA-test/"
+      sentinel_data_dir: "${data.root}SatelitePatches/PA-test/"
   metadata_paths:
-    train:  "${data.root}GLC25_PA_metadata_train_train-10.0min.csv"
-    val:  "${data.root}GLC25_PA_metadata_train_val-10.0min.csv"
+    train:  "${data.root}GLC25_PA_metadata_train_train-0.6min.csv"
+    val:  "${data.root}GLC25_PA_metadata_train_val-0.6min.csv"
     test:  "${data.root}GLC25_PA_metadata_test.csv"
   num_classes: &num_classes 11255
   download_data: True
@@ -34,14 +34,14 @@ trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
   accelerator: "gpu"
   devices: 'auto'
-  max_epochs: 20
-  val_check_interval: 100
+  max_epochs: 21  # if resuming training from our pre-trained MME model, needs to be > 19
+  # val_check_interval: 100
   check_val_every_n_epoch: 1
   # log_every_n_steps: 100
 
 model:
   provider_name: "malpolon" # choose from ["malpolon", "timm", "torchvision"]
-  model_name: "glc24_multimodal_ensemble"
+  model_name: "glc24_multimodal_ensemble"  # The GLC24 model is used for GLC25
   model_kwargs:
     pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
   modifiers:
