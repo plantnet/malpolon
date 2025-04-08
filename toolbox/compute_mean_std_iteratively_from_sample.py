@@ -34,6 +34,7 @@ def load_raster(fp: str):
     """
     with rasterio.open(fp) as dataset:
         raster = dataset.read(out_dtype=np.float32)
+    raster = np.transpose(raster, (1, 2, 0))  # Move the first axis to the last axis
     return raster
 
 
@@ -224,7 +225,7 @@ def main(paths_file: str,
     # fps = fps[:max_items]
     fps = np.array(fps)[np.random.choice(len(fps), size=min(len(fps), max_items), replace=False)]
     ims = iterative_mean_std
-    if per_channel and data_type == 'img':
+    if per_channel and data_type in ['img', 'tiff']:
         ims = iterative_mean_std_img_per_channel
 
     if data_type == 'img':

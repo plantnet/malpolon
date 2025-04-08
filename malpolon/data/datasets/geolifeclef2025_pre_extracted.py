@@ -470,6 +470,20 @@ class GLC25Datamodule(BaseDataModule):
             print("Aborting download")
             return
 
+    def get_val_dataset(self) -> Dataset:
+        """Call self.get_dataset to return the validation dataset.
+
+        Returns
+        -------
+        Dataset
+            validation dataset
+        """
+        dataset = self.get_dataset(
+            split="val",
+            transform=self.val_transform,
+        )
+        return dataset
+
     @property
     def train_transform(self):
         """Return the training transform functions for each data modality.
@@ -483,12 +497,36 @@ class GLC25Datamodule(BaseDataModule):
             dictionary of transform functions for each data modality.
         """
         all_transforms = [torch.tensor]
-        landsat_transforms = [transforms.Normalize(mean=[30.071] * 6,
-                                                   std=[24.860] * 6)]
-        bioclim_transforms = [transforms.Normalize(mean=[3884.726] * 4,
-                                                   std=[2939.538] * 4)]
-        sentinel_transforms = [transforms.Normalize(mean=[78.761, 82.859, 71.288] + [146.082],
-                                                    std=[26.074, 24.484, 23.275] + [39.518])]
+        landsat_transforms = [transforms.Normalize(mean=[30.654] * 6,
+                                                   std=[25.702] * 6)]
+        bioclim_transforms = [transforms.Normalize(mean=[3914.847] * 4,
+                                                   std=[3080.644] * 4)]
+        sentinel_transforms = [transforms.Normalize(mean=[1184.060, 1184.060, 1184.060] + [1184.060],
+                                                    std=[1176.725, 1176.725, 1176.725] + [1176.725])]
+
+        return {'landsat': transforms.Compose(all_transforms + landsat_transforms),
+                'bioclim': transforms.Compose(all_transforms + bioclim_transforms),
+                'sentinel': transforms.Compose(all_transforms + sentinel_transforms)}
+
+    @property
+    def val_transform(self):
+        """Return the training transform functions for each data modality.
+
+        The normalization values are computed from the training dataset
+        (pre-extracted values) for each modality.
+
+        Returns
+        -------
+        (dict)
+            dictionary of transform functions for each data modality.
+        """
+        all_transforms = [torch.tensor]
+        landsat_transforms = [transforms.Normalize(mean=[30.269] * 6,
+                                                   std=[25.212] * 6)]
+        bioclim_transforms = [transforms.Normalize(mean=[3955.529] * 4,
+                                                   std=[3234.002] * 4)]
+        sentinel_transforms = [transforms.Normalize(mean=[1187.819, 1187.819, 1187.819] + [1187.819],
+                                                    std=[1182.476, 1182.476, 1182.476] + [1182.476])]
 
         return {'landsat': transforms.Compose(all_transforms + landsat_transforms),
                 'bioclim': transforms.Compose(all_transforms + bioclim_transforms),
@@ -507,12 +545,12 @@ class GLC25Datamodule(BaseDataModule):
             dictionary of transform functions for each data modality.
         """
         all_transforms = [torch.tensor]
-        landsat_transforms = [transforms.Normalize(mean=[30.923] * 6,
-                                                   std=[25.722] * 6)]
-        bioclim_transforms = [transforms.Normalize(mean=[4004.812] * 4,
-                                                   std=[3437.992] * 4)]
-        sentinel_transforms = [transforms.Normalize(mean=[78.761, 82.859, 71.288] + [143.796],
-                                                    std=[26.074, 24.484, 23.275] + [43.626])]
+        landsat_transforms = [transforms.Normalize(mean=[26.188] * 6,
+                                                   std=[29.624] * 6)]
+        bioclim_transforms = [transforms.Normalize(mean=[3932.149] * 4,
+                                                   std=[3490.368] * 4)]
+        sentinel_transforms = [transforms.Normalize(mean=[936.266, 936.266, 936.266] + [936.266],
+                                                    std=[1169.903, 1169.903, 1169.903] + [1169.903])]
         return {'landsat': transforms.Compose(all_transforms + landsat_transforms),
                 'bioclim': transforms.Compose(all_transforms + bioclim_transforms),
                 'sentinel': transforms.Compose(all_transforms + sentinel_transforms)}
