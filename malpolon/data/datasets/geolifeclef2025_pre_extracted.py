@@ -213,7 +213,7 @@ class TrainDataset(Dataset):
         else:
             self.metadata['speciesId'] = [None] * len(self.metadata)
         self.label_dict = self.metadata.groupby('surveyId')['speciesId'].apply(list).to_dict()
-        self.metadata = self.metadata.drop_duplicates(subset="surveyId").reset_index(drop=True).sample(1000)
+        self.metadata = self.metadata.drop_duplicates(subset="surveyId").reset_index(drop=True)
 
     def __len__(self):
         return len(self.metadata)
