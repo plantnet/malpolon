@@ -35,9 +35,9 @@ trainer:
   accelerator: "gpu"
   devices: 'auto'
   max_epochs: 21  # if resuming training from our pre-trained MME model, needs to be > 19
-  # val_check_interval: 100
+  val_check_interval: 100
   check_val_every_n_epoch: 1
-  # log_every_n_steps: 100
+  log_every_n_steps: 100
 
 model:
   provider_name: "malpolon" # choose from ["malpolon", "timm", "torchvision"]
