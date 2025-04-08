@@ -2,7 +2,9 @@
 dataset/geolifeclef-2025/BioclimTimeSeries
 dataset/geolifeclef-2025/EnvironmentalValues
 dataset/geolifeclef-2025/SatellitePatches
+dataset/geolifeclef-2025/SatelitePatches
 dataset/geolifeclef-2025/SatelliteTimeSeries-Landsat
+dataset/geolifeclef-2025/SateliteTimeSeries-Landsat
 dataset/geolifeclef-2025/*.csv
 
 dataset/geolifeclef-2025/stats/fps*

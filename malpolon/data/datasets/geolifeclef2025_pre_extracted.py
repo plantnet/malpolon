@@ -501,8 +501,8 @@ class GLC25Datamodule(BaseDataModule):
                                                    std=[25.702] * 6)]
         bioclim_transforms = [transforms.Normalize(mean=[3914.847] * 4,
                                                    std=[3080.644] * 4)]
-        sentinel_transforms = [transforms.Normalize(mean=[1184.060, 1184.060, 1184.060] + [1184.060],
-                                                    std=[1176.725, 1176.725, 1176.725] + [1176.725])]
+        sentinel_transforms = [transforms.Normalize(mean=[629.624, 691.815, 460.605] + [2959.370],
+                                                    std=[435.995, 371.396, 342.897] + [925.369])]
 
         return {'landsat': transforms.Compose(all_transforms + landsat_transforms),
                 'bioclim': transforms.Compose(all_transforms + bioclim_transforms),
@@ -525,8 +525,8 @@ class GLC25Datamodule(BaseDataModule):
                                                    std=[25.212] * 6)]
         bioclim_transforms = [transforms.Normalize(mean=[3955.529] * 4,
                                                    std=[3234.002] * 4)]
-        sentinel_transforms = [transforms.Normalize(mean=[1187.819, 1187.819, 1187.819] + [1187.819],
-                                                    std=[1182.476, 1182.476, 1182.476] + [1182.476])]
+        sentinel_transforms = [transforms.Normalize(mean=[633.110, 692.764, 462.189] + [2950.603],
+                                                    std=[465.046, 398.975, 370.759] + [927.021])]
 
         return {'landsat': transforms.Compose(all_transforms + landsat_transforms),
                 'bioclim': transforms.Compose(all_transforms + bioclim_transforms),
@@ -549,8 +549,8 @@ class GLC25Datamodule(BaseDataModule):
                                                    std=[29.624] * 6)]
         bioclim_transforms = [transforms.Normalize(mean=[3932.149] * 4,
                                                    std=[3490.368] * 4)]
-        sentinel_transforms = [transforms.Normalize(mean=[936.266, 936.266, 936.266] + [936.266],
-                                                    std=[1169.903, 1169.903, 1169.903] + [1169.903])]
+        sentinel_transforms = [transforms.Normalize(mean=[517.786, 565.655, 376.777] + [2289.862],
+                                                    std=[530.537, 497.530, 427.435] + [1510.104])]
         return {'landsat': transforms.Compose(all_transforms + landsat_transforms),
                 'bioclim': transforms.Compose(all_transforms + bioclim_transforms),
                 'sentinel': transforms.Compose(all_transforms + sentinel_transforms)}
