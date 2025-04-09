@@ -14,12 +14,9 @@ import rasterio
 import numpy as np
 import pandas as pd
 import torch
-from sklearn.preprocessing import LabelEncoder
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import Dataset
 from torchvision import transforms
-from torchvision.datasets.utils import (download_and_extract_archive,
-                                        extract_archive)
-from torchvision.io import read_image
+from torchvision.datasets.utils import extract_archive
 
 from malpolon.data.data_module import BaseDataModule
 from malpolon.data.utils import split_obs_spatially
@@ -43,35 +40,31 @@ def construct_patch_path(data_path, survey_id):
         patch path
     """
     path = data_path
-    for d in (str(survey_id)[-2:], str(survey_id)[-4:-2]):
-        path = os.path.join(path, d)
+    for sub_path in (str(survey_id)[-2:], str(survey_id)[-4:-2]):
+        path = os.path.join(path, sub_path)
     path = os.path.join(path, f"{survey_id}.tiff")
 
     return path
 
-def quantile_normalize(band, low=2, high=98):
-    sorted_band = np.sort(band.flatten())
-    quantiles = np.percentile(sorted_band, np.linspace(low, high, len(sorted_band)))
-    normalized_band = np.interp(band.flatten(), sorted_band, quantiles).reshape(band.shape)
 
-    min_val, max_val = np.min(normalized_band), np.max(normalized_band)
+# def quantile_normalize(band):
+#     """Perform normalization on an array.
 
-    # Prevent division by zero if min_val == max_val
-    if max_val == min_val:
-        return np.zeros_like(normalized_band, dtype=np.float32)  # Return an array of zeros
+#     Args:
+#         band (_type_): _description_
 
-    # Perform normalization (min-max scaling)
-    return ((normalized_band - min_val) / (max_val - min_val)).astype(np.float32)
+#     Returns:
+#         _type_: _description_
+#     """
+#     band = np.array(band, dtype=np.float32)
+#     min_val = np.nanmin(band)  # Use nanmin to ignore NaNs
+#     max_val = np.nanmax(band)  # Use nanmax to ignore NaNs
 
-def quantile_normalize(band):
-    band = np.array(band, dtype=np.float32)
-    min_val = np.nanmin(band)  # Use nanmin to ignore NaNs
-    max_val = np.nanmax(band)  # Use nanmax to ignore NaNs
+#     if max_val == min_val:
+#         return np.zeros_like(band)  # If max and min are the same, return an array of zeros
 
-    if max_val == min_val:
-        return np.zeros_like(band)  # If max and min are the same, return an array of zeros
+#     return ((band - min_val) / (max_val - min_val)).astype(np.float32)
 
-    return ((band - min_val) / (max_val - min_val)).astype(np.float32)
 
 def load_landsat(path, transform=None):
     """Load Landsat pre-extracted time series data.
@@ -149,7 +142,7 @@ def load_sentinel(path, transform=None):
     """
     with rasterio.open(path) as dataset:
         image = dataset.read(out_dtype=np.float32)  # Read all bands
-        image = np.array([quantile_normalize(band) for band in image])  # Apply quantile normalization
+        # image = np.array([quantile_normalize(band) for band in image])  # Apply quantile normalization
         # image = np.transpose(image, (1, 2, 0))  # Convert to HWC format
     if transform:
         image = transform(image)
@@ -218,9 +211,18 @@ class TrainDataset(Dataset):
         self.metadata = self.metadata.reset_index(drop=True)
 
     def __len__(self):
+        """Return the number of samples in the dataset."""
         return len(self.metadata)
 
     def __getitem__(self, idx):
+        """Get a dataset sample.
+
+        Args:
+            idx (int): n-th sample
+
+        Returns:
+            (tuple): tuple of data samples (landsat, bioclim, sentinel), label tensor (speciesId) and surveyId
+        """
         survey_id = self.metadata.surveyId.iloc[idx]
         data_samples = []
 
@@ -288,6 +290,14 @@ class TestDataset(TrainDataset):
         self.subset = 'test'
 
     def __getitem__(self, idx):
+        """Get a dataset sample.
+
+        Args:
+            idx (int): n-th sample
+
+        Returns:
+            (tuple): tuple of data samples (landsat, bioclim, sentinel), label tensor (speciesId) and surveyId
+        """
         survey_id = self.metadata.surveyId[idx]
         data_samples = []
 
@@ -414,18 +424,8 @@ class GLC25Datamodule(BaseDataModule):
                 self.dataset_test = dataset
         return dataset
 
-    def val_dataloader(self) -> DataLoader:
-        dataloader = DataLoader(
-            self.dataset_val,
-            batch_size=self.inference_batch_size,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_memory,
-            shuffle=False,
-        )
-        return dataloader
-
     def _check_integrity(self):
-        """Check if the dataset is already downloaded and split into train and val sets."
+        """Check if the dataset is already downloaded and split into train and val sets.
 
         Returns
         -------
