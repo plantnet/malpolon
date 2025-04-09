@@ -23,7 +23,11 @@ from malpolon.models.custom_models.glc2024_pre_extracted_prediction_system impor
 
 
 def set_seed(seed):
-    import lightning.pytorch as pl
+    """Set the experiment's randomness.
+
+    Args:
+        seed (int): seed id to set the randomness.
+    """
     from lightning.pytorch import seed_everything
 
     # Set seed for Python's built-in random number generator
