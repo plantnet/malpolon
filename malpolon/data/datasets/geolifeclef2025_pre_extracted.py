@@ -1,4 +1,4 @@
-"""This module provides Datasets and Datamodule for GeoLifeCLEF2024 data.
+"""This module provides Datasets and Datamodule for GeoLifeCLEF2025 data.
 
 Author: Lukas Picek <lukas.picek@inria.fr>
         Theo Larcher <theo.larcher@inria.fr>
