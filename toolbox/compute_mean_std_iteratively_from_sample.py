@@ -6,9 +6,10 @@ This dataset can be a representative sample of a bigger dataset.
 import argparse
 from time import time
 from typing import Callable
-
+import warnings
 import numpy as np
 import pandas as pd
+import rasterio
 import torch
 from PIL import Image
 from tqdm import tqdm
@@ -16,6 +17,25 @@ from tqdm import tqdm
 INFO = '\033[93m'
 RESET = '\033[0m'
 LINK = '\033[94m'
+
+
+def load_raster(fp: str):
+    """Load an raster from a file path.
+
+    Parameters
+    ----------
+    fp : str
+        file path to the image.
+
+    Returns
+    -------
+    (array)
+        raster as a numpy array.
+    """
+    with rasterio.open(fp) as dataset:
+        raster = dataset.read(out_dtype=np.float32)
+    raster = np.transpose(raster, (1, 2, 0))  # Move the first axis to the last axis
+    return raster
 
 
 def load_img(fp: str):
@@ -97,15 +117,23 @@ def iterative_mean_std(fps: list,
     mean = 0
     mean2 = 0
     data = []
+    n_skips = 0
     for k, fp in tqdm(enumerate(fps), total=len(fps)):
         x = load_fun(fp)  # Giving a large type is important to avoid value overflow with mean squared
         if compare_numpy:
             data.append(x)
-        mean += (np.nanmean(x) - mean) / (k + 1)
+        nanmean = np.nanmean(x)
+        if np.isnan(nanmean):
+            n_skips += 1
+            warnings.warn(f'File {fp} contains only NaN values. Skipping...')
+            continue
+        mean += (nanmean - mean) / (k + 1)
         mean2 += (np.nanmean(x**2) - mean2) / (k + 1)
     var = mean2 - mean**2
     if compare_numpy:
         print(f'Numpy mean: {INFO}{np.mean(data)}{RESET}, Numpy std: {INFO}{np.std(data)}{RESET}')
+    if n_skips > 0:
+        print(f'Skipped {INFO}{n_skips}{RESET} files due to: containing only NaN values.')
     return mean, np.sqrt(var)
 
 def iterative_mean_std_img_per_channel(fps: list,
@@ -194,22 +222,27 @@ def main(paths_file: str,
     t1 = time()
     with open(paths_file, 'r', encoding="utf-8") as f:
         fps = f.read().splitlines()
-    fps = fps[:max_items]
+    # fps = fps[:max_items]
+    fps = np.array(fps)[np.random.choice(len(fps), size=min(len(fps), max_items), replace=False)]
     ims = iterative_mean_std
-    if per_channel and data_type == 'img':
+    if per_channel and data_type in ['img', 'tiff']:
         ims = iterative_mean_std_img_per_channel
 
     if data_type == 'img':
         it_mean, it_std = ims(fps, load_img, compare_numpy)
-        print(f'Processed {INFO}{len(fps)}{RESET} images. Iterative mean: {INFO}{it_mean}{RESET}, Iterative std: {INFO}{it_std}{RESET} in {LINK}{(time() - t1):.3f}{RESET}s')
+        print(f'Processed {INFO}{len(fps)}{RESET} images.')
+    if data_type == 'tiff':
+        it_mean, it_std = ims(fps, load_raster, compare_numpy)
+        print(f'Processed {INFO}{len(fps)}{RESET} raster.')
     elif data_type == 'csv':
         it_mean, it_std = ims(fps, load_csv, compare_numpy)
-        print(f'Processed {INFO}{len(fps)}{RESET} csv pre-extracted obs files. Iterative mean: {INFO}{it_mean}{RESET}, Iterative std: {INFO}{it_std}{RESET} in {LINK}{(time() - t1):.3f}{RESET}s')
+        print(f'Processed {INFO}{len(fps)}{RESET} csv pre-extracted obs files.')
     elif data_type == 'pt':
         it_mean, it_std = ims(fps, load_pt, compare_numpy)
-        print(f'Processed {INFO}{len(fps)}{RESET} pytorch cubes. Iterative mean: {INFO}{it_mean}{RESET}, Iterative std: {INFO}{it_std}{RESET} in {LINK}{(time() - t1):.3f}{RESET}s')
+        print(f'Processed {INFO}{len(fps)}{RESET} pytorch cubes.')
     else:
         raise ValueError(f"Type {data_type} not recognized.")
+    print(f'Iterative mean: {INFO}{it_mean}{RESET}, Iterative std: {INFO}{it_std}{RESET} in {LINK}{(time() - t1):.3f}{RESET}s')
 
     if output:
         it_mean = [it_mean] if not isinstance(it_mean, list) else it_mean
@@ -231,11 +264,11 @@ if __name__ == "__main__":
                         type=str)
     parser.add_argument("--max_items",
                         help="Max number of items to process. Default is 1000.",
-                        default=None,
+                        default=1000,
                         type=int)
     parser.add_argument("--type",
                         help="Type of files to process.",
-                        choices=['img', 'csv', 'pt'],
+                        choices=['img', 'tiff', 'csv', 'pt'],
                         type=str)
     parser.add_argument("--per_channel",
                         help="Compute mean/std over each channel seperately.",
