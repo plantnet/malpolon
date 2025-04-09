@@ -19,7 +19,7 @@ jobs:
                 python-version: ${{ matrix.python-version }}
                 cache: 'pip' # caching pip dependencies
             - name: install cartopy system packages
-              run: sudo apt-get install libgeos-dev=3.10.2-1
+              run: sudo apt-get install libgeos-dev=3.11.1-1
             - name: pip install -r requirements_python3.10.txt
               run: pip install -r ./requirements_python3.10.txt
             - name: pip install -e .
