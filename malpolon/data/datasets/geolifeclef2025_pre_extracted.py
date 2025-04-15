@@ -46,6 +46,7 @@ def construct_patch_path(data_path, survey_id):
 
     return path
 
+
 def load_landsat(path, transform=None):
     """Load Landsat pre-extracted time series data.
 

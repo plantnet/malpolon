@@ -15,8 +15,8 @@ from typing import Union
 import numpy as np
 import rasterio
 import torch
-from matplotlib import pyplot as plt
-from PIL import Image
+from matplotlib import pyplot as plt  # pylint: disable=W0611 # noqa: F401
+from PIL import Image  # pylint: disable=W0611 # noqa: F401
 from torchvision import transforms
 from tqdm import tqdm
 
@@ -168,7 +168,7 @@ def pre_compute_quantile_linear_on_dataset(
     for i, k_band in enumerate(quantiles.keys()):
         band = data[:, i]
         sorted_band = np.sort(band.flatten())
-        quantiles[k_band] = np.percentile(sorted_band, np.linspace(low, high, len(sorted_band)//max_iter))
+        quantiles[k_band] = np.percentile(sorted_band, np.linspace(low, high, len(sorted_band) // max_iter))
         min_max_val[k_band] = [band.min(), band.max()]
     np.save(Path(output_path) / Path(f'Satellite_quantiles_linear_approx-{max_iter}.npy'), np.array(list(quantiles.values())))
     np.save(Path(output_path) / Path(f'Satellite_min-max_values_linear_approx-{max_iter}.npy'), np.array(list(min_max_val.values())))
@@ -246,7 +246,7 @@ class QuantileNormalizeFromPreComputedDatasetPercentiles:
         Args:
             img (np.ndarray): image to normalize
             fp_quantiles (Union[str, Path]): file path to pre-computed quantiles
-            fp_min_max (Union[str, Path]): file path to pre-computed min/max 
+            fp_min_max (Union[str, Path]): file path to pre-computed min/max
 
         Returns:
             (np.ndarray): quantile-normalized image
@@ -263,13 +263,17 @@ class QuantileNormalizeFromPreComputedDatasetPercentiles:
 
 
 class GLC25CustomNormalize:
-    """Return custom GLC25 normalization based on data modality.
-
-       The normalization values are pre-computed from the training dataset
-       (pre-extracted values) for each modality.
-    """
-    def __call__(self, img, subset="train", modality="landsat") -> dict:
+    """Return custom GLC25 normalization based on data modality."""
+    def __call__(
+        self,
+        img: Union[np.ndarray, torch.Tensor],
+        subset: str = "train",
+        modality: str = "landsat"
+    ) -> dict:
         """Call method.
+
+        The normalization values are pre-computed from the training dataset
+        (pre-extracted values) for each modality.
 
         Args:
             img (np.ndarray): image to normalize.

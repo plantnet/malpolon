@@ -57,7 +57,7 @@ class GLC25CustomTransformsDatamodule(GLC25Datamodule):
         bioclim_transforms = [lambda x: GLC25CustomNormalize()(x, subset='train', modality='bioclim'),
                               MinMaxNormalize(),
                               transforms.Normalize(mean=(0.5,) * 4, std=(0.5,) * 4),]
-        sentinel_transforms = [lambda x: QuantileNormalizeFromPreComputedDatasetPercentiles()(x),
+        sentinel_transforms = [QuantileNormalizeFromPreComputedDatasetPercentiles(),
                                MinMaxNormalize(),
                                torch.Tensor,
                                transforms.Normalize(mean=(0.5,) * 4, std=(0.5,) * 4),]
@@ -75,7 +75,7 @@ class GLC25CustomTransformsDatamodule(GLC25Datamodule):
         bioclim_transforms = [lambda x: GLC25CustomNormalize()(x, subset='val', modality='bioclim'),
                               MinMaxNormalize(),
                               transforms.Normalize(mean=(0.5,) * 4, std=(0.5,) * 4),]
-        sentinel_transforms = [lambda x: QuantileNormalizeFromPreComputedDatasetPercentiles()(x),
+        sentinel_transforms = [QuantileNormalizeFromPreComputedDatasetPercentiles(),
                                MinMaxNormalize(),
                                torch.Tensor,
                                transforms.Normalize(mean=(0.5,) * 4, std=(0.5,) * 4),]
@@ -119,7 +119,7 @@ def main(cfg: DictConfig) -> None:
     datamodule = GLC25CustomTransformsDatamodule(**cfg.data, **cfg.task)
     classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optim,
                                                checkpoint_path=cfg.run.checkpoint_path,
-                                               weights_dir=log_dir+'/../')  # multilabel
+                                               weights_dir=log_dir + '/../')  # multilabel
 
     # Lightning Trainer
     callbacks = [
