@@ -14,6 +14,9 @@ import pytorch_lightning as pl
 import torch
 from omegaconf import DictConfig
 from pytorch_lightning.callbacks import ModelCheckpoint
+from torchvision import transforms
+
+from transforms import (MinMaxNormalize, GLC25CustomNormalize, QuantileNormalizeFromPreComputedDatasetPercentiles)
 
 from malpolon.data.datasets.geolifeclef2025_pre_extracted import \
     GLC25Datamodule
@@ -43,6 +46,54 @@ def set_seed(seed):
         torch.backends.cudnn.benchmark = False
 
 
+class GLC25CustomTransformsDatamodule(GLC25Datamodule):
+    """Custom datamodule for GLC25 with the desired transforms."""
+
+    @property
+    def train_transform(self):
+        landsat_transforms = [lambda x: GLC25CustomNormalize()(x, subset='train', modality='landsat'),
+                              MinMaxNormalize(),
+                              transforms.Normalize(mean=(0.5,) * 6, std=(0.5,) * 6),]
+        bioclim_transforms = [lambda x: GLC25CustomNormalize()(x, subset='train', modality='bioclim'),
+                              MinMaxNormalize(),
+                              transforms.Normalize(mean=(0.5,) * 4, std=(0.5,) * 4),]
+        sentinel_transforms = [lambda x: QuantileNormalizeFromPreComputedDatasetPercentiles()(x),
+                               MinMaxNormalize(),
+                               torch.Tensor,
+                               transforms.Normalize(mean=(0.5,) * 4, std=(0.5,) * 4),]
+        all_transforms = [torch.Tensor,]
+
+        return {'landsat': transforms.Compose(landsat_transforms + all_transforms),
+                'bioclim': transforms.Compose(bioclim_transforms + all_transforms),
+                'sentinel': transforms.Compose(sentinel_transforms + all_transforms)}
+
+    @property
+    def val_transform(self):
+        landsat_transforms = [lambda x: GLC25CustomNormalize()(x, subset='val', modality='landsat'),
+                              MinMaxNormalize(),
+                              transforms.Normalize(mean=(0.5,) * 6, std=(0.5,) * 6),]
+        bioclim_transforms = [lambda x: GLC25CustomNormalize()(x, subset='val', modality='bioclim'),
+                              MinMaxNormalize(),
+                              transforms.Normalize(mean=(0.5,) * 4, std=(0.5,) * 4),]
+        sentinel_transforms = [lambda x: QuantileNormalizeFromPreComputedDatasetPercentiles()(x),
+                               MinMaxNormalize(),
+                               torch.Tensor,
+                               transforms.Normalize(mean=(0.5,) * 4, std=(0.5,) * 4),]
+        all_transforms = [torch.Tensor,]
+
+        return {'landsat': transforms.Compose(landsat_transforms + all_transforms),
+                'bioclim': transforms.Compose(bioclim_transforms + all_transforms),
+                'sentinel': transforms.Compose(sentinel_transforms + all_transforms)}
+
+    @property
+    def test_transform(self):
+        all_transforms = [torch.Tensor,]
+
+        return {'landsat': transforms.Compose(all_transforms),
+                'bioclim': transforms.Compose(all_transforms),
+                'sentinel': transforms.Compose(all_transforms)}
+
+
 @hydra.main(version_base="1.3", config_path="config/", config_name="glc25_cnn_multimodal_ensemble")
 def main(cfg: DictConfig) -> None:
     """Run main script used for either training or inference.
@@ -65,10 +116,10 @@ def main(cfg: DictConfig) -> None:
     logger.addHandler(logging.FileHandler(f"{log_dir}/core.log"))
 
     # Datamodule & Model
-    datamodule = GLC25Datamodule(**cfg.data, **cfg.task)
+    datamodule = GLC25CustomTransformsDatamodule(**cfg.data, **cfg.task)
     classif_system = ClassificationSystemGLC24(cfg.model, **cfg.optim,
                                                checkpoint_path=cfg.run.checkpoint_path,
-                                               weights_dir=log_dir)  # multilabel
+                                               weights_dir=log_dir+'/../')  # multilabel
 
     # Lightning Trainer
     callbacks = [

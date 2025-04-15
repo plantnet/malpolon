@@ -32,7 +32,7 @@ task:
 
 trainer:
   # gpus: 1  # Deprecated since pytorchlightning 1.7, removed in 2.0. Replaced by the 2 next attributes
-  accelerator: "gpu"
+  accelerator: "cpu"
   devices: 'auto'
   max_epochs: 21  # if resuming training from our pre-trained MME model, needs to be > 19
   val_check_interval: 100

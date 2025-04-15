@@ -46,17 +46,6 @@ def construct_patch_path(data_path, survey_id):
 
     return path
 
-
-def quantile_normalize(band, low=2, high=98):
-    """Normalize the band based on quantiles and rescale to [0, 255]."""
-    sorted_band = np.sort(band.flatten())
-    quantiles = np.percentile(sorted_band, np.linspace(low, high, len(sorted_band)))
-    normalized_band = np.interp(band.flatten(), sorted_band, quantiles).reshape(band.shape)
-    min_val = np.min(normalized_band)
-    max_val = np.max(normalized_band)
-    return (normalized_band - min_val) / (max_val - min_val)
-
-
 def load_landsat(path, transform=None):
     """Load Landsat pre-extracted time series data.
 

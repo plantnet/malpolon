@@ -8,17 +8,17 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 """
 
 import os
-import rasterio
-import numpy as np
-import torch
-
 from collections import defaultdict
-from tqdm import tqdm
 from pathlib import Path
-from torchvision import transforms
-from PIL import Image
-from matplotlib import pyplot as plt
 from typing import Union
+
+import numpy as np
+import rasterio
+import torch
+from matplotlib import pyplot as plt
+from PIL import Image
+from torchvision import transforms
+from tqdm import tqdm
 
 
 class SafeRescaleTo255:
@@ -39,7 +39,7 @@ class SafeRescaleTo255:
 
 
 class MinMaxNormalize:
-    """Normalize an image band to [0, 1] and rescale to [0, 255]."""
+    """Normalize an image band to [0, 1]."""
     def __call__(
         self,
         band: np.ndarray,
@@ -57,7 +57,7 @@ class MinMaxNormalize:
 
 
 class Standardize:
-    """Standardize an image band and rescale to [0, 255]."""
+    """Standardize an image band."""
     def __call__(
         self,
         band: np.ndarray,
@@ -75,7 +75,7 @@ class Standardize:
 
 
 class LogNormalize:
-    """Log normalize an image band and rescale to [0, 255]."""
+    """Log normalize an image band."""
     def __call__(
         self,
         band: np.ndarray,
@@ -124,9 +124,28 @@ def pre_compute_quantile_linear_on_dataset(
     high: int = 98,
     subset: str = "train",
     data_type: str = "tiff",
-    output_path: str = "dataset/geolifeclef-2025/SatelitePatches/",
-    max_iter: int = 1000,
+    output_path: str = "dataset/geolifeclef-2025/Stats/",
+    max_iter: int = 100,
 ) -> None:
+    """Pre-compute the quantiles over the satellite dataset to perform global normalization.
+
+    This method uses numpy's percentile function with mode "linear" to compute
+    the quantiles. It is memory hungry as it requires all the arrays stacked up to compute
+    the percentiles. However it is more intuitive.
+    Saves quantiles and min/max values as numpy objects to be used for normalization.
+    Satellite patches shape is (64, 64)
+    Quantiles shape is (4, 4096) and min/max shape is (4, 2) where the 1st element of
+    axis 1 is the min and the 2nd element is the max.
+
+    Args:
+        root_path (str, optional): path to the satellite root folder. Defaults to "data/geolifeclef2025_pre_extracted/SatelitePatches/".
+        low (int, optional): low percentile to compute quantiles from. Defaults to 2.
+        high (int, optional): hight percentile to compute quantiles from. Defaults to 98.
+        subset (str, optional): dataset subset. Takes values in ['train', 'test']. Defaults to "train".
+        data_type (str, optional): data format. Defaults to "tiff".
+        output_path (str, optional): output path of saved quantiles and min/max. Defaults to "data/geolifeclef2025_pre_extracted/SatelitePatches/".
+        max_iter (int, optional): max files to considered to compute the quantiles from. Defaults to 100.
+    """
     fps = (Path(root_path) / Path(f'PA-{subset}')).rglob(f"*.{data_type}")
     data = []
     quantiles = {'r': None, 'g': None, 'b': None, 'nir': None}
@@ -136,35 +155,40 @@ def pre_compute_quantile_linear_on_dataset(
     while k < max_iter:
         try:
             fp = next(fps)
-            if not (os.path.isfile(fp) and fp.suffix == '.tiff'):
+            if os.path.isfile(fp) and fp.suffix == '.tiff':
                 img = rasterio.open(fp).read(out_dtype=np.float32)
                 data.append(img)
-            k += 1
-            pbar.update(1)
+                k += 1
+                pbar.update(1)
         except StopIteration:
+            print(f'Max files ({k}) reached before max iterations ({max_iter}). Quantiles will be computed on {k} files.')
             pbar.update(max_iter)
             k = np.inf
     data = np.stack(data, axis=0)
     for i, k_band in enumerate(quantiles.keys()):
         band = data[:, i]
         sorted_band = np.sort(band.flatten())
-        quantiles[k_band] = np.percentile(sorted_band, np.linspace(low, high, len(sorted_band)))
+        quantiles[k_band] = np.percentile(sorted_band, np.linspace(low, high, len(sorted_band)//max_iter))
         min_max_val[k_band] = [band.min(), band.max()]
-    np.save(Path(output_path) / Path(f'quantiles_linear_approx-{max_iter}.npy'), np.array(list(quantiles.values())))
-    np.save(Path(output_path) / Path(f'min-max_values_linear_approx-{max_iter}.npy'), np.array(list(min_max_val.values())))
+    np.save(Path(output_path) / Path(f'Satellite_quantiles_linear_approx-{max_iter}.npy'), np.array(list(quantiles.values())))
+    np.save(Path(output_path) / Path(f'Satellite_min-max_values_linear_approx-{max_iter}.npy'), np.array(list(min_max_val.values())))
 
 
+# WARNING: Using inverted_cdf needs Numpy >= 2.0.0. Check that all other dependencies are compatible.
 def pre_compute_quantile_inverted_cdf_on_dataset(
     root_path: str = "dataset/geolifeclef-2025/SatelitePatches/",
     low: int = 2,
     high: int = 98,
     subset: str = "train",
     data_type: str = "tiff",
-    output_path: str = "dataset/geolifeclef-2025/SatelitePatches/",
+    output_path: str = "dataset/geolifeclef-2025/Stats/",
     max_iter: int = 1000,
 ) -> None:
     """Pre-compute the quantiles over the satellite dataset to perform global normalization.
 
+    This method uses numpy's percentile function with mode "inverted_cdf" to compute
+    the quantiles. It is memory efficient as it only requires the unique
+    values in the dataset's images, and an associated weight array representing their distribution.
     Saves quantiles and min/max values as numpy objects to be used for normalization.
     Satellite patches shape is (64, 64)
     Quantiles shape is (4, 4096) and min/max shape is (4, 2) where the 1st element of
@@ -205,8 +229,8 @@ def pre_compute_quantile_inverted_cdf_on_dataset(
                                           method='inverted_cdf',
                                           weights=np.array(list(value_counts_sorted.values())) / np.array(list(value_counts_sorted.values())).sum())
         min_max_val[k_band] = [np.min(quantiles[k_band]), np.max(quantiles[k_band])]
-    np.save(Path(output_path) / Path('quantiles_inverted-cdf.npy'), np.array(list(quantiles.values())))
-    np.save(Path(output_path) / Path('min-max_values_inverted-cdf.npy'), np.array(list(min_max_val.values())))
+    np.save(Path(output_path) / Path('Satellite_quantiles_inverted-cdf.npy'), np.array(list(quantiles.values())))
+    np.save(Path(output_path) / Path('Satellite_min-max_values_inverted-cdf.npy'), np.array(list(min_max_val.values())))
 
 
 class QuantileNormalizeFromPreComputedDatasetPercentiles:
@@ -214,8 +238,8 @@ class QuantileNormalizeFromPreComputedDatasetPercentiles:
     def __call__(
         self,
         img: np.ndarray,
-        fp_quantiles: Union[str, Path],
-        fp_min_max: Union[str, Path],
+        fp_quantiles: Union[str, Path] = "dataset/geolifeclef-2025/Stats/Satellite_quantiles_linear_approx-100.npy",
+        fp_min_max: Union[str, Path] = "dataset/geolifeclef-2025/Stats/Satellite_min-max_values_linear_approx-100.npy",
     ):
         """Call method.
 
@@ -244,7 +268,7 @@ class GLC25CustomNormalize:
        The normalization values are pre-computed from the training dataset
        (pre-extracted values) for each modality.
     """
-    def __call__(self, img, subset="train", modality="landsat"):
+    def __call__(self, img, subset="train", modality="landsat") -> dict:
         """Call method.
 
         Args:
@@ -275,27 +299,27 @@ class GLC25CustomNormalize:
         return normalized
 
 
-# Example usage
-if __name__ == "__main__":
-    # pre_compute_quantile_inverted_cdf_on_dataset(
-    #   "dataset/geolifeclef-2025/SatelitePatches/",
-    #   subset="train",
-    #   data_type="tiff"
-    # )
-    pre_compute_quantile_linear_on_dataset(
-        "dataset/geolifeclef-2025/SatelitePatches/",
-        subset="train",
-        data_type="tiff"
-    )
-    patch = rasterio.open("dataset/geolifeclef-2025/SatelitePatches/PA-train/00/00/3440000.tiff").read(out_dtype=np.float32)
+# # Example usage
+# if __name__ == "__main__":
+#     # pre_compute_quantile_inverted_cdf_on_dataset(
+#     #   "dataset/geolifeclef-2025/SatelitePatches/",
+#     #   subset="train",
+#     #   data_type="tiff"
+#     # )
+#     pre_compute_quantile_linear_on_dataset(
+#         "dataset/geolifeclef-2025/SatelitePatches/",
+#         subset="train",
+#         data_type="tiff"
+#     )
+#     patch = rasterio.open("dataset/geolifeclef-2025/SatelitePatches/PA-train/00/00/3440000.tiff").read(out_dtype=np.float32)
 #     minmax_norm = np.array([MinMaxNormalize()(band) for band in patch])
 #     standard_norm = np.array([Standardize()(band) for band in patch])
 #     log_norm = np.array([LogNormalize()(band) for band in patch])
 #     quantile_norm = np.array([QuantileLinearNormalize()(band) for band in patch])
 #     quantile_norm_precomp = QuantileNormalizeFromPreComputedDatasetPercentiles()(
 #         patch,
-#         "dataset/geolifeclef-2025/SatelitePatches/quantiles.npy",
-#         "dataset/geolifeclef-2025/SatelitePatches/min-max_values.npy"
+#         "dataset/geolifeclef-2025/Stats/Satellite_quantiles_linear_approx-100.npy",
+#         "dataset/geolifeclef-2025/Stats/Satellite_min-max_values_linear_approx-100.npy"
 #     )
 #     custom_norm = GLC25CustomNormalize()(patch, modality='sentinel').numpy()
 
