@@ -47,25 +47,6 @@ def construct_patch_path(data_path, survey_id):
     return path
 
 
-# def quantile_normalize(band):
-#     """Perform normalization on an array.
-
-#     Args:
-#         band (_type_): _description_
-
-#     Returns:
-#         _type_: _description_
-#     """
-#     band = np.array(band, dtype=np.float32)
-#     min_val = np.nanmin(band)  # Use nanmin to ignore NaNs
-#     max_val = np.nanmax(band)  # Use nanmax to ignore NaNs
-
-#     if max_val == min_val:
-#         return np.zeros_like(band)  # If max and min are the same, return an array of zeros
-
-#     return ((band - min_val) / (max_val - min_val)).astype(np.float32)
-
-
 def load_landsat(path, transform=None):
     """Load Landsat pre-extracted time series data.
 
