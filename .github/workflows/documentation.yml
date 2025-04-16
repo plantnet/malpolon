@@ -47,7 +47,7 @@ jobs:
             - name: Make documentation
               run: make -C docs html
             - name: Upload artifact
-              uses: actions/upload-pages-artifact@v4
+              uses: actions/upload-pages-artifact@v3
               with:
                 # Upload entire repository
                 path: './docs/_build/html'

@@ -9,8 +9,7 @@ on:
         - dev-ci-doc
       paths:
         - "**.py"
-      paths-ignore:
-        - "docs/**"
+        - "!docs/**"
 
 jobs:
     test:
