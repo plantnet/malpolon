@@ -1,14 +1,15 @@
 name: Python Test
 
 on:
+  workflow_dispatch:
   push:
       branches:
         - main
         - dev
         - dev-ci-doc
       paths:
-        - '**.py'
-        - '!docs/**'
+        - "**.py"
+        - "!docs/**"
 
 jobs:
     test:
