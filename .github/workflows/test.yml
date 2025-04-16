@@ -1,14 +1,16 @@
 name: Python Test
 
 on:
+  workflow_dispatch:
   push:
       branches:
         - main
         - dev
         - dev-ci-doc
       paths:
-        - '**.py'
-        - '!docs/**'
+        - "**.py"
+      paths-ignore:
+        - "docs/**"
 
 jobs:
     test:
@@ -19,8 +21,8 @@ jobs:
             python-version: ["3.10"]
 
         steps:
-            - uses: actions/checkout@v3
-            - uses: actions/setup-python@v4
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
               name: Setup python ${{ matrix.python-version }}
               with:
                 cache-dependency-path: '**/requirements_python3.10.txt'

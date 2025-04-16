@@ -1,6 +1,7 @@
 name: Python Test examples (manual)
 
-on: workflow_dispatch
+on: 
+  workflow_dispatch:
 
 jobs:
     test:
@@ -11,8 +12,8 @@ jobs:
             python-version: ["3.10"]
 
         steps:
-            - uses: actions/checkout@v3
-            - uses: actions/setup-python@v4
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
               name: Setup python ${{ matrix.python-version }}
               with:
                 cache-dependency-path: '**/requirements_python3.10.txt'
