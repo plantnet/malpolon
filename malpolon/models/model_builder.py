@@ -19,8 +19,6 @@ from torchvision import models
 
 from malpolon.models.custom_models.glc2024_multimodal_ensemble_model import \
     MultimodalEnsemble
-from malpolon.models.custom_models.jrc_multiscale_geo_encoder_model import \
-    MultiScaleGeoEncoder
 
 if TYPE_CHECKING:
     from typing import Any, Callable, Optional
@@ -29,7 +27,6 @@ if TYPE_CHECKING:
     Modifier = Callable[..., nn.Module]
 
 MALPOLON_MODELS = {'glc24_multimodal_ensemble': MultimodalEnsemble,
-                   'jrc_multiscale_geo_encoder': MultiScaleGeoEncoder,
                   }
 
 
