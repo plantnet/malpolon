@@ -184,6 +184,7 @@ class SatelliteDatasetSimple(DatasetSimple):
         # return {'img': img, 'gps': coords}
         return img, torch.Tensor(coords)
 
+
 class MultiscaleDatasetSimple(Dataset):
     def __init__(
         self,
