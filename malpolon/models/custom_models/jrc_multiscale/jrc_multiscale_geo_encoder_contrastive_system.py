@@ -132,7 +132,7 @@ class SimCLR(object):
                 images = images.to(self.args.device)
                 gps = gps.to(self.args.device)
 
-                with autocast(device_type=device, enabled=self.args.fp16_precision):
+                with autocast(device_type=str(self.args.device), enabled=self.args.fp16_precision):
                     features_img, features_gps = self.model(images, gps)
                     features = torch.cat([features_img, features_gps], dim=0)
                     logits, labels = self.info_nce_loss(features)
