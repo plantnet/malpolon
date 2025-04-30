@@ -90,35 +90,54 @@ def main(args):
         args.device = torch.device('cpu')
         args.gpu_index = -1
 
-    train_collate = None
+    custom_collate = None
     # dataset = ContrastiveLearningDataset(args.data)
     if args.arch == 'species':
+        custom_collate = collate_species
         train_dataset = SpeciesDatasetSimple(
             root_path = 'dataset/scale_1_species/data_subset/img',
             fp_metadata = 'dataset/scale_1_species/data_subset/metadata_subset.csv',
             transform = transforms_species(),
         )
-        train_collate = collate_species
+        val_dataset = SpeciesDatasetSimple(
+            root_path = 'dataset/scale_1_species/data_subset/img',
+            fp_metadata = 'dataset/scale_1_species/data_subset/<VAL_PN_OBS>.csv',
+            transform = transforms_species(),
+        )
 
     elif args.arch == 'landscape':
+        custom_collate = collate_landscape
         train_dataset = LandscapeDatasetSimple(
             root_path = 'dataset/scale_2_landscape/LUCAS_subset',
             fp_metadata = 'dataset/scale_2_landscape/LUCAS_subset/metadata_subset.csv',
             transform = transforms_species(),
         )
-        train_collate = collate_landscape
+        val_dataset = LandscapeDatasetSimple(
+            root_path = 'dataset/scale_2_landscape/LUCAS_subset',
+            fp_metadata = 'dataset/scale_2_landscape/LUCAS_subset/<VAL_LUCAS_SURVEY>.csv',
+            transform = transforms_species(),
+        )
     
     elif args.arch == 'satellite':
+        custom_collate = collate_satellite
         train_dataset = SatelliteDatasetSimple(
-            root_path = 'dataset/scale_3_satellite/data_subset/PA_Train_SatellitePatches/',
-            fp_metadata = 'dataset/scale_3_satellite/data_subset/GLC24-PA-data_subset.csv',
+            root_path = 'dataset/scale_3_satellite/geolifeclef-2024/PA_Train_SatellitePatches/',
+            fp_metadata = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train-10.0min.csv',
             transform = transforms_satellite(),
         )
-        train_collate = collate_satellite
+        val_dataset = SatelliteDatasetSimple(
+            root_path = 'dataset/scale_3_satellite/geolifeclef-2024/PA_Train_SatellitePatches/',
+            fp_metadata = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_val-10.0min.csv',
+            transform = transforms_satellite(),
+        )
 
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=train_collate)
+        num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
+
+    val_loader = DataLoader(
+        val_dataset, batch_size=args.batch_size, shuffle=True,
+        num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
 
     model = ModelSimCLR(base_model=args.arch, out_dim=args.out_dim)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
@@ -127,7 +146,7 @@ def main(args):
     #  It’s a no-op if the 'gpu_index' argument is a negative integer or None.
     with torch.cuda.device(args.gpu_index):
         simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args)
-        simclr.train(train_loader)
+        simclr.train(train_loader, val_loader)
 
 
 if __name__ == "__main__":

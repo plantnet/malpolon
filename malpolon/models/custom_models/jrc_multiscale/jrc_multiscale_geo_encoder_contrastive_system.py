@@ -118,7 +118,7 @@ class SimCLR(object):
         logits = logits / self.args.temperature
         return logits, labels
 
-    def train(self, train_loader):
+    def train(self, train_loader, val_loader):
 
         scaler = GradScaler(enabled=self.args.fp16_precision)
 
@@ -155,6 +155,23 @@ class SimCLR(object):
                     self.writer.add_scalar('learning_rate', self.scheduler.get_lr()[0], global_step=n_iter)
 
                 n_iter += 1
+
+            # Evaluation
+            model.eval()
+            with torch.no_grad():
+                for vimages, vgps in tqdm(val_loader):
+                    vimages = vimages.to(self.args.device)
+                    vgps = vgps.to(self.args.device)
+                    vfeatures_img, vfeatures_gps = self.model(vimages, vgps)
+                    vfeatures = torch.cat([vfeatures_img, vfeatures_gps], dim=0)
+                    vlogits, vlabels = self.info_nce_loss(vfeatures, dataset_type=self.args.arch)
+                    vloss = self.criterion(vlogits, vlabels)
+
+                    vtop1, vtop5 = accuracy(vlogits, vlabels, topk=(1, 5))
+                    self.writer.add_scalar('vloss', vloss, global_step=n_iter)
+                    self.writer.add_scalar('vacc/top1', vtop1[0], global_step=n_iter)
+                    self.writer.add_scalar('vacc/top5', vtop5[0], global_step=n_iter)
+
 
             # warmup for the first 10 epochs
             if epoch_counter >= 10:
