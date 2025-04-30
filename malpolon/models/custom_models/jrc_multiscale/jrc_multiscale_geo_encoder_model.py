@@ -222,12 +222,13 @@ class ModelSimCLR(nn.Module):
             replace_last_k_layers_with_identity(self.modality_encoder, 1)
         elif base_model == 'satellite':
             self.modality_encoder = modality_dict[base_model]()
+            dim_mlp = self.modality_encoder.norm.normalized_shape[0]
             self.modality_contrastive_head = torch.nn.Sequential(
                 OrderedDict(
                     [
-                        ("fc", self.modality_encoder.head),
+                        ("fc", torch.nn.Linear(dim_mlp, out_dim)),
                         ("relu", torch.nn.ReLU()),
-                        ("head", torch.nn.Linear(dim_mlp, out_dim)),
+                        ("head", torch.nn.Linear(out_dim, out_dim)),
                     ]
                 )
             )

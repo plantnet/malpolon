@@ -37,6 +37,18 @@ def transforms_species():
 
     return transforms.Compose(ts)
 
+def transforms_satellite():
+    def CenterCropToMaxDim(img):
+        max_dim = max(img.shape[-2:])
+        return CenterCrop((max_dim, max_dim))(img)
+
+    ts = [
+        # lambda x: x[:, 0, :, :],
+        # Resize((518, 518))
+        ]  # bilinear by default
+
+    return transforms.Compose(ts)
+
 # 2. Custom collate function returning directly a list of dictionaries with {'img': img_tensor, 'gps': gps_tuple}. But this implies adding a loop over the multi-dimensional tensors which defeats the purpose of batching.
 def collate_species(original_batch):
     imgs, gpss = zip(*original_batch)
@@ -57,6 +69,11 @@ def collate_landscape(original_batch):
     gps_batched = torch.repeat_interleave(gps_batched, len(img_batched)//len(gpss), dim=0)  # Output is: [gps_imgA, gps_imgA,..., gps_imgB, gps_imgB...]
     return img_batched, gps_batched
 
+def collate_satellite(original_batch):
+    imgs, gpss = zip(*original_batch)
+    img_batched = torch.cat(list(imgs), dim=0)
+    gps_batched = torch.stack(list(gpss), dim=0)
+    return img_batched, gps_batched
 
 def main(args):
     assert args.n_views == 2, "Only two view training is supported. Please use --n-views 2."
@@ -82,6 +99,7 @@ def main(args):
             transform = transforms_species(),
         )
         train_collate = collate_species
+
     elif args.arch == 'landscape':
         train_dataset = LandscapeDatasetSimple(
             root_path = 'dataset/scale_2_landscape/LUCAS_subset',
@@ -89,12 +107,14 @@ def main(args):
             transform = transforms_species(),
         )
         train_collate = collate_landscape
+    
     elif args.arch == 'satellite':
         train_dataset = SatelliteDatasetSimple(
             root_path = 'dataset/scale_3_satellite/data_subset/PA_Train_SatellitePatches/',
             fp_metadata = 'dataset/scale_3_satellite/data_subset/GLC24-PA-data_subset.csv',
-            transform = None,
+            transform = transforms_satellite(),
         )
+        train_collate = collate_satellite
 
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
@@ -112,7 +132,7 @@ def main(args):
 
 if __name__ == "__main__":
     args_ns = {
-        'arch': 'landscape',  # always paired with gps
+        'arch': 'satellite',  # always paired with gps
         'epochs': 10,
         'out_dim': 512,
         'batch_size': 5,
