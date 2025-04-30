@@ -121,13 +121,13 @@ def main(args):
     elif args.arch == 'satellite':
         custom_collate = collate_satellite
         train_dataset = SatelliteDatasetSimple(
-            root_path = 'dataset/scale_3_satellite/geolifeclef-2024/PA_Train_SatellitePatches/',
-            fp_metadata = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train-10.0min.csv',
+            root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
+            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_train-10.0min.csv',
             transform = transforms_satellite(),
         )
         val_dataset = SatelliteDatasetSimple(
-            root_path = 'dataset/scale_3_satellite/geolifeclef-2024/PA_Train_SatellitePatches/',
-            fp_metadata = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_val-10.0min.csv',
+            root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
+            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_val-10.0min.csv',
             transform = transforms_satellite(),
         )
 
@@ -146,7 +146,7 @@ def main(args):
     #  It’s a no-op if the 'gpu_index' argument is a negative integer or None.
     with torch.cuda.device(args.gpu_index):
         simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args)
-        simclr.train(train_loader, val_loader)
+        simclr.train(train_loader, val_loader, iter_sample_max=args.max_iter)
 
 
 if __name__ == "__main__":
@@ -154,7 +154,7 @@ if __name__ == "__main__":
         'arch': 'satellite',  # always paired with gps
         'epochs': 10,
         'out_dim': 512,
-        'batch_size': 5,
+        'batch_size': 10,
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'temperature': 0.1,
         'fp16_precision': False,
@@ -163,6 +163,7 @@ if __name__ == "__main__":
         'workers': 0,
         'gpu_index': 0,
         'disable_cuda': True,
+        'max_iter': torch.inf,
     }
     args_ns = SimpleNamespace(**args_ns)
     main(args_ns)
