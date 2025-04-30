@@ -86,7 +86,7 @@ def main(args):
 
 if __name__ == "__main__":
     args_ns = {
-        'arch': 'species',  # always paired with gps
+        'arch': 'landscape',  # always paired with gps
         'epochs': 10,
         'out_dim': 512,
         'batch_size': 5,
