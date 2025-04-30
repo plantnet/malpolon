@@ -118,7 +118,19 @@ class SimCLR(object):
         logits = logits / self.args.temperature
         return logits, labels
 
-    def train(self, train_loader, val_loader):
+    def train(
+        self,
+        train_loader: torch.utils.data.DataLoader,
+        val_loader: torch.utils.data.DataLoader,
+        max_iter: int = torch.inf
+    ):
+        """Train the model using SimCLR.
+
+        Args:
+            train_loader (torch.utils.data.DataLoader): pytorch dataloader for training data
+            val_loader (torch.utils.data.DataLoader): pytorch dataloader for validation data
+            max_iter (int, optional): Max iter nb over both train and val dataloaders. Defaults to torch.inf.
+        """
 
         scaler = GradScaler(enabled=self.args.fp16_precision)
 
@@ -130,6 +142,7 @@ class SimCLR(object):
         logging.info(f"Training with gpu: {self.args.disable_cuda}.")
 
         for epoch_counter in range(self.args.epochs):
+            iter_sample = 0
             for images, gps in tqdm(train_loader):
                 images = images.to(self.args.device)
                 gps = gps.to(self.args.device)
@@ -155,10 +168,14 @@ class SimCLR(object):
                     self.writer.add_scalar('learning_rate', self.scheduler.get_lr()[0], global_step=n_iter)
 
                 n_iter += 1
+                iter_sample += 1
+                if iter_sample >= max_iter:
+                    break
 
             # Evaluation
-            model.eval()
+            self.model.eval()
             with torch.no_grad():
+                viter_sample = 0
                 for vimages, vgps in tqdm(val_loader):
                     vimages = vimages.to(self.args.device)
                     vgps = vgps.to(self.args.device)
@@ -171,6 +188,9 @@ class SimCLR(object):
                     self.writer.add_scalar('vloss', vloss, global_step=n_iter)
                     self.writer.add_scalar('vacc/top1', vtop1[0], global_step=n_iter)
                     self.writer.add_scalar('vacc/top5', vtop5[0], global_step=n_iter)
+                    viter_sample += 1
+                    if viter_sample >= max_iter:
+                        break
 
 
             # warmup for the first 10 epochs
