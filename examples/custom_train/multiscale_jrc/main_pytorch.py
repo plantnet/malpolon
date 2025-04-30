@@ -38,18 +38,31 @@ def transforms_species():
     return transforms.Compose(ts)
 
 # 2. Custom collate function returning directly a list of dictionaries with {'img': img_tensor, 'gps': gps_tuple}. But this implies adding a loop over the multi-dimensional tensors which defeats the purpose of batching.
-def custom_collate(original_batch):
+def collate_species(original_batch):
     imgs, gpss = zip(*original_batch)
     img_batched = torch.cat(list(imgs), dim=0)
     gps_batched = torch.stack(list(gpss), dim=0)
     return img_batched, gps_batched
+
+def collate_landscape(original_batch):
+    imgs, gpss = zip(*original_batch)
+    img_batched = torch.cat(list(imgs), dim=0)  # Reshape to stack the views along the batch dim. Output is: [imgA_view1, imgA_view2, ..., imgB_view1, imgB_view2...]
+    gps_batched = torch.stack(list(gpss), dim=0)
+    # In order to address the inconsistent number of views of LUCAS images, we must choose a strategy between the 2 following:
+    
+    # a) Reshaping imgs to stack the views on the channel dim. This requires to adapt the model to accept k channels with k>3 probably.
+    # img_batched = img_batched.reshape(1, -1, img_batched.shape[2], img_batched.shape[3])[0] 
+    
+    # b) Repeating the gps embeddings to match the new expanded batch dim because of LUCAS views. This requires to add an if case in the contrastive loss computation as the shapes of the similarity matrix are based on the batch_size which is artificially expanded.
+    gps_batched = torch.repeat_interleave(gps_batched, len(img_batched)//len(gpss), dim=0)  # Output is: [gps_imgA, gps_imgA,..., gps_imgB, gps_imgB...]
+    return img_batched, gps_batched
+
 
 def main(args):
     assert args.n_views == 2, "Only two view training is supported. Please use --n-views 2."
 
     # Hyperparameters
     learning_rate = 0.00025
-    num_epochs = 10
 
     # check if gpu training is available
     if not args.disable_cuda and torch.cuda.is_available():
@@ -60,19 +73,32 @@ def main(args):
         args.device = torch.device('cpu')
         args.gpu_index = -1
 
+    train_collate = None
     # dataset = ContrastiveLearningDataset(args.data)
-    dataset = SpeciesDatasetSimple(
-        root_path = 'dataset/scale_1_species/data_subset/img',
-        fp_metadata = 'dataset/scale_1_species/data_subset/metadata_subset.csv',
-        transform = transforms_species(),
-    )  # dataset_species, dataset_landscape, dataset_satellite
-
-    # train_dataset = dataset.get_dataset(args.dataset_name, args.n_views)
-    train_dataset = dataset
+    if args.arch == 'species':
+        train_dataset = SpeciesDatasetSimple(
+            root_path = 'dataset/scale_1_species/data_subset/img',
+            fp_metadata = 'dataset/scale_1_species/data_subset/metadata_subset.csv',
+            transform = transforms_species(),
+        )
+        train_collate = collate_species
+    elif args.arch == 'landscape':
+        train_dataset = LandscapeDatasetSimple(
+            root_path = 'dataset/scale_2_landscape/LUCAS_subset',
+            fp_metadata = 'dataset/scale_2_landscape/LUCAS_subset/metadata_subset.csv',
+            transform = transforms_species(),
+        )
+        train_collate = collate_landscape
+    elif args.arch == 'satellite':
+        train_dataset = SatelliteDatasetSimple(
+            root_path = 'dataset/scale_3_satellite/data_subset/PA_Train_SatellitePatches/',
+            fp_metadata = 'dataset/scale_3_satellite/data_subset/GLC24-PA-data_subset.csv',
+            transform = None,
+        )
 
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
+        num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=train_collate)
 
     model = ModelSimCLR(base_model=args.arch, out_dim=args.out_dim)
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)

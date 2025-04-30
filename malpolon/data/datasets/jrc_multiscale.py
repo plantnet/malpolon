@@ -33,7 +33,7 @@ def load_LUCAS_img(
     id: Union[str, int],
     metadata: pd.DataFrame,
     root_path: str = "dataset/scale_2_landscape/",
-    views: list = ['cover', 'south', 'north', 'west', 'east', 'point'],  # Takes values in [cover, south, north, west, east, point]
+    views: list = ['cover', 'north', 'south',  'east', 'west', 'point'],  # Takes values in ['cover', 'north', 'south',  'east', 'west', 'point']
     return_img_path: Optional[bool] = False,
     return_img_gps: Optional[bool] = False,
     id_col: str = 'id',
@@ -59,7 +59,6 @@ def load_LUCAS_img(
     if return_img_path:
         return img, fps
     return img
-
 
 def load_species_img(
     id: Union[str, int],

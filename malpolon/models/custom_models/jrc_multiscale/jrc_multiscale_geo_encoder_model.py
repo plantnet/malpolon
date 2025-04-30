@@ -133,9 +133,9 @@ def get_model_landscape(out_dim=512):
 
 def get_model_satellite():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model_root_path_satellite = 'scale_3_satellite/'
+    model_root_path_satellite = 'weights/scale_3_satellite/'
     model_satellite_config = str(Path(model_root_path_satellite) / Path('glc24_cnn_multimodal_ensemble.yaml'))
-    ckpt_path = str(Path(model_root_path_satellite) / 'vit_base_patch14_reg4_dinov2_lvd142m_pc24_onlyclassifier_then_all_best.pth')
+    ckpt_path = str(Path(model_root_path_satellite) / 'pretrained.ckpt')
 
     if ckpt_path:
         download_weights("https://lab.plantnet.org/seafile/f/eb90daeb510c44349fb5/?dl=1",
