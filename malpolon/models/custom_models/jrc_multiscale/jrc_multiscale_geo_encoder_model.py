@@ -113,14 +113,12 @@ def remove_state_dict_prefix(
 
 def get_model_species():
     model_root_path_species = 'weights/scale_1_species/'
-    pretrained_path = str(Path(model_root_path_species) / Path('model_best.pth.tar'))
-    import os
-    print(os.getcwd())
+    ckpt_path = str(Path(model_root_path_species) / Path('vit_base_patch14_reg4_dinov2_lvd142m_pc24_onlyclassifier_then_all_best.pth.tar'))
     model_species = timm.create_model(
         'vit_base_patch14_reg4_dinov2.lvd142m',
         pretrained=False,
-        num_classes=10,  # can be anything, we will not use it
-        checkpoint_path=pretrained_path,
+        num_classes=7806,
+        checkpoint_path=ckpt_path,
     )
     return model_species
 
@@ -137,7 +135,7 @@ def get_model_satellite():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model_root_path_satellite = 'scale_3_satellite/'
     model_satellite_config = str(Path(model_root_path_satellite) / Path('glc24_cnn_multimodal_ensemble.yaml'))
-    ckpt_path = str(Path(model_root_path_satellite) / 'pretrained.ckpt')
+    ckpt_path = str(Path(model_root_path_satellite) / 'vit_base_patch14_reg4_dinov2_lvd142m_pc24_onlyclassifier_then_all_best.pth')
 
     if ckpt_path:
         download_weights("https://lab.plantnet.org/seafile/f/eb90daeb510c44349fb5/?dl=1",
