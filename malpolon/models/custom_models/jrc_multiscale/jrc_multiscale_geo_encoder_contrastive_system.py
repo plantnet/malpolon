@@ -85,9 +85,11 @@ class SimCLR(object):
         logging.basicConfig(filename=os.path.join(self.writer.log_dir, 'training.log'), level=logging.DEBUG)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
 
-    def info_nce_loss(self, features):
-
-        labels = torch.cat([torch.arange(self.args.batch_size) for i in range(self.args.n_views)], dim=0)
+    def info_nce_loss(self, features, dataset_type: str = 'species'):
+        batch_size = self.args.batch_size
+        if dataset_type == 'landscape':
+            batch_size = features.shape[0] // self.args.n_views  # LUCAS image views stacked along the batch dim
+        labels = torch.cat([torch.arange(batch_size) for i in range(self.args.n_views)], dim=0)
         labels = (torch.unsqueeze(labels, 0) == torch.unsqueeze(labels, 1)).float()
         labels = labels.to(self.args.device)
 
@@ -95,7 +97,7 @@ class SimCLR(object):
 
         similarity_matrix = torch.matmul(features, features.T)
         # assert similarity_matrix.shape == (
-        #     self.args.n_views * self.args.batch_size, self.args.n_views * self.args.batch_size)
+        #     self.args.n_views * batch_size, self.args.n_views * batch_size)
         # assert similarity_matrix.shape == labels.shape
 
         # discard the main diagonal from both: labels and similarities matrix
@@ -135,7 +137,7 @@ class SimCLR(object):
                 with autocast(device_type=str(self.args.device), enabled=self.args.fp16_precision):
                     features_img, features_gps = self.model(images, gps)
                     features = torch.cat([features_img, features_gps], dim=0)
-                    logits, labels = self.info_nce_loss(features)
+                    logits, labels = self.info_nce_loss(features, dataset_type=self.args.arch)
                     loss = self.criterion(logits, labels)
 
                 self.optimizer.zero_grad()
