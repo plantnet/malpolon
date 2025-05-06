@@ -171,9 +171,11 @@ class SelectTensor(nn.Module):
 
 class ModelSimCLR(nn.Module):
     """My custom model for SimCLR using features from 2 different other models."""
-    def __init__(self, base_model, out_dim=512):
-        self.base_model = base_model
+    def __init__(self, base_model, out_dim=512, freeze_modality_backbone=False, freeze_gps_backbone=False):
         super().__init__()
+        self.base_model = base_model
+        self.freeze_modality_backbone = freeze_modality_backbone
+        self.freeze_gps_backbone = freeze_gps_backbone
         modality_dict = {
             'gps': LocationEncoder,  # GeoCLIP. Selected by default.
             'species': get_model_species,  # DinoV2
@@ -192,6 +194,9 @@ class ModelSimCLR(nn.Module):
                 ]
             )
         )
+        if self.freeze_gps_backbone:
+            for param in self.gps_encoder.parameters():
+                param.requires_grad = False
         
         # Modalities
         if base_model == 'species':
@@ -236,6 +241,9 @@ class ModelSimCLR(nn.Module):
         else:
             raise InvalidDatasetSelection(
                 "Invalid dataset selection. Check the config file and pass one of: 'species', 'landscape' or 'satellite'")
+        if self.freeze_modality_backbone:
+            for param in self.modality_encoder.parameters():
+                param.requires_grad = False
 
     def forward(self, img, gps):
         gps_h = self.gps_encoder(gps)

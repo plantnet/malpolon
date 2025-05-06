@@ -143,6 +143,7 @@ class SimCLR(object):
 
         for epoch_counter in range(self.args.epochs):
             iter_sample = 0
+            print("Training the model...")
             for images, gps in tqdm(train_loader):
                 images = images.to(self.args.device)
                 gps = gps.to(self.args.device)
@@ -161,11 +162,14 @@ class SimCLR(object):
                 scaler.update()
 
                 if n_iter % self.args.log_every_n_steps == 0:
-                    top1, top5 = accuracy(logits, labels, topk=(1, 5))
                     self.writer.add_scalar('loss', loss, global_step=n_iter)
-                    self.writer.add_scalar('acc/top1', top1[0], global_step=n_iter)
-                    self.writer.add_scalar('acc/top5', top5[0], global_step=n_iter)
                     self.writer.add_scalar('learning_rate', self.scheduler.get_lr()[0], global_step=n_iter)
+                    if logits.shape[0] >= 5:
+                        top1, top5 = accuracy(logits, labels, topk=(1, 5))
+                        self.writer.add_scalar('acc/top1', top1[0], global_step=n_iter)
+                        self.writer.add_scalar('acc/top5', top5[0], global_step=n_iter)
+                    else:
+                        print("Batch size is too small for accuracy calculation.")
 
                 n_iter += 1
                 iter_sample += 1
@@ -174,6 +178,7 @@ class SimCLR(object):
 
             # Evaluation
             self.model.eval()
+            print("Evaluating the model...")
             with torch.no_grad():
                 viter_sample = 0
                 for vimages, vgps in tqdm(val_loader):
@@ -184,10 +189,11 @@ class SimCLR(object):
                     vlogits, vlabels = self.info_nce_loss(vfeatures, dataset_type=self.args.arch)
                     vloss = self.criterion(vlogits, vlabels)
 
-                    vtop1, vtop5 = accuracy(vlogits, vlabels, topk=(1, 5))
                     self.writer.add_scalar('vloss', vloss, global_step=n_iter)
-                    self.writer.add_scalar('vacc/top1', vtop1[0], global_step=n_iter)
-                    self.writer.add_scalar('vacc/top5', vtop5[0], global_step=n_iter)
+                    if vlogits.shape[0] >= 5:
+                        vtop1, vtop5 = accuracy(vlogits, vlabels, topk=(1, 5))
+                        self.writer.add_scalar('vacc/top1', vtop1[0], global_step=n_iter)
+                        self.writer.add_scalar('vacc/top5', vtop5[0], global_step=n_iter)
                     viter_sample += 1
                     if viter_sample >= max_iter:
                         break
