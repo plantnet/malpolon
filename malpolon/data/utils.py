@@ -166,13 +166,20 @@ def get_files_path_recursively(path, *args, suffix='') -> list:
 def split_obs_spatially(input_path: str,
                         spacing: float = 10 / 60,
                         plot: bool = False,
-                        val_size: float = 0.15):
+                        val_size: float = 0.15,
+                        col_lon: str = 'lon',
+                        col_lat: str = 'lat'):
     """Perform a spatial train/val split on the input csv file.
+    
+    It the source file contains columns for 'lon' and 'lat' but named otherwise,
+    i.e. if arguments col_lon and col_lat are provided with different values than
+    their defaults, the script will rename the columns in the output files to
+    'lon' and 'lat'.
 
     Parameters
     ----------
-    input_path : str
-        obs CSV input file's path
+    obs_path : str
+        obs CSV input file's path.
     spacing : float, optional
         size of the spatial split in degrees (or whatever unit the coordinates are in),
         by default 10/60
@@ -180,35 +187,30 @@ def split_obs_spatially(input_path: str,
         if true, plots the train/val split on a 2D map,
         by default False
     val_size : float, optional
-        size of the validation split, by default 0.15
+        size of the validaiton split, by default 0.15
     """
     input_name = input_path[:-4] if input_path.endswith(".csv") else input_path
     df = pd.read_csv(f'{input_name}.csv')
     coords, data = {}, {}
     for col in df.columns:
-        if col in ['lon', 'lat']:
+        if col in [col_lon, col_lat]:
             coords[col] = df[col].to_numpy()
         else:
             data[col] = df[col].to_numpy()
-    train_split, val_split = spatial_tts(tuple(coords.values()), tuple(data.values()),
+    train_split, val_split = spatial_tts((coords[col_lon], coords[col_lat]), tuple(data.values()),
                                          spacing=spacing, test_size=val_size)
 
-    df_train = pd.DataFrame({'lon': train_split[0][0], 'lat': train_split[0][1]})
-    df_val = pd.DataFrame({'lon': val_split[0][0], 'lat': val_split[0][1]})
+    df_train = pd.DataFrame(dict(zip(data.keys(), train_split[1])))
+    df_val = pd.DataFrame(dict(zip(data.keys(), val_split[1])))
+    df_train[['lon', 'lat']] = pd.DataFrame({'lon': train_split[0][0], 'lat': train_split[0][1]})
+    df_val[['lon', 'lat']] = pd.DataFrame({'lon': val_split[0][0], 'lat': val_split[0][1]})
     df_train['subset'] = ['train'] * len(df_train)
     df_val['subset'] = ['val'] * len(df_val)
-    for train_data, val_data, col in zip(train_split[1], val_split[1], data.keys()):
-        df_train[col] = train_data
-        df_val[col] = val_data
-
     df_train_val = pd.concat([df_train, df_val])
 
     df_train_val.to_csv(f'{input_name}_train_val-{spacing*60}min.csv', index=False)
-    print(f'Done: {input_name}_train_val-{spacing*60}min.csv')
     df_train.to_csv(f'{input_name}_train-{spacing*60}min.csv', index=False)
-    print(f'Done: {input_name}_train-{spacing*60}min.csv')
     df_val.to_csv(f'{input_name}_val-{spacing*60}min.csv', index=False)
-    print(f'Done: {input_name}_val-{spacing*60}min.csv')
 
     if plot:
         plot_od(df=df_train_val, show_map=True)

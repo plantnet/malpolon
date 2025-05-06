@@ -19,6 +19,11 @@ def main(input_path: str,
          col_lon: str = 'lon',
          col_lat: str = 'lat'):
     """Perform a spatial train/val split on the input csv file.
+    
+    It the source file contains columns for 'lon' and 'lat' but named otherwise,
+    i.e. if arguments col_lon and col_lat are provided with different values than
+    their defaults, the script will rename the columns in the output files to
+    'lon' and 'lat'.
 
     Parameters
     ----------
@@ -46,6 +51,8 @@ def main(input_path: str,
 
     df_train = pd.DataFrame(dict(zip(data.keys(), train_split[1])))
     df_val = pd.DataFrame(dict(zip(data.keys(), val_split[1])))
+    df_train[['lon', 'lat']] = pd.DataFrame({'lon': train_split[0][0], 'lat': train_split[0][1]})
+    df_val[['lon', 'lat']] = pd.DataFrame({'lon': val_split[0][0], 'lat': val_split[0][1]})
     df_train['subset'] = ['train'] * len(df_train)
     df_val['subset'] = ['val'] * len(df_val)
     df_train_val = pd.concat([df_train, df_val])
