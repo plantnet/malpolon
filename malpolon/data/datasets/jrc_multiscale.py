@@ -41,17 +41,19 @@ def load_LUCAS_img(
     img, fps = [], []
     metadata = metadata[metadata[id_col] == id].copy()
     gps = tuple(metadata[['gps_long', 'gps_lat']].values.flatten())
-    if not 'file_path_gisco_cover' in metadata.columns:
-        metadata['file_path_gisco_cover'] = metadata['file_path_gisco_north'].copy()
-        metadata['file_path_gisco_cover'] = metadata['file_path_gisco_cover'].apply(lambda x: str(Path(x).parent / Path(Path(x).stem[:-1] + 'C' + Path(x).suffix)))
-    for v in views:
+    for v_i, v in enumerate(views):
+        if metadata[f'file_path_gisco_{v}'].values[0] is None or (isinstance(metadata[f'file_path_gisco_{v}'].values[0], str) and len(metadata[f'file_path_gisco_{v}'].values[0]) <= 0):
+            continue
         try:
             fp = '/'.join(metadata[f'file_path_gisco_{v}'].values[0].split('/')[-5:])
             img.append(torchvision.io.read_image(str(Path(root_path) / Path(fp))))
             fps.append(fp)
         except:
             print(f"Image {fp} not found.")
-    img = torch.stack(img, dim=0)
+    if len(img) == 0:
+        img = None
+    else:
+        img = torch.stack(img, dim=0)
     if return_img_gps and return_img_path:
         return img, gps, fps
     if return_img_gps:
@@ -112,6 +114,7 @@ class SpeciesDatasetSimple(DatasetSimple):
 
     def __getitem__(self, index) -> Any:
         img, coords = self.img, self.coords
+        
         if not self.metadata.empty:
             sample = self.metadata.iloc[index]
             img = load_species_img(sample['gbifID'], self.root_path, **self.dataset_kwargs)
@@ -134,7 +137,26 @@ class LandscapeDatasetSimple(DatasetSimple):
         **kwargs,
     ) -> None:
         super().__init__(root_path, fp_metadata, transform, dataset_kwargs, **kwargs)
-    
+        if 'file_path_gisco_cover' not in self.metadata.columns:
+            self.metadata['file_path_gisco_cover'] = self.metadata['file_path_gisco_north'].copy()
+            self.metadata['file_path_gisco_cover'] = self.metadata['file_path_gisco_cover'].apply(lambda x: str(Path(x).parent / Path(Path(x).stem[:-1] + 'C' + Path(x).suffix)))
+        self._filter_metadata_on_existing_data()
+
+    def _filter_metadata_on_existing_data(self):
+        fp_to_none = 0
+        dropped_rows = 0
+        for rowi, row in self.metadata.iterrows():
+            n_missing_files = 0
+            for c in ['file_path_gisco_north', 'file_path_gisco_south', 'file_path_gisco_east', 'file_path_gisco_west', 'file_path_gisco_point', 'file_path_gisco_cover']:
+                if not os.path.exists(os.path.join(self.root_path, '/'.join(row[c].split('/')[-5:]))):
+                    n_missing_files += 1
+                    self.metadata.loc[rowi, c] = None
+                    fp_to_none += 1
+            if n_missing_files >= 6:
+                self.metadata.drop(rowi, inplace=True)
+                dropped_rows += 1
+        print(f"Filtered {fp_to_none} file paths to None and dropped {dropped_rows} rows from metadata.")
+
     def __getitem__(self, index) -> Any:
         img, coords = self.img, self.coords
         if not self.metadata.empty:
@@ -146,7 +168,7 @@ class LandscapeDatasetSimple(DatasetSimple):
 
         # return {'img': img, 'gps': coords}
         return img, torch.Tensor(coords)
-
+    
 
 class SatelliteDatasetSimple(DatasetSimple):
     def __init__(
