@@ -39,7 +39,7 @@ def main(input_path: str,
             coords[col] = df[col].to_numpy()
         else:
             data[col] = df[col].to_numpy()
-    train_split, val_split = spatial_tts(tuple(coords.values()), tuple(data.values()),
+    train_split, val_split = spatial_tts((coords['lon'], coords['lat']), tuple(data.values()),
                                          spacing=spacing, test_size=val_size)
 
     df_train = pd.DataFrame({'lon': train_split[0][0], 'lat': train_split[0][1]})
