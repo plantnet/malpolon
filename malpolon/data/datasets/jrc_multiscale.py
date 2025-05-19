@@ -37,6 +37,7 @@ def load_LUCAS_img(
     return_img_path: Optional[bool] = False,
     return_img_gps: Optional[bool] = False,
     id_col: str = 'id',
+    transform: Callable = None,
 ):
     img, fps = [], []
     metadata = metadata[metadata[id_col] == id].copy()
@@ -51,8 +52,9 @@ def load_LUCAS_img(
         except:
             print(f"Image {fp} not found.")
     if len(img) == 0:
-        img = None
+        img = torch.zeros(1, 3, 518, 518) -1
     else:
+        img = [transform(i) for i in img]
         img = torch.stack(img, dim=0)
     if return_img_gps and return_img_path:
         return img, gps, fps
@@ -137,17 +139,24 @@ class LandscapeDatasetSimple(DatasetSimple):
         **kwargs,
     ) -> None:
         super().__init__(root_path, fp_metadata, transform, dataset_kwargs, **kwargs)
+        self.fp_columns = ['file_path_gisco_north', 'file_path_gisco_south', 'file_path_gisco_east', 'file_path_gisco_west', 'file_path_gisco_point', 'file_path_gisco_cover']
         if 'file_path_gisco_cover' not in self.metadata.columns:
             self.metadata['file_path_gisco_cover'] = self.metadata['file_path_gisco_north'].copy()
+            self.metadata[self.fp_columns] = self.metadata[self.fp_columns].fillna('')
             self.metadata['file_path_gisco_cover'] = self.metadata['file_path_gisco_cover'].apply(lambda x: str(Path(x).parent / Path(Path(x).stem[:-1] + 'C' + Path(x).suffix)))
-        self._filter_metadata_on_existing_data()
+        # import time
+        # time.time()
+        # print('Starting to filter metadata...')
+        # self._filter_metadata_on_existing_data()
+        # print(f'Elapsed time for filtering metadata: {time.time() - start_time:.2f} seconds')
 
     def _filter_metadata_on_existing_data(self):
         fp_to_none = 0
         dropped_rows = 0
-        for rowi, row in self.metadata.iterrows():
+        from tqdm import tqdm
+        for rowi, row in tqdm(self.metadata.iterrows()):
             n_missing_files = 0
-            for c in ['file_path_gisco_north', 'file_path_gisco_south', 'file_path_gisco_east', 'file_path_gisco_west', 'file_path_gisco_point', 'file_path_gisco_cover']:
+            for c in self.fp_columns:
                 if not os.path.exists(os.path.join(self.root_path, '/'.join(row[c].split('/')[-5:]))):
                     n_missing_files += 1
                     self.metadata.loc[rowi, c] = None
@@ -161,10 +170,13 @@ class LandscapeDatasetSimple(DatasetSimple):
         img, coords = self.img, self.coords
         if not self.metadata.empty:
             sample = self.metadata.iloc[index]
-            img = load_LUCAS_img(sample['id'], self.metadata, self.root_path, **self.dataset_kwargs)
+            img = load_LUCAS_img(sample['id'], self.metadata, self.root_path, **self.dataset_kwargs, transform=self.transform)
             img = img.to(torch.float32)
-            img = self.transform(img)
-            coords = tuple(sample[['gps_long', 'gps_lat']].values.flatten())
+            # img = self.transform(img)
+            if torch.equal(img, torch.zeros(1, 3, 518, 518) -1):
+                coords = (1000, 1000)
+            else:
+                coords = tuple(sample[['gps_long', 'gps_lat']].values.flatten())
 
         # return {'img': img, 'gps': coords}
         return img, torch.Tensor(coords)

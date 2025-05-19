@@ -66,7 +66,8 @@ def collate_landscape(original_batch):
     # img_batched = img_batched.reshape(1, -1, img_batched.shape[2], img_batched.shape[3])[0] 
     
     # b) Repeating the gps embeddings to match the new expanded batch dim because of LUCAS views. This requires to add an if case in the contrastive loss computation as the shapes of the similarity matrix are based on the batch_size which is artificially expanded.
-    gps_batched = torch.repeat_interleave(gps_batched, len(img_batched)//len(gpss), dim=0)  # Output is: [gps_imgA, gps_imgA,..., gps_imgB, gps_imgB...]
+    repeats = torch.tensor([x.shape[0] for x in imgs])
+    gps_batched = torch.repeat_interleave(gps_batched, repeats, dim=0)  # Output is: [gps_imgA, gps_imgA,..., gps_imgB, gps_imgB...]
     return img_batched, gps_batched
 
 def collate_satellite(original_batch):
@@ -95,26 +96,26 @@ def main(args):
     if args.arch == 'species':
         custom_collate = collate_species
         train_dataset = SpeciesDatasetSimple(
-            root_path = 'dataset/scale_1_species/data_subset/img',
-            fp_metadata = 'dataset/scale_1_species/data_subset/metadata_subset.csv',
+            root_path = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
+            fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-10.0min.csv',
             transform = transforms_species(),
         )
         val_dataset = SpeciesDatasetSimple(
-            root_path = 'dataset/scale_1_species/data_subset/img',
-            fp_metadata = 'dataset/scale_1_species/data_subset/<VAL_PN_OBS>.csv',
+            root_path = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
+            fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-10.0min.csv',
             transform = transforms_species(),
         )
 
     elif args.arch == 'landscape':
         custom_collate = collate_landscape
         train_dataset = LandscapeDatasetSimple(
-            root_path = 'dataset/scale_2_landscape/LUCAS_subset',
-            fp_metadata = 'dataset/scale_2_landscape/LUCAS_subset/metadata_subset.csv',
+            root_path = 'dataset/scale_2_landscape/LUCAS',
+            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_train-10.0min_CBN-Med.csv',
             transform = transforms_species(),
         )
         val_dataset = LandscapeDatasetSimple(
-            root_path = 'dataset/scale_2_landscape/LUCAS_subset',
-            fp_metadata = 'dataset/scale_2_landscape/LUCAS_subset/<VAL_LUCAS_SURVEY>.csv',
+            root_path = 'dataset/scale_2_landscape/LUCAS',
+            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_val-10.0min_CBN-Med.csv',
             transform = transforms_species(),
         )
     
@@ -151,18 +152,17 @@ def main(args):
 
 if __name__ == "__main__":
     args_ns = {
-        'arch': 'satellite',  # always paired with gps
+        'arch': 'landscape',  # always paired with gps
         'epochs': 10,
         'out_dim': 512,
-        'batch_size': 64,
+        'batch_size': 16,
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'temperature': 0.1,
         'fp16_precision': False,
-        'disable_cuda': False,
         'log_every_n_steps': 100,
         'workers': 0,
         'gpu_index': 0,
-        'disable_cuda': True,
+        'disable_cuda': False,
         'max_iter': torch.inf,
     }
     args_ns = SimpleNamespace(**args_ns)
