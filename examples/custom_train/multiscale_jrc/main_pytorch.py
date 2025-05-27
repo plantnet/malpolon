@@ -4,10 +4,11 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 """
 from types import SimpleNamespace
 from typing import Any, List
+from math import sqrt
 
 import torch
 import torch.backends.cudnn as cudnn
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.transforms import CenterCrop, Resize
@@ -71,16 +72,15 @@ def collate_landscape(original_batch):
     return img_batched, gps_batched
 
 def collate_satellite(original_batch):
-    imgs, gpss = zip(*original_batch)
+    imgs, gpss, inds, sids = zip(*original_batch)
     img_batched = torch.cat(list(imgs), dim=0)
     gps_batched = torch.stack(list(gpss), dim=0)
-    return img_batched, gps_batched
+    inds_batched = torch.stack(list(inds), dim=0)
+    sids_batched = torch.cat(sids, dim=0)
+    return img_batched, gps_batched, inds_batched, sids_batched
 
 def main(args):
     assert args.n_views == 2, "Only two view training is supported. Please use --n-views 2."
-
-    # Hyperparameters
-    learning_rate = 0.00025
 
     # check if gpu training is available
     if not args.disable_cuda and torch.cuda.is_available():
@@ -123,12 +123,12 @@ def main(args):
         custom_collate = collate_satellite
         train_dataset = SatelliteDatasetSimple(
             root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_train-10.0min.csv',
+            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_train.csv',
             transform = transforms_satellite(),
         )
         val_dataset = SatelliteDatasetSimple(
             root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_val-10.0min.csv',
+            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_val.csv',
             transform = transforms_satellite(),
         )
 
@@ -140,30 +140,45 @@ def main(args):
         val_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
 
-    model = ModelSimCLR(base_model=args.arch, out_dim=args.out_dim)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
-    scheduler = CosineAnnealingLR(optimizer, T_max=25)
+    model = ModelSimCLR(base_model=args.arch, out_dim=args.out_dim, dropout=args.dropout)
+    args.learning_rate = args.learning_rate * sqrt(args.batch_size)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+    warmup_scheduler = LinearLR(
+        optimizer,
+        start_factor=0.05,  # Starts from 10 * lr
+        end_factor=1.0,     # Ends at 1.0 * lr = 1e-3
+        total_iters=10      # Warmup for 10 epochs
+    )
+    cosine_scheduler = CosineAnnealingLR(optimizer, T_max=25)
+    scheduler = SequentialLR(optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[args.warmup_epochs])
+
 
     #  It’s a no-op if the 'gpu_index' argument is a negative integer or None.
     with torch.cuda.device(args.gpu_index):
-        simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args)
+        simclr = SimCLR(model=model, optimizer=optimizer, scheduler=cosine_scheduler, args=args)
         simclr.train(train_loader, val_loader, max_iter=args.max_iter)
 
 
 if __name__ == "__main__":
     args_ns = {
-        'arch': 'landscape',  # always paired with gps
-        'epochs': 10,
+        'arch': 'satellite',  # always paired with gps
+        'epochs': 30,
         'out_dim': 512,
-        'batch_size': 16,
+        'batch_size': 64,
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
-        'temperature': 0.1,
+        'temperature': 0.07,
+        'warmup_epochs': 10,
+        # 'learning_rate': 0.0015625,  # SimCLRv2 recommends 0.1 for batch size 4096. Assuming linear correlation between lr and BS, BS of 64 gives: 0.1*(64/4096)
+        'learning_rate': 0.00025,
+        'dropout': 0.1,
+        'weight_decay': 1e-4,
+        'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
+        'log_every_n_steps': 15,
+        'max_iter': torch.inf,
         'fp16_precision': False,
-        'log_every_n_steps': 100,
         'workers': 0,
         'gpu_index': 0,
         'disable_cuda': False,
-        'max_iter': torch.inf,
     }
     args_ns = SimpleNamespace(**args_ns)
     main(args_ns)
