@@ -195,6 +195,8 @@ class SatelliteDatasetSimple(DatasetSimple):
         **kwargs,
     ) -> None:
         super().__init__(root_path, fp_metadata, transform, **kwargs)
+        # Remove the duplicate GPS-img pairs corresponding to the multiple entries of the same surveyId because of multiple occurrences on the same place
+        self.metadata = self.metadata.drop_duplicates(subset=['surveyId'], keep='first')
         if not self.metadata.empty:
             self.sat_provider = JpegPatchProvider(
                 self.root_path,  # 'dataset/scale_3_satellite/data_subset/PA_Train_SatellitePatches/',
@@ -205,6 +207,7 @@ class SatelliteDatasetSimple(DatasetSimple):
                 providers=[self.sat_provider],
                 **kwargs_sat_dataset,
             )
+        # self.metadata = self.metadata.sample(n=min(10000, len(self.metadata)))
 
     def __getitem__(self, index) -> Any:
         img, coords = self.img, self.coords
@@ -216,7 +219,7 @@ class SatelliteDatasetSimple(DatasetSimple):
             coords = (sat_lon, sat_lat)
 
         # return {'img': img, 'gps': coords}
-        return img, torch.Tensor(coords)
+        return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([self.sat_dataset.items.iloc[index]['surveyId']])
 
 
 class MultiscaleDatasetSimple(Dataset):

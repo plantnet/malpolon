@@ -111,6 +111,11 @@ def remove_state_dict_prefix(
     print(f'State_dict: removed {n_prefix} prefix based on separator "{sep}" from {len(state_dict)} keys')
     return state_dict
 
+def set_dropout_p(model, new_p=0.1):
+    for module in model.modules():
+        if isinstance(module, nn.Dropout):
+            module.p = new_p
+
 def get_model_species():
     model_root_path_species = 'weights/scale_1_species/'
     ckpt_path = str(Path(model_root_path_species) / Path('vit_base_patch14_reg4_dinov2_lvd142m_pc24_onlyclassifier_then_all_best.pth.tar'))
@@ -171,11 +176,12 @@ class SelectTensor(nn.Module):
 
 class ModelSimCLR(nn.Module):
     """My custom model for SimCLR using features from 2 different other models."""
-    def __init__(self, base_model, out_dim=512, freeze_modality_backbone=False, freeze_gps_backbone=False):
+    def __init__(self, base_model, out_dim=512, dropout=-1, freeze_modality_backbone=False, freeze_gps_backbone=False):
         super().__init__()
         self.base_model = base_model
         self.freeze_modality_backbone = freeze_modality_backbone
         self.freeze_gps_backbone = freeze_gps_backbone
+        self.dropout = dropout
         modality_dict = {
             'gps': LocationEncoder,  # GeoCLIP. Selected by default.
             'species': get_model_species,  # DinoV2
@@ -241,9 +247,14 @@ class ModelSimCLR(nn.Module):
         else:
             raise InvalidDatasetSelection(
                 "Invalid dataset selection. Check the config file and pass one of: 'species', 'landscape' or 'satellite'")
+
+        # Modifications
         if self.freeze_modality_backbone:
             for param in self.modality_encoder.parameters():
                 param.requires_grad = False
+        if dropout >= 0:
+            set_dropout_p(self.gps_encoder, new_p=dropout)
+            set_dropout_p(self.modality_encoder, new_p=dropout)
 
     def forward(self, img, gps):
         gps_h = self.gps_encoder(gps)
