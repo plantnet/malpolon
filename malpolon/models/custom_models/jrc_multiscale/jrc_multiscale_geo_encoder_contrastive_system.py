@@ -54,10 +54,10 @@ def info_nce_loss_1_to_k(query, positives, negatives, temperature=0.07):
     # Use CrossEntropyLoss where multiple indices are considered positive
     return F.cross_entropy(logits, labels)
 
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    torch.save(state, filename)
+def save_checkpoint(state, is_best, dirpath='./wandb/'):
+    torch.save(state, os.path.join(dirpath, 'last.pth.tar'))
     if is_best:
-        shutil.copyfile(filename, f'model_best_{filename[:-8]}.pth.tar')
+        shutil.copyfile(os.path.join(dirpath, 'last.pth.tar'), os.path.join(dirpath, 'best.pth.tar'))
 
 def save_config_file(model_checkpoints_folder, args):
     if not os.path.exists(model_checkpoints_folder):
@@ -89,15 +89,17 @@ def update_ema(model, ema_model, tau):
 class SimCLR(object):
     def __init__(self, *args, **kwargs):
         self.args = kwargs['args']
+        self.args.last_epoch = getattr(self.args, 'last_epoch', 0)
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
         self.scheduler = kwargs['scheduler']
         self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
         self.writer = wandb.init(
             entity="tlarcher-phd-jrc",
+            id=self.args.ckpt_path.split('/')[1].split('-')[2] if self.args.ckpt_path else None,
             project="Contrastive learning pairwise",
             # project="Sandbox",
-            name='Unique surveyId spatial split 0.06min, dropout',
+            name='trash',#'Unique surveyId spatial split 0.06min, dropout',
             notes=f"Shuffle train ON, val OFF. Info_nce_loss operating only with the main diagonal (no features concatenation). "\
                   f"All unique surveyId obs. All backbones hot. "\
                   f"LR cosine annealing {self.args.learning_rate}. "\
@@ -105,11 +107,10 @@ class SimCLR(object):
                   f"Dropout {self.args.dropout}. "\
                   f"Weight_decay {self.args.weight_decay}. ",
             group="SimCLR: satellite VS GPS",
-            tags="SimCLR: satellite VS GPS",
             config=kwargs['args'],
         )
         logging.basicConfig(filename=os.path.join(self.writer.dir, 'training.log'), level=logging.DEBUG)
-        # Iterations metrics
+        # Iterations metricsx
         wandb.define_metric("epoch")
         wandb.define_metric("train_step")
         wandb.define_metric("global_step")
@@ -229,7 +230,7 @@ class SimCLR(object):
         global_step = 0
         vglobal_step = 0
 
-        for epoch_counter in range(self.args.epochs):
+        for epoch_counter in range(self.args.last_epoch, self.args.epochs + self.args.last_epoch):
             running_loss = 0.
             top1s, top5s = 0, 0
             wandb.log({"epoch": epoch_counter})
@@ -353,6 +354,16 @@ class SimCLR(object):
                     vsim_matrices.append(vsim_matrix)
                     vloss = self.criterion(vlogits, vlabels)
                     running_vloss += vloss
+
+                    # Save best checkpoint
+                    if vloss.item() <= best_val_loss:
+                        logging.info(f"Saving new best model at epoch {epoch_counter}, step {vstep} with loss {vloss.item()}.")
+                        save_checkpoint({
+                            'epoch': epoch_counter,
+                            'arch': self.args.arch,
+                            'state_dict': self.model.state_dict(),
+                            'optimizer': self.optimizer.state_dict(),
+                        }, is_best=True, dirpath=self.writer.dir)
                     best_val_loss = min(best_val_loss, vloss.item())
 
                     if vlogits.shape[0] >= 5:
@@ -415,12 +426,11 @@ class SimCLR(object):
             logging.debug(f"Epoch: {epoch_counter}\tLoss: {loss}")
 
             # Save model checkpoints
-            checkpoint_name = f'checkpoint_{self.args.epochs:04d}.pth.tar'
             save_checkpoint({
-                'epoch': self.args.epochs,
+                'epoch': epoch_counter,
                 'arch': self.args.arch,
                 'state_dict': self.model.state_dict(),
                 'optimizer': self.optimizer.state_dict(),
-            }, is_best=(vloss < best_val_loss), filename=os.path.join(self.writer.dir, checkpoint_name))
+            }, is_best=(vloss < best_val_loss), dirpath=self.writer.dir)
         logging.info(f"Model checkpoint and metadata has been saved at {self.writer.dir}.")
         logging.info("Training has finished.")

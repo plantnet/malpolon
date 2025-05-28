@@ -6,6 +6,11 @@ The URLs to the images are under the column `identifier`.
 The file paths are formed by the `gbifID` as the images are dumped directly in the dataset folder.
 The GPS coordinates are retrieved from columns `['decimalLongitude', 'decimalLatitude']`.
 
+Pl@ntNet's unique species IDs are registered under `scientificName`. So are other providers', but PN uses the Kew Royal Botanical Garden referencial, which might not be the case of other sources.
+
+In `PN_gbif_France_2005-2025_illustrated_CBN-med.csv` there are 2991 unique species for 117 460 obs. That is ~39 obs per species.
+However `speciesKey` has 2900 unique values.
+
 - **Species distrib viz**
 ```python
 df = pd.read_csv('PN_gbif_France_2005-2025_illustrated_CBN-med_train_val-10.0min.csv')
