@@ -1,6 +1,7 @@
 name: Publish documentation
 
 on:
+  workflow_dispatch:
   push:
       branches:
         - main
@@ -26,8 +27,8 @@ jobs:
           url: ${{ steps.deployment.outputs.page_url }}
 
         steps:
-            - uses: actions/checkout@v3
-            - uses: actions/setup-python@v4
+            - uses: actions/checkout@v4
+            - uses: actions/setup-python@v5
               name: Setup python ${{ matrix.python-version }}
               with:
                 cache-dependency-path: '**/requirements_python3.10.txt'
@@ -46,11 +47,11 @@ jobs:
             - name: Make documentation
               run: make -C docs html
             - name: Upload artifact
-              uses: actions/upload-pages-artifact@v2
+              uses: actions/upload-pages-artifact@v3
               with:
                 # Upload entire repository
                 path: './docs/_build/html'
             - name: Deploy to GitHub Pages
               id: deployment
-              uses: actions/deploy-pages@v2
+              uses: actions/deploy-pages@v4
               
