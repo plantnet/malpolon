@@ -139,7 +139,7 @@ def main(args):
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
 
     val_loader = DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=True,
+        val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
 
     model = ModelSimCLR(base_model=args.arch, out_dim=args.out_dim, dropout=args.dropout)
@@ -162,7 +162,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args_ns = {
+    args = {
         'arch': 'satellite',  # always paired with gps
         'epochs': 30,
         'out_dim': 512,
@@ -182,5 +182,5 @@ if __name__ == "__main__":
         'gpu_index': 0,
         'disable_cuda': False,
     }
-    args_ns = SimpleNamespace(**args_ns)
+    args_ns = SimpleNamespace(**args)
     main(args_ns)
