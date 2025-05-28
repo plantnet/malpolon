@@ -93,6 +93,7 @@ def main(args):
         args.device = torch.device('cpu')
         args.gpu_index = -1
 
+    # Datasets
     custom_collate = None
     # dataset = ContrastiveLearningDataset(args.data)
     if args.arch == 'species':
@@ -134,6 +135,7 @@ def main(args):
             transform = transforms_satellite(),
         )
 
+    # Dataloaders
     train_loader = DataLoader(
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
@@ -142,34 +144,51 @@ def main(args):
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
 
+    # Model
     model = ModelSimCLR(base_model=args.arch, out_dim=args.out_dim, dropout=args.dropout)
+    model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
+
+    # Optimization
     args.learning_rate = args.learning_rate * sqrt(args.batch_size)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     warmup_scheduler = LinearLR(
         optimizer,
         start_factor=0.05,  # Starts from 10 * lr
         end_factor=1.0,     # Ends at 1.0 * lr = 1e-3
-        total_iters=10      # Warmup for 10 epochs
+        total_iters=args.warmup_epochs,
     )
-    cosine_scheduler = CosineAnnealingLR(optimizer, T_max=25)
+    cosine_scheduler = CosineAnnealingLR(optimizer, T_max=25, last_epoch=args.epochs-1)
     scheduler = SequentialLR(optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[args.warmup_epochs])
 
+    # Transfer learning / fine-tuning / resuming
+    if args.ckpt_path:
+        checkpoint = torch.load(args.ckpt_path, map_location='cuda' if not args.disable_cuda else 'cpu')
+        model.load_state_dict(checkpoint['state_dict'])
+        print(f"Checkpoint loaded from {args.ckpt_path}")
+        if 'optimizer' in checkpoint:
+            optimizer.load_state_dict(checkpoint['optimizer'])
+            print("Optimizer state loaded from checkpoint")
+        if 'epoch' in checkpoint:
+            args.epochs += checkpoint['epoch']
+            args.last_epoch = checkpoint['epoch']
+            print(f"Resuming training from epoch {checkpoint['epoch']}")
 
-    #  It’s a no-op if the 'gpu_index' argument is a negative integer or None.
+    # Run
+    ## It’s a no-op if the 'gpu_index' argument is a negative integer or None.
     with torch.cuda.device(args.gpu_index):
-        simclr = SimCLR(model=model, optimizer=optimizer, scheduler=cosine_scheduler, args=args)
+        simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args)
         simclr.train(train_loader, val_loader, max_iter=args.max_iter)
 
 
 if __name__ == "__main__":
     args = {
         'arch': 'satellite',  # always paired with gps
-        'epochs': 30,
+        'epochs': 10,
         'out_dim': 512,
         'batch_size': 64,
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'temperature': 0.07,
-        'warmup_epochs': 10,
+        'warmup_epochs': 0,
         # 'learning_rate': 0.0015625,  # SimCLRv2 recommends 0.1 for batch size 4096. Assuming linear correlation between lr and BS, BS of 64 gives: 0.1*(64/4096)
         'learning_rate': 0.00025,
         'dropout': 0.1,
@@ -181,6 +200,7 @@ if __name__ == "__main__":
         'workers': 0,
         'gpu_index': 0,
         'disable_cuda': False,
+        'ckpt_path': 'wandb/run-20250528_120700-z9uo00oi/files/checkpoint_0030.pth.tar',
     }
     args_ns = SimpleNamespace(**args)
     main(args_ns)
