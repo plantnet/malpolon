@@ -24,7 +24,7 @@ from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_con
 from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_model import (
     ModelSimCLR,
 )
-
+from transforms import (MinMaxNormalize, QuantileNormalizeFromPreComputedDatasetPercentiles)
 
 # To address inconsistent image sizes, two options:
 # 1. Define transforms to resize images to a fixed size
@@ -44,9 +44,11 @@ def transforms_satellite():
         return CenterCrop((max_dim, max_dim))(img)
 
     ts = [
-        # lambda x: x[:, 0, :, :],
-        # Resize((518, 518))
-        ]  # bilinear by default
+        # QuantileNormalizeFromPreComputedDatasetPercentiles(),
+        # MinMaxNormalize(),
+        # torch.Tensor,
+        # transforms.Normalize(mean=(0.5,) * 4, std=(0.5,) * 4)
+    ]
 
     return transforms.Compose(ts)
 
@@ -123,12 +125,12 @@ def main(args):
         custom_collate = collate_satellite
         train_dataset = SatelliteDatasetSimple(
             root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_train.csv',
+            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
             transform = transforms_satellite(),
         )
         val_dataset = SatelliteDatasetSimple(
             root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_val.csv',
+            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
             transform = transforms_satellite(),
         )
 
@@ -171,7 +173,7 @@ if __name__ == "__main__":
         # 'learning_rate': 0.0015625,  # SimCLRv2 recommends 0.1 for batch size 4096. Assuming linear correlation between lr and BS, BS of 64 gives: 0.1*(64/4096)
         'learning_rate': 0.00025,
         'dropout': 0.1,
-        'weight_decay': 1e-4,
+        'weight_decay': 1e-3,
         'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
         'log_every_n_steps': 15,
         'max_iter': torch.inf,
