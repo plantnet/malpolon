@@ -95,34 +95,48 @@ class SimCLR(object):
         self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
         self.writer = wandb.init(
             entity="tlarcher-phd-jrc",
-            # project="Contrastive learning pairwise",
-            project="Sandbox",
-            name='SimCLR: satellite VS GPS (shuffle ON), 1-diag, unique surveyId',
+            project="Contrastive learning pairwise",
+            # project="Sandbox",
+            name='Unique surveyId freq split, dropout',
             notes=f"Shuffle ON. Info_nce_loss operating only with the main diagonal (no features concatenation). "\
                   f"All unique surveyId obs. All backbones hot. "\
                   f"LR cosine annealing {self.args.learning_rate}. "\
                   f"Temp {self.args.temperature}. "\
                   f"Dropout {self.args.dropout}. "\
                   f"Weight_decay {self.args.weight_decay}. ",
+            group="SimCLR: satellite VS GPS",
             config=args,
         )
         logging.basicConfig(filename=os.path.join(self.writer.dir, 'training.log'), level=logging.DEBUG)
+        # Iterations metrics
         wandb.define_metric("epoch")
         wandb.define_metric("train_step")
+        wandb.define_metric("global_step")
         wandb.define_metric("val_step")
-        wandb.define_metric("train/epoch/*", step_metric="epoch")
-        # wandb.define_metric("train/step/*", step_metric="train_step")
-        # wandb.define_metric("val/step/*", step_metric="val_step")
+        wandb.define_metric("val_global_step")
 
+        # Train metrics
+        wandb.define_metric("Loss_step/train", step_metric="train_step")
+        wandb.define_metric("norm_img_avg/train", step_metric="train_step")
+        wandb.define_metric("norm_gps_avg/train", step_metric="train_step")
+        wandb.define_metric("norm_avg_diff/train", step_metric="train_step")
+        wandb.define_metric("acc/train/*", step_metric="train_step")
+        wandb.define_metric("Input_imgs_train/*", step_metric='global_step')
+        wandb.define_metric("SimMatrix_train/*", step_metric='global_step')
         wandb.define_metric("Loss_epoch (batch avg)/train", step_metric="epoch")
         wandb.define_metric("acc_epoch (batch avg)/train/top1", step_metric="epoch")
         wandb.define_metric("acc_epoch (batch avg)/train/top5", step_metric="epoch")
-        wandb.define_metric("Input_imgs_train/*", step_metric="train_step")
+        wandb.define_metric("t-sne/train/*", step_metric='epoch')
 
+        # Validation metrics
+        wandb.define_metric("acc/val/*", step_metric="val_step")
+        wandb.define_metric("Input_imgs_val/*", step_metric='val_global_step')
+        wandb.define_metric("SimMatrix_val/*", step_metric='global_step')
         wandb.define_metric("Loss_epoch (batch avg)/val", step_metric="epoch")
+        wandb.define_metric("Input_imgs_train/*", step_metric='global_step')
         wandb.define_metric("acc_epoch (batch avg)/val/top1", step_metric="epoch")
         wandb.define_metric("acc_epoch (batch avg)/val/top5", step_metric="epoch")
-        wandb.define_metric("SimMatrix (batch_avg)_val", step_metric="epoch")
+        wandb.define_metric("SimMatrix_mean-epoch_val/*", step_metric="epoch")
 
     def info_nce_loss(self, features, dataset_type: str = 'species'):
         batch_size = self.args.batch_size
@@ -210,6 +224,8 @@ class SimCLR(object):
         sim_matrices = []
         best_train_loss = torch.inf
         best_val_loss = torch.inf
+        global_step = 0
+        vglobal_step = 0
 
         for epoch_counter in range(self.args.epochs):
             running_loss = 0.
@@ -218,7 +234,9 @@ class SimCLR(object):
             print("Training the model...")
             print(f"> Starting epoch {epoch_counter}...")
             for step, (images, gps, inds, survey_ids) in enumerate(tqdm(train_loader)):
+                global_step += step
                 wandb.log({"train_step": step})
+                wandb.log({"global_step": global_step})
                 images = images.to(self.args.device)
                 gps = gps.to(self.args.device)
 
@@ -251,7 +269,7 @@ class SimCLR(object):
                         ax.set_title(f"Image {idx}, iter_idx {ind[0]}, \nsurveyId {sid}", fontsize=8)
                         ax.axis('off')
                     plt.tight_layout()
-                    wandb.log({f'Input_imgs_train/e_{epoch_counter}_s_{step:03d}': wandb.Image(fig)})
+                    wandb.log({f'Input_imgs_train/e_{epoch_counter:03d}_s_{step:03d}': wandb.Image(fig)})
                     plt.close()
                     
                     # Log loss and moments step wise
@@ -267,7 +285,7 @@ class SimCLR(object):
                     plt.figure(figsize=(12, 10))
                     plt.title("Similarity Matrix")
                     hm = sns.heatmap(sim_matrix, cmap="viridis", annot=False)
-                    wandb.log({f'SimMatrix_train/e_{epoch_counter}_s_{step:03d}': wandb.Image(hm)})
+                    wandb.log({f'SimMatrix_train/e_{epoch_counter:03d}_s_{step:03d}': wandb.Image(hm)})
                     plt.close()
                     
                     # Log mean of similarity matrices computed over self.args.log_every_n_steps steps
@@ -275,7 +293,7 @@ class SimCLR(object):
                     plt.figure(figsize=(12, 10))
                     plt.title("Similarity Matrix")
                     hm = sns.heatmap(sim_matrix_mean, cmap="viridis", annot=False)
-                    wandb.log({f'SimMatrix_mean-{self.args.log_every_n_steps}-steps_train/{epoch_counter}_s_{step:03d}': wandb.Image(hm)})
+                    wandb.log({f'SimMatrix_mean-{self.args.log_every_n_steps}-steps_train/{epoch_counter:03d}_s_{step:03d}': wandb.Image(hm)})
                     plt.close()
                     sim_matrices = []
                     
@@ -284,7 +302,8 @@ class SimCLR(object):
                         top1, top5 = accuracy(logits, labels, topk=(1, 5))
                         top1s += top1[0]
                         top5s += top5[0]
-                        wandb.log({"acc/train/top1": top1[0], "acc/train/top5": top5[0]})
+                        wandb.log({"acc/train/top1": top1[0],
+                                   "acc/train/top5": top5[0]})
                     else:
                         print("Batch size is too small for accuracy calculation.")
 
@@ -307,7 +326,7 @@ class SimCLR(object):
             plt.xlabel("t-SNE-1")
             plt.ylabel("t-SNE-2")
             plt.grid(True)
-            wandb.log({f"t-sne/train/e_{epoch_counter}": wandb.Image(fig)})
+            wandb.log({f"t-sne/train/e_{epoch_counter:03d}": wandb.Image(fig)})
             plt.close()
 
             # Evaluation
@@ -319,9 +338,12 @@ class SimCLR(object):
                 vtop1s, vtop5s = 0, 0
                 vsim_matrices = []
                 for vstep, (vimages, vgps, vinds, vsurvey_ids) in enumerate(tqdm(val_loader)):
+                    vglobal_step += vstep
+                    wandb.log({"val_step": vstep})
+                    wandb.log({"val_global_step": vglobal_step})
                     vimages = vimages.to(self.args.device)
                     vgps = vgps.to(self.args.device)
-                    wandb.log({"val_step": vstep})
+
                     vfeatures_img, vfeatures_gps = self.model(vimages, vgps)
                     vfeatures = torch.cat([vfeatures_img, vfeatures_gps], dim=0)
                     # vlogits, vlabels, vsim_matrix = self.info_nce_loss(vfeatures, dataset_type=self.args.arch)
@@ -348,13 +370,13 @@ class SimCLR(object):
                             ax.set_title(f"Image {idx}, iter_idx {ind[0]}, \nsurveyId {sid}", fontsize=8)
                             ax.axis('off')
                         plt.tight_layout()
-                        wandb.log({f'Input_imgs_val/e_{epoch_counter}_s_{step:03d}': wandb.Image(fig)})
+                        wandb.log({f'Input_imgs_val/e_{epoch_counter:03d}_s_{vstep:03d}': wandb.Image(fig)})
                         plt.close()
                     
                         plt.figure(figsize=(12, 10))
                         plt.title("Similarity Matrix val")
                         hm = sns.heatmap(vsim_matrix, cmap="viridis", annot=False)
-                        wandb.log({f'SimMatrix_val/vstep_{step:03d}': wandb.Image(hm)})
+                        wandb.log({f'SimMatrix_val/e_{epoch_counter:03d}_vstep_{vstep:03d}': wandb.Image(hm)})
                         plt.close()
 
                     viter_sample += 1
@@ -367,7 +389,7 @@ class SimCLR(object):
             plt.figure(figsize=(12, 10))
             plt.title("Similarity Matrix")
             vhm = sns.heatmap(vsim_matrix_mean, cmap="viridis", annot=False)
-            wandb.log({f'SimMatrix_mean-epoch_val/e{epoch_counter}': wandb.Image(vhm)})
+            wandb.log({f'SimMatrix_mean-epoch_val/e{epoch_counter:03d}': wandb.Image(vhm)})
             plt.close()
             sim_matrices = []
 
