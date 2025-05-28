@@ -97,15 +97,16 @@ class SimCLR(object):
             entity="tlarcher-phd-jrc",
             project="Contrastive learning pairwise",
             # project="Sandbox",
-            name='Unique surveyId freq split, dropout',
-            notes=f"Shuffle ON. Info_nce_loss operating only with the main diagonal (no features concatenation). "\
+            name='Unique surveyId spatial split 0.06min, dropout',
+            notes=f"Shuffle train ON, val OFF. Info_nce_loss operating only with the main diagonal (no features concatenation). "\
                   f"All unique surveyId obs. All backbones hot. "\
                   f"LR cosine annealing {self.args.learning_rate}. "\
                   f"Temp {self.args.temperature}. "\
                   f"Dropout {self.args.dropout}. "\
                   f"Weight_decay {self.args.weight_decay}. ",
             group="SimCLR: satellite VS GPS",
-            config=args,
+            tags="SimCLR: satellite VS GPS",
+            config=kwargs['args'],
         )
         logging.basicConfig(filename=os.path.join(self.writer.dir, 'training.log'), level=logging.DEBUG)
         # Iterations metrics
@@ -137,6 +138,7 @@ class SimCLR(object):
         wandb.define_metric("acc_epoch (batch avg)/val/top1", step_metric="epoch")
         wandb.define_metric("acc_epoch (batch avg)/val/top5", step_metric="epoch")
         wandb.define_metric("SimMatrix_mean-epoch_val/*", step_metric="epoch")
+        wandb.define_metric("t-sne/val/*", step_metric='epoch')
 
     def info_nce_loss(self, features, dataset_type: str = 'species'):
         batch_size = self.args.batch_size
@@ -382,16 +384,32 @@ class SimCLR(object):
                     viter_sample += 1
                     if viter_sample >= max_iter:
                         break
-            wandb.log({"Loss_epoch (batch avg)/val": running_vloss / (viter_sample + 1)})
-            wandb.log({"acc_epoch (batch avg)/val/top1": vtop1s / (viter_sample + 1),
-                       "acc_epoch (batch avg)/val/top5": vtop5s / (viter_sample + 1)})
-            vsim_matrix_mean = torch.Tensor(np.array(vsim_matrices)).mean(dim=0)
-            plt.figure(figsize=(12, 10))
-            plt.title("Similarity Matrix")
-            vhm = sns.heatmap(vsim_matrix_mean, cmap="viridis", annot=False)
-            wandb.log({f'SimMatrix_mean-epoch_val/e{epoch_counter:03d}': wandb.Image(vhm)})
-            plt.close()
-            sim_matrices = []
+                wandb.log({"Loss_epoch (batch avg)/val": running_vloss / (viter_sample + 1)})
+                wandb.log({"acc_epoch (batch avg)/val/top1": vtop1s / (viter_sample + 1),
+                        "acc_epoch (batch avg)/val/top5": vtop5s / (viter_sample + 1)})
+                vsim_matrix_mean = torch.Tensor(np.array(vsim_matrices)).mean(dim=0)
+                plt.figure(figsize=(12, 10))
+                plt.title("Similarity Matrix")
+                vhm = sns.heatmap(vsim_matrix_mean, cmap="viridis", annot=False)
+                wandb.log({f'SimMatrix_mean-epoch_val/e{epoch_counter:03d}': wandb.Image(vhm)})
+                plt.close()
+                
+                # Log t-sne projection
+                embeddings = torch.cat([vfeatures_img, vfeatures_gps], dim=0)
+                labels = np.array([0]*len(vfeatures_img) + [1]*len(vfeatures_gps))  # 0=head A, 1=head B
+                tsne = TSNE(n_components=2, perplexity=30, learning_rate=200, metric='cosine', init='pca', random_state=42)
+                embedding_2d = tsne.fit_transform(embeddings.detach().to('cpu').numpy())
+                fig = plt.figure(figsize=(8, 6))
+                colors = ['red' if l == 0 else 'blue' for l in labels]
+                plt.scatter(embedding_2d[:, 0], embedding_2d[:, 1], c=colors, alpha=0.7)
+                plt.title("t-SNE projection of contrastive embeddings")
+                plt.xlabel("t-SNE-1")
+                plt.ylabel("t-SNE-2")
+                plt.grid(True)
+                wandb.log({f"t-sne/val/e_{epoch_counter:03d}": wandb.Image(fig)})
+                plt.close()
+            
+                sim_matrices = []
 
             self.scheduler.step()
             logging.debug(f"Epoch: {epoch_counter}\tLoss: {loss}")
