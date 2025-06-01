@@ -113,30 +113,28 @@ class SimCLR(object):
         logging.basicConfig(filename=os.path.join(self.writer.dir, 'training.log'), level=logging.DEBUG)
         # Iterations metricsx
         wandb.define_metric("epoch")
-        wandb.define_metric("train_step")
-        wandb.define_metric("global_step")
-        wandb.define_metric("val_step")
-        wandb.define_metric("val_global_step")
+        wandb.define_metric("train_steps")
+        wandb.define_metric("val_steps")
 
         # Train metrics
-        wandb.define_metric("Loss_step/train", step_metric="train_step")
-        wandb.define_metric("norm_img_avg/train", step_metric="train_step")
-        wandb.define_metric("norm_gps_avg/train", step_metric="train_step")
-        wandb.define_metric("norm_avg_diff/train", step_metric="train_step")
-        wandb.define_metric("acc/train/*", step_metric="train_step")
-        wandb.define_metric("Input_imgs_train/*", step_metric='global_step')
-        wandb.define_metric("SimMatrix_train/*", step_metric='global_step')
+        wandb.define_metric("Loss_step/train", step_metric="train_steps")
+        wandb.define_metric("norm_img_avg/train", step_metric="train_steps")
+        wandb.define_metric("norm_gps_avg/train", step_metric="train_steps")
+        wandb.define_metric("norm_avg_diff/train", step_metric="train_steps")
+        wandb.define_metric("acc/train/*", step_metric="train_steps")
+        wandb.define_metric("Input_imgs_train/*", step_metric='train_steps')
+        wandb.define_metric("SimMatrix_train/*", step_metric='train_steps')
         wandb.define_metric("Loss_epoch (batch avg)/train", step_metric="epoch")
         wandb.define_metric("acc_epoch (batch avg)/train/top1", step_metric="epoch")
         wandb.define_metric("acc_epoch (batch avg)/train/top5", step_metric="epoch")
         wandb.define_metric("t-sne/train/*", step_metric='epoch')
 
         # Validation metrics
-        wandb.define_metric("acc/val/*", step_metric="val_step")
-        wandb.define_metric("Input_imgs_val/*", step_metric='val_global_step')
-        wandb.define_metric("SimMatrix_val/*", step_metric='global_step')
+        wandb.define_metric("acc/val/*", step_metric="val_steps")
+        wandb.define_metric("Input_imgs_val/*", step_metric='val_steps')
+        wandb.define_metric("SimMatrix_val/*", step_metric='val_steps')
         wandb.define_metric("Loss_epoch (batch avg)/val", step_metric="epoch")
-        wandb.define_metric("Input_imgs_train/*", step_metric='global_step')
+        wandb.define_metric("Input_imgs_val/*", step_metric='val_steps')
         wandb.define_metric("acc_epoch (batch avg)/val/top1", step_metric="epoch")
         wandb.define_metric("acc_epoch (batch avg)/val/top5", step_metric="epoch")
         wandb.define_metric("SimMatrix_mean-epoch_val/*", step_metric="epoch")
@@ -228,8 +226,8 @@ class SimCLR(object):
         sim_matrices = []
         best_train_loss = torch.inf
         best_val_loss = torch.inf
-        global_step = 0
-        vglobal_step = 0
+        train_steps = 0
+        val_steps = 0
 
         for epoch_counter in range(self.args.last_epoch, self.args.epochs + self.args.last_epoch):
             running_loss = 0.
@@ -238,9 +236,7 @@ class SimCLR(object):
             print("Training the model...")
             print(f"> Starting epoch {epoch_counter}...")
             for step, (images, gps, inds, survey_ids) in enumerate(tqdm(train_loader)):
-                global_step += step
-                wandb.log({"train_step": step})
-                wandb.log({"global_step": global_step})
+                wandb.log({"train_steps": train_steps})
                 images = images.to(self.args.device)
                 gps = gps.to(self.args.device)
 
@@ -310,8 +306,7 @@ class SimCLR(object):
                                    "acc/train/top5": top5[0]})
                     else:
                         print("Batch size is too small for accuracy calculation.")
-
-                step += 1
+                train_steps += 1
                 if step >= max_iter:  # Debug purposes
                     break
             wandb.log({"Loss_epoch (batch avg)/train": running_loss / (step + 1)})
@@ -337,14 +332,12 @@ class SimCLR(object):
             self.model.eval()
             print("Evaluating the model...")
             with torch.no_grad():
-                viter_sample = 0
                 running_vloss = 0.0
                 vtop1s, vtop5s = 0, 0
                 vsim_matrices = []
                 for vstep, (vimages, vgps, vinds, vsurvey_ids) in enumerate(tqdm(val_loader)):
-                    vglobal_step += vstep
-                    wandb.log({"val_step": vstep})
-                    wandb.log({"val_global_step": vglobal_step})
+                    val_steps += vstep
+                    wandb.log({"val_steps": val_steps})
                     vimages = vimages.to(self.args.device)
                     vgps = vgps.to(self.args.device)
 
@@ -374,7 +367,7 @@ class SimCLR(object):
                         wandb.log({"acc/val/top1": vtop1[0],
                                    "acc/val/top5": vtop5[0]})
 
-                    if (viter_sample) % self.args.log_every_n_steps == 0:
+                    if (vstep) % self.args.log_every_n_steps == 0:
                         # Log input batch images
                         fig, axes = plt.subplots(4, 8, figsize=(16, 8))  # 4 rows, 8 columns
                         axes = axes.flatten()
@@ -393,12 +386,12 @@ class SimCLR(object):
                         wandb.log({f'SimMatrix_val/e_{epoch_counter:03d}_vstep_{vstep:03d}': wandb.Image(hm)})
                         plt.close()
 
-                    viter_sample += 1
-                    if viter_sample >= max_iter:
+                    val_steps += 1
+                    if vstep >= max_iter:
                         break
-                wandb.log({"Loss_epoch (batch avg)/val": running_vloss / (viter_sample + 1)})
-                wandb.log({"acc_epoch (batch avg)/val/top1": vtop1s / (viter_sample + 1),
-                        "acc_epoch (batch avg)/val/top5": vtop5s / (viter_sample + 1)})
+                wandb.log({"Loss_epoch (batch avg)/val": running_vloss / (val_steps + 1)})
+                wandb.log({"acc_epoch (batch avg)/val/top1": vtop1s / (val_steps + 1),
+                           "acc_epoch (batch avg)/val/top5": vtop5s / (val_steps + 1)})
                 vsim_matrix_mean = torch.Tensor(np.array(vsim_matrices)).mean(dim=0)
                 plt.figure(figsize=(12, 10))
                 plt.title("Similarity Matrix")
