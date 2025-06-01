@@ -122,7 +122,8 @@ def plot_observation_dataset(
                               'index': 'surveyId',
                               'species_id': 'speciesId',
                               'subset': 'split'},
-    show_map: bool = False
+    show_map: bool = False,
+    title: str = "Observations Map",
 ) -> plt.Axes:
     """Plot observations on a map from an observation dataset.
 
@@ -156,6 +157,7 @@ def plot_observation_dataset(
     for split, group in df.groupby('subset'):
         ax = plot_observation_map(longitudes=group['x'].values, latitudes=group['y'].values,
                                   ax=ax, c=next(colors), label=split)
+        ax.set_title(title)
 
     if show_map:
         plt.show()
