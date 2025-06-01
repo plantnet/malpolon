@@ -145,7 +145,8 @@ def main(args):
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
 
     # Model
-    model = ModelSimCLR(base_model=args.arch, out_dim=args.out_dim, dropout=args.dropout)
+    model = ModelSimCLR(base_model=args.arch, out_dim=args.out_dim, dropout=args.dropout,
+                        freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
     model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
 
     # Optimization
@@ -183,6 +184,7 @@ def main(args):
 if __name__ == "__main__":
     args = {
         'name': 'SimCLR: satellite VS GPS (shuffle ON), u_sId + ssplit 0.06min, GPS frozen',
+        'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
         'arch': 'satellite',  # always paired with gps
         'epochs': 10,
         'out_dim': 512,
@@ -202,6 +204,8 @@ if __name__ == "__main__":
         'gpu_index': 0,
         'disable_cuda': False,
         'ckpt_path': 'wandb/run-20250528_120700-z9uo00oi/files/checkpoint_0030.pth.tar',
+        'freeze_modality_backbone': False,
+        'freeze_gps_backbone': False,
     }
     args_ns = SimpleNamespace(**args)
     main(args_ns)
