@@ -182,6 +182,7 @@ def main(args):
 
 if __name__ == "__main__":
     args = {
+        'name': 'SimCLR: satellite VS GPS (shuffle ON), u_sId + ssplit 0.06min, GPS frozen',
         'arch': 'satellite',  # always paired with gps
         'epochs': 10,
         'out_dim': 512,
