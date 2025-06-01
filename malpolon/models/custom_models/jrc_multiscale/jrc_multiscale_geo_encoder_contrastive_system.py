@@ -329,7 +329,7 @@ class SimCLR(object):
             plt.xlabel("t-SNE-1")
             plt.ylabel("t-SNE-2")
             plt.grid(True)
-            wandb.log({f"t-sne/train/e_{epoch_counter:03d}": wandb.Image(fig)})
+            wandb.log({f"t-sne_train/train/e_{epoch_counter:03d}": wandb.Image(fig)})
             plt.close()
 
             # Evaluation
@@ -417,7 +417,7 @@ class SimCLR(object):
                 plt.xlabel("t-SNE-1")
                 plt.ylabel("t-SNE-2")
                 plt.grid(True)
-                wandb.log({f"t-sne/val/e_{epoch_counter:03d}": wandb.Image(fig)})
+                wandb.log({f"t-sne_val/val/e_{epoch_counter:03d}": wandb.Image(fig)})
                 plt.close()
             
                 sim_matrices = []
