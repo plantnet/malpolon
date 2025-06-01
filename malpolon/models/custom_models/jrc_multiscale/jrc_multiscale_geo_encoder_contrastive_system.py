@@ -99,7 +99,7 @@ class SimCLR(object):
             id=self.args.ckpt_path.split('/')[1].split('-')[2] if self.args.ckpt_path else None,
             project="Contrastive learning pairwise",
             # project="Sandbox",
-            name='trash',#'Unique surveyId spatial split 0.06min, dropout',
+            name=self.args.name,#'Unique surveyId spatial split 0.06min, dropout',
             notes=f"Shuffle train ON, val OFF. Info_nce_loss operating only with the main diagonal (no features concatenation). "\
                   f"All unique surveyId obs. All backbones hot. "\
                   f"LR cosine annealing {self.args.learning_rate}. "\
