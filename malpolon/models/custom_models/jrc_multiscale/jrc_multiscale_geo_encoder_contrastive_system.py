@@ -97,11 +97,12 @@ class SimCLR(object):
         self.writer = wandb.init(
             entity="tlarcher-phd-jrc",
             id=self.args.ckpt_path.split('/')[1].split('-')[2] if self.args.ckpt_path else None,
-            project="Contrastive learning pairwise",
-            # project="Sandbox",
+            project=self.args.wandb_project,
             name=self.args.name,#'Unique surveyId spatial split 0.06min, dropout',
             notes=f"Shuffle train ON, val OFF. Info_nce_loss operating only with the main diagonal (no features concatenation). "\
-                  f"All unique surveyId obs. All backbones hot. "\
+                  f"All unique surveyId obs."\
+                  f"Modality backbone: {'frozen' if self.args.freeze_modality_backbone else 'hot'}"\
+                  f"GPS backbone: {'frozen' if self.args.freeze_gps_backbone else 'hot'}"\
                   f"LR cosine annealing {self.args.learning_rate}. "\
                   f"Temp {self.args.temperature}. "\
                   f"Dropout {self.args.dropout}. "\
