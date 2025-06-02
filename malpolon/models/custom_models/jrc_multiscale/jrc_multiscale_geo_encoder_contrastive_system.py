@@ -333,9 +333,7 @@ class SimCLR(object):
             self.model.eval()
             print("Evaluating the model...")
             with torch.no_grad():
-                running_vloss = 0.0
-                vtop1s, vtop5s = 0, 0
-                vsim_matrices = []
+                running_vloss, vsim_matrices, vtop1s, vtop5s = [], [], [], []
                 for vstep, (vimages, vgps, vinds, vsurvey_ids) in enumerate(tqdm(val_loader)):
                     val_steps += vstep
                     wandb.log({"val_steps": val_steps})
@@ -348,7 +346,7 @@ class SimCLR(object):
                     vlogits, vlabels, vsim_matrix = self.info_nce_loss_single_diag(vfeatures_img, vfeatures_gps, dataset_type=self.args.arch)
                     vsim_matrices.append(vsim_matrix)
                     vloss = self.criterion(vlogits, vlabels)
-                    running_vloss += vloss
+                    running_vloss.append(vloss)
 
                     # Save best checkpoint
                     if vloss.item() <= best_val_loss:
@@ -364,8 +362,8 @@ class SimCLR(object):
                     # Log accuracy step wise
                     if vlogits.shape[0] >= 5:
                         vtop1, vtop5 = accuracy(vlogits, vlabels, topk=(1, 5))
-                        vtop1s += vtop1[0]
-                        vtop5s += vtop5[0]
+                        vtop1s.append(vtop1[0])
+                        vtop5s.append(vtop5[0])
                         wandb.log({"acc/val/top1": vtop1[0],
                                    "acc/val/top5": vtop5[0]})
                     else:
@@ -397,9 +395,9 @@ class SimCLR(object):
                     val_steps += 1
                     if vstep >= max_iter:
                         break
-                wandb.log({"Loss_epoch (batch avg)/val": running_vloss / (vstep // self.args.log_every_n_steps)})
-                wandb.log({"acc_epoch (batch avg)/val/top1": vtop1s / (vstep // self.args.log_every_n_steps),
-                           "acc_epoch (batch avg)/val/top5": vtop5s / (vstep // self.args.log_every_n_steps)})
+                wandb.log({"Loss_epoch (batch avg)/val": np.array(running_vloss).mean()})
+                wandb.log({"acc_epoch (batch avg)/val/top1": np.array(vtop1s).mean(),
+                           "acc_epoch (batch avg)/val/top5": np.array(vtop5s).mean()})
                 
                 # Log similarity matrix epoch wise
                 vsim_matrix_mean = torch.Tensor(np.array(vsim_matrices)).mean(dim=0)

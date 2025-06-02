@@ -95,6 +95,8 @@ class DatasetSimple(Dataset):
         if subset:
             subset_length = int(len(self.metadata) * subset) if isinstance(subset, float) else subset
             self.metadata = self.metadata.sample(n=min(subset_length, len(self.metadata)), random_state=42).reset_index(drop=True)
+        if self.__len__() == 0:
+            raise ValueError(f"The dataset metadata is empty after applying the subset: {subset}. Please check the metadata file or increase the subset value.")
         self.transform = lambda x: x if transform is None else transform(x)
         self.dataset_kwargs = dataset_kwargs
         self.img, self.coords = torch.empty(0), (-np.inf, -np.inf)
@@ -127,7 +129,7 @@ class SpeciesDatasetSimple(DatasetSimple):
             img = img.unsqueeze(0)  # Adds a batch dimension
             img = img.to(torch.float32)
             img = self.transform(img)
-            coords = tuple(sample[['decimalLongitude', 'decimalLatitude']].values.flatten())
+            coords = tuple(sample[['lon', 'lat']].values.flatten())
         
         # return {'img': img, 'gps': coords}
         return img, torch.Tensor(coords)
