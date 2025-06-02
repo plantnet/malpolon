@@ -100,13 +100,15 @@ def main(args):
         custom_collate = collate_species
         train_dataset = SpeciesDatasetSimple(
             root_path = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
-            fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-10.0min.csv',
+            fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-0.06min.csv',
             transform = transforms_species(),
+            subset = args.subset,
         )
         val_dataset = SpeciesDatasetSimple(
             root_path = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
-            fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-10.0min.csv',
+            fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-0.06min.csv',
             transform = transforms_species(),
+            subset = args.subset,
         )
 
     elif args.arch == 'landscape':
@@ -115,11 +117,13 @@ def main(args):
             root_path = 'dataset/scale_2_landscape/LUCAS',
             fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_train-10.0min_CBN-Med.csv',
             transform = transforms_species(),
+            subset = args.subset,
         )
         val_dataset = LandscapeDatasetSimple(
             root_path = 'dataset/scale_2_landscape/LUCAS',
             fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_val-10.0min_CBN-Med.csv',
             transform = transforms_species(),
+            subset = args.subset,
         )
     
     elif args.arch == 'satellite':
@@ -128,11 +132,13 @@ def main(args):
             root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
             fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
             transform = transforms_satellite(),
+            subset = args.subset,
         )
         val_dataset = SatelliteDatasetSimple(
             root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
             fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
             transform = transforms_satellite(),
+            subset = args.subset,
         )
 
     # Dataloaders
@@ -183,10 +189,11 @@ def main(args):
 
 if __name__ == "__main__":
     args = {
-        'name': 'SimCLR: satellite VS GPS (shuffle ON), u_sId + ssplit 0.06min, GPS frozen',
+        'name': 'SimCLR: species VS GPS, ssplit 0.06min, modality frozen',
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
-        'arch': 'satellite',  # always paired with gps
-        'epochs': 10,
+        'arch': 'species',  # always paired with gps
+        'subset': 0.1,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'epochs': 30,
         'out_dim': 512,
         'batch_size': 64,
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
@@ -203,8 +210,8 @@ if __name__ == "__main__":
         'workers': 0,
         'gpu_index': 0,
         'disable_cuda': False,
-        'ckpt_path': 'wandb/run-20250528_120700-z9uo00oi/files/checkpoint_0030.pth.tar',
-        'freeze_modality_backbone': False,
+        'ckpt_path': None, # 'wandb/run-20250528_120700-z9uo00oi/files/checkpoint_0030.pth.tar',
+        'freeze_modality_backbone': True,
         'freeze_gps_backbone': False,
     }
     args_ns = SimpleNamespace(**args)

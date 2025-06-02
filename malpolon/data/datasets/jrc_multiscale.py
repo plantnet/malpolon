@@ -86,11 +86,15 @@ class DatasetSimple(Dataset):
         fp_metadata: str = None,
         transform: Callable = None,
         dataset_kwargs: dict = {},
+        subset: Union[int, float] = None,
         **kwargs,
     ) -> None:
         super().__init__()
         self.root_path = root_path
         self.metadata = pd.read_csv(f'{Path(fp_metadata)}') if fp_metadata is not None else pd.DataFrame()
+        if subset:
+            subset_length = int(len(self.metadata) * subset) if isinstance(subset, float) else subset
+            self.metadata = self.metadata.sample(n=min(subset_length, len(self.metadata)), random_state=42).reset_index(drop=True)
         self.transform = lambda x: x if transform is None else transform(x)
         self.dataset_kwargs = dataset_kwargs
         self.img, self.coords = torch.empty(0), (-np.inf, -np.inf)
