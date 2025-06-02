@@ -148,7 +148,7 @@ def main(args):
 
     val_loader = DataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
+        num_workers=args.workers, pin_memory=True, drop_last=False, collate_fn=custom_collate)
 
     # Model
     model = ModelSimCLR(base_model=args.arch, out_dim=args.out_dim, dropout=args.dropout,
@@ -189,10 +189,10 @@ def main(args):
 
 if __name__ == "__main__":
     args = {
-        'name': 'SimCLR: species VS GPS, ssplit 0.06min, modality frozen',
+        'name': 'SimCLR: satellite VS GPS, u_sId + ssplit 0.06min, all hot',
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
-        'arch': 'species',  # always paired with gps
-        'subset': 0.1,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'arch': 'satellite',  # always paired with gps
+        'subset': 0.5,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'epochs': 30,
         'out_dim': 512,
         'batch_size': 64,
@@ -211,7 +211,7 @@ if __name__ == "__main__":
         'gpu_index': 0,
         'disable_cuda': False,
         'ckpt_path': None, # 'wandb/run-20250528_120700-z9uo00oi/files/checkpoint_0030.pth.tar',
-        'freeze_modality_backbone': True,
+        'freeze_modality_backbone': False,
         'freeze_gps_backbone': False,
     }
     args_ns = SimpleNamespace(**args)
