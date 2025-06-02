@@ -130,6 +130,7 @@ class SimCLR(object):
         wandb.define_metric("t-sne/train/*", step_metric='epoch')
 
         # Validation metrics
+        wandb.define_metric("Loss_step/val", step_metric="val_steps")
         wandb.define_metric("acc/val/*", step_metric="val_steps")
         wandb.define_metric("Input_imgs_val/*", step_metric='val_steps')
         wandb.define_metric("SimMatrix_val/*", step_metric='val_steps')
@@ -309,9 +310,9 @@ class SimCLR(object):
                 train_steps += 1
                 if step >= max_iter:  # Debug purposes
                     break
-            wandb.log({"Loss_epoch (batch avg)/train": running_loss / (step + 1)})
-            wandb.log({"acc_epoch (batch avg)/train/top1": top1s / (step + 1),
-                       "acc_epoch (batch avg)/train/top5": top5s / (step + 1)})
+            wandb.log({"Loss_epoch (batch avg)/train": running_loss / (step // self.args.log_every_n_steps)})
+            wandb.log({"acc_epoch (batch avg)/train/top1": top1s / (step // self.args.log_every_n_steps),
+                       "acc_epoch (batch avg)/train/top5": top5s / (step // self.args.log_every_n_steps)})
             
             # Log t-sne projection
             embeddings = torch.cat([features_img, features_gps], dim=0)
@@ -360,14 +361,17 @@ class SimCLR(object):
                         }, is_best=True, dirpath=self.writer.dir)
                     best_val_loss = min(best_val_loss, vloss.item())
 
+                    # Log accuracy step wise
                     if vlogits.shape[0] >= 5:
                         vtop1, vtop5 = accuracy(vlogits, vlabels, topk=(1, 5))
                         vtop1s += vtop1[0]
                         vtop5s += vtop5[0]
                         wandb.log({"acc/val/top1": vtop1[0],
                                    "acc/val/top5": vtop5[0]})
+                    else:
+                        print("Batch size (val) is too small for accuracy calculation.")
 
-                    if (vstep) % self.args.log_every_n_steps == 0:
+                    if vstep % self.args.log_every_n_steps == 0:
                         # Log input batch images
                         fig, axes = plt.subplots(4, 8, figsize=(16, 8))  # 4 rows, 8 columns
                         axes = axes.flatten()
@@ -379,7 +383,11 @@ class SimCLR(object):
                         plt.tight_layout()
                         wandb.log({f'Input_imgs_val/e_{epoch_counter:03d}_s_{vstep:03d}': wandb.Image(fig)})
                         plt.close()
+                        
+                        # Log loss and moments step wise
+                        wandb.log({"Loss_step/val": vloss})
                     
+                        # Log similarity matrix step wise
                         plt.figure(figsize=(12, 10))
                         plt.title("Similarity Matrix val")
                         hm = sns.heatmap(vsim_matrix, cmap="viridis", annot=False)
@@ -389,9 +397,11 @@ class SimCLR(object):
                     val_steps += 1
                     if vstep >= max_iter:
                         break
-                wandb.log({"Loss_epoch (batch avg)/val": running_vloss / (val_steps + 1)})
-                wandb.log({"acc_epoch (batch avg)/val/top1": vtop1s / (val_steps + 1),
-                           "acc_epoch (batch avg)/val/top5": vtop5s / (val_steps + 1)})
+                wandb.log({"Loss_epoch (batch avg)/val": running_vloss / (vstep // self.args.log_every_n_steps)})
+                wandb.log({"acc_epoch (batch avg)/val/top1": vtop1s / (vstep // self.args.log_every_n_steps),
+                           "acc_epoch (batch avg)/val/top5": vtop5s / (vstep // self.args.log_every_n_steps)})
+                
+                # Log similarity matrix epoch wise
                 vsim_matrix_mean = torch.Tensor(np.array(vsim_matrices)).mean(dim=0)
                 plt.figure(figsize=(12, 10))
                 plt.title("Similarity Matrix")
