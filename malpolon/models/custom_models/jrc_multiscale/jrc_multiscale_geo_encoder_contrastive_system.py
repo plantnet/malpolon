@@ -261,8 +261,9 @@ class SimCLR(object):
                     fig, axes = plt.subplots(4, 8, figsize=(16, 8))  # 4 rows, 8 columns
                     axes = axes.flatten()
                     for idx, (img, ind, sid, ax) in enumerate(zip(images, inds, survey_ids, axes)):
-                        img = img[:-1, :, :].permute(1, 2, 0).cpu().numpy().astype(np.uint8)
-                        ax.imshow(img, cmap='gray' if img.ndim == 2 else None)
+                        img = img[:3, :, :] if img.shape[0] >= 3 else img[0, :, :]
+                        img = img.permute(1, 2, 0).cpu().numpy().astype(np.uint8)  # Cutting multi-band images to the first 3
+                        ax.imshow(img, cmap='gray' if img.ndim < 3 else None)
                         ax.set_title(f"Image {idx}, iter_idx {ind[0]}, \nsurveyId {sid}", fontsize=8)
                         ax.axis('off')
                     plt.tight_layout()
@@ -313,7 +314,7 @@ class SimCLR(object):
             # Log t-sne projection
             n = features_img.shape[0]
             embeddings = torch.cat([features_img, features_gps], dim=0)
-            tsne = TSNE(n_components=2, perplexity=30, learning_rate=200, metric='cosine', init='pca', random_state=42)
+            tsne = TSNE(n_components=2, perplexity=min(30, n-1), learning_rate=200, metric='cosine', init='pca', random_state=42)
             proj = tsne.fit_transform(embeddings.detach().to('cpu').numpy())
             proj_a, proj_b = proj[:n], proj[n:]
             fig = plt.figure(figsize=(8, 6))
@@ -331,7 +332,6 @@ class SimCLR(object):
             with torch.no_grad():
                 running_vloss, vsim_matrices, vtop1s, vtop5s = [], [], [], []
                 for vstep, (vimages, vgps, vinds, vsurvey_ids) in enumerate(tqdm(val_loader)):
-                    val_steps += vstep
                     wandb.log({"val_steps": val_steps})
                     vimages = vimages.to(self.args.device)
                     vgps = vgps.to(self.args.device)
@@ -370,7 +370,8 @@ class SimCLR(object):
                         fig, axes = plt.subplots(4, 8, figsize=(16, 8))  # 4 rows, 8 columns
                         axes = axes.flatten()
                         for idx, (img, ind, sid, ax) in enumerate(zip(vimages, vinds, vsurvey_ids, axes)):
-                            img = img[:-1, :, :].permute(1, 2, 0).cpu().numpy().astype(np.uint8)
+                            img = img[:3, :, :] if img.shape[0] >= 3 else img[0, :, :]
+                            img = img.permute(1, 2, 0).cpu().numpy().astype(np.uint8)
                             ax.imshow(img, cmap='gray' if img.ndim == 2 else None)
                             ax.set_title(f"Image {idx}, iter_idx {ind[0]}, \nsurveyId {sid}", fontsize=8)
                             ax.axis('off')
