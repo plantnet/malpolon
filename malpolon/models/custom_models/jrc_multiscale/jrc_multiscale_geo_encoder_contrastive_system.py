@@ -182,7 +182,7 @@ class SimCLR(object):
 
     def info_nce_loss_single_diag(self, features_img, features_gps, dataset_type: str = 'species'):
         # Not handling the landscape case with more than 2 views !
-        labels = torch.eye(self.args.batch_size).to(self.args.device)  # mask is of shape (64, 64) with main diagonal at 1
+        labels = torch.eye(features_img.shape[0]).to(self.args.device)  # mask is of shape (batch_size, batch_size) with main diagonal at 1. Except when batch_size if lower than the nb of samples in val_loader, in which case the mask is of shape (n_samples, n_samples)
 
         # Features are the output of the MLP head. Shape (batch_size, 512)
         features_img = F.normalize(features_img, dim=1)
@@ -224,15 +224,11 @@ class SimCLR(object):
 
         logging.info(f"Start SimCLR training for {self.args.epochs} epochs.")
         logging.info(f"Training with gpu: {self.args.disable_cuda}.")
-        sim_matrices = []
-        best_train_loss = torch.inf
-        best_val_loss = torch.inf
-        train_steps = 0
-        val_steps = 0
+        best_train_loss, best_val_loss = torch.inf, torch.inf
+        train_steps, val_steps = 0, 0
 
         for epoch_counter in range(self.args.last_epoch, self.args.epochs + self.args.last_epoch):
-            running_loss = 0.
-            top1s, top5s = 0, 0
+            running_loss, sim_matrices, top1s, top5s = [], [], [], []
             wandb.log({"epoch": epoch_counter})
             print("Training the model...")
             print(f"> Starting epoch {epoch_counter}...")
@@ -252,7 +248,7 @@ class SimCLR(object):
                     logits, labels, sim_matrix = self.info_nce_loss_single_diag(features_img, features_gps, dataset_type=self.args.arch)
                     sim_matrices.append(sim_matrix)
                     loss = self.criterion(logits, labels)
-                    running_loss += loss
+                    running_loss.append(loss.item())
                     best_train_loss = min(best_train_loss, loss.item())
 
                 self.optimizer.zero_grad()
@@ -301,8 +297,8 @@ class SimCLR(object):
                     # Log accuracy step wise
                     if logits.shape[0] >= 5:
                         top1, top5 = accuracy(logits, labels, topk=(1, 5))
-                        top1s += top1[0]
-                        top5s += top5[0]
+                        top1s.append(top1[0].item())
+                        top5s.append(top5[0].item())
                         wandb.log({"acc/train/top1": top1[0],
                                    "acc/train/top5": top5[0]})
                     else:
@@ -310,22 +306,22 @@ class SimCLR(object):
                 train_steps += 1
                 if step >= max_iter:  # Debug purposes
                     break
-            wandb.log({"Loss_epoch (batch avg)/train": running_loss / (step // self.args.log_every_n_steps)})
-            wandb.log({"acc_epoch (batch avg)/train/top1": top1s / (step // self.args.log_every_n_steps),
-                       "acc_epoch (batch avg)/train/top5": top5s / (step // self.args.log_every_n_steps)})
+            wandb.log({"Loss_epoch (batch avg)/train": np.array(running_loss).mean()})
+            wandb.log({"acc_epoch (batch avg)/train/top1": np.array(top1s).mean(),
+                       "acc_epoch (batch avg)/train/top5": np.array(top5s).mean()})
             
             # Log t-sne projection
+            n = features_img.shape[0]
             embeddings = torch.cat([features_img, features_gps], dim=0)
-            labels = np.array([0]*len(features_img) + [1]*len(features_gps))  # 0=head A, 1=head B
             tsne = TSNE(n_components=2, perplexity=30, learning_rate=200, metric='cosine', init='pca', random_state=42)
-            embedding_2d = tsne.fit_transform(embeddings.detach().to('cpu').numpy())
+            proj = tsne.fit_transform(embeddings.detach().to('cpu').numpy())
+            proj_a, proj_b = proj[:n], proj[n:]
             fig = plt.figure(figsize=(8, 6))
-            colors = ['red' if l == 0 else 'blue' for l in labels]
-            plt.scatter(embedding_2d[:, 0], embedding_2d[:, 1], c=colors, alpha=0.7)
-            plt.title("t-SNE projection of contrastive embeddings")
-            plt.xlabel("t-SNE-1")
-            plt.ylabel("t-SNE-2")
-            plt.grid(True)
+            plt.scatter(proj_a[:, 0], proj_a[:, 1], c='red', label='Modality image', alpha=0.7)
+            plt.scatter(proj_b[:, 0], proj_b[:, 1], c='blue', label='Modality GPS', alpha=0.7)
+            for i in range(n):
+                plt.plot([proj_a[i, 0], proj_b[i, 0]], [proj_a[i, 1], proj_b[i, 1]], 'gray', alpha=0.3)
+            plt.title("t-SNE projection of contrastive embeddings (Train)"); plt.xlabel("t-SNE-1"); plt.ylabel("t-SNE-2"); plt.grid(True); plt.legend()
             wandb.log({f"t-sne_train/train/e_{epoch_counter:03d}": wandb.Image(fig)})
             plt.close()
 
@@ -346,7 +342,7 @@ class SimCLR(object):
                     vlogits, vlabels, vsim_matrix = self.info_nce_loss_single_diag(vfeatures_img, vfeatures_gps, dataset_type=self.args.arch)
                     vsim_matrices.append(vsim_matrix)
                     vloss = self.criterion(vlogits, vlabels)
-                    running_vloss.append(vloss)
+                    running_vloss.append(vloss.item())
 
                     # Save best checkpoint
                     if vloss.item() <= best_val_loss:
@@ -362,8 +358,8 @@ class SimCLR(object):
                     # Log accuracy step wise
                     if vlogits.shape[0] >= 5:
                         vtop1, vtop5 = accuracy(vlogits, vlabels, topk=(1, 5))
-                        vtop1s.append(vtop1[0])
-                        vtop5s.append(vtop5[0])
+                        vtop1s.append(vtop1[0].item())
+                        vtop5s.append(vtop5[0].item())
                         wandb.log({"acc/val/top1": vtop1[0],
                                    "acc/val/top5": vtop5[0]})
                     else:
@@ -400,6 +396,7 @@ class SimCLR(object):
                            "acc_epoch (batch avg)/val/top5": np.array(vtop5s).mean()})
                 
                 # Log similarity matrix epoch wise
+                vsim_matrices = vsim_matrices[:-1] if (vsim_matrices[-1].shape[0] != self.args.batch_size) and (len(vsim_matrices) > 1) else vsim_matrices  # Remove the last matrix if it has a different shape than the others (e.g. if the last batch is smaller than the others)
                 vsim_matrix_mean = torch.Tensor(np.array(vsim_matrices)).mean(dim=0)
                 plt.figure(figsize=(12, 10))
                 plt.title("Similarity Matrix")
@@ -408,19 +405,22 @@ class SimCLR(object):
                 plt.close()
                 
                 # Log t-sne projection
-                embeddings = torch.cat([vfeatures_img, vfeatures_gps], dim=0)
-                labels = np.array([0]*len(vfeatures_img) + [1]*len(vfeatures_gps))  # 0=head A, 1=head B
-                tsne = TSNE(n_components=2, perplexity=30, learning_rate=200, metric='cosine', init='pca', random_state=42)
-                embedding_2d = tsne.fit_transform(embeddings.detach().to('cpu').numpy())
-                fig = plt.figure(figsize=(8, 6))
-                colors = ['red' if l == 0 else 'blue' for l in labels]
-                plt.scatter(embedding_2d[:, 0], embedding_2d[:, 1], c=colors, alpha=0.7)
-                plt.title("t-SNE projection of contrastive embeddings")
-                plt.xlabel("t-SNE-1")
-                plt.ylabel("t-SNE-2")
-                plt.grid(True)
-                wandb.log({f"t-sne_val/val/e_{epoch_counter:03d}": wandb.Image(fig)})
-                plt.close()
+                n = vfeatures_img.shape[0]
+                if n > 1:
+                    embeddings = torch.cat([vfeatures_img, vfeatures_gps], dim=0)
+                    tsne = TSNE(n_components=2, perplexity=min(30, n-1), learning_rate=200, metric='cosine', init='pca', random_state=42)
+                    proj = tsne.fit_transform(embeddings.detach().to('cpu').numpy())
+                    proj_a, proj_b = proj[:n], proj[n:]
+                    fig = plt.figure(figsize=(8, 6))
+                    plt.scatter(proj_a[:, 0], proj_a[:, 1], c='red', label='Modality image', alpha=0.7)
+                    plt.scatter(proj_b[:, 0], proj_b[:, 1], c='blue', label='Modality GPS', alpha=0.7)
+                    for i in range(n):
+                        plt.plot([proj_a[i, 0], proj_b[i, 0]], [proj_a[i, 1], proj_b[i, 1]], 'gray', alpha=0.3)
+                    plt.title("t-SNE projection of contrastive embeddings (validation)"); plt.xlabel("t-SNE-1"); plt.ylabel("t-SNE-2"); plt.grid(True); plt.legend()
+                    wandb.log({f"t-sne_val/val/e_{epoch_counter:03d}": wandb.Image(fig)})
+                    plt.close()
+                else:
+                    logging.warning(f"Skipping t-SNE projection for epoch {epoch_counter} as the number of samples is too low ({n}).")
             
                 sim_matrices = []
 

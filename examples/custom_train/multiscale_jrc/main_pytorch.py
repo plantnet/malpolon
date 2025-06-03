@@ -189,10 +189,10 @@ def main(args):
 
 if __name__ == "__main__":
     args = {
-        'name': 'SimCLR: satellite VS GPS, u_sId + ssplit 0.06min, all hot',
+        'name': 'trash', # 'SimCLR: satellite VS GPS, u_sId + ssplit 0.06min, all hot',
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
         'arch': 'satellite',  # always paired with gps
-        'subset': 0.5,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'subset': 0.3,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'epochs': 30,
         'out_dim': 512,
         'batch_size': 64,
