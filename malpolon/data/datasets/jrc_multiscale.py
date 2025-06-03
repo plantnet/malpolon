@@ -130,9 +130,10 @@ class SpeciesDatasetSimple(DatasetSimple):
             img = img.to(torch.float32)
             img = self.transform(img)
             coords = tuple(sample[['lon', 'lat']].values.flatten())
+            id = sample['gbifID']
         
         # return {'img': img, 'gps': coords}
-        return img, torch.Tensor(coords)
+        return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([id])
 
 
 class LandscapeDatasetSimple(DatasetSimple):
