@@ -54,10 +54,12 @@ def transforms_satellite():
 
 # 2. Custom collate function returning directly a list of dictionaries with {'img': img_tensor, 'gps': gps_tuple}. But this implies adding a loop over the multi-dimensional tensors which defeats the purpose of batching.
 def collate_species(original_batch):
-    imgs, gpss = zip(*original_batch)
+    imgs, gpss, inds, ids = zip(*original_batch)
     img_batched = torch.cat(list(imgs), dim=0)
     gps_batched = torch.stack(list(gpss), dim=0)
-    return img_batched, gps_batched
+    inds_batched = torch.stack(list(inds), dim=0)
+    sids_batched = torch.cat(ids, dim=0)
+    return img_batched, gps_batched, inds_batched, sids_batched
 
 def collate_landscape(original_batch):
     imgs, gpss = zip(*original_batch)
@@ -189,13 +191,13 @@ def main(args):
 
 if __name__ == "__main__":
     args = {
-        'name': 'trash', # 'SimCLR: satellite VS GPS, u_sId + ssplit 0.06min, all hot',
+        'name': 'test: species VS GPS',# 'SimCLR: satellite VS GPS, u_sId + ssplit 0.06min, all hot',
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
-        'arch': 'satellite',  # always paired with gps
-        'subset': 0.3,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
-        'epochs': 30,
+        'arch': 'species',  # always paired with gps
+        'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'epochs': 2,
         'out_dim': 512,
-        'batch_size': 64,
+        'batch_size': 32,
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'temperature': 0.07,
         'warmup_epochs': 0,
