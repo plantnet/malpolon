@@ -58,22 +58,31 @@ def collate_species(original_batch):
     img_batched = torch.cat(list(imgs), dim=0)
     gps_batched = torch.stack(list(gpss), dim=0)
     inds_batched = torch.stack(list(inds), dim=0)
-    sids_batched = torch.cat(ids, dim=0)
-    return img_batched, gps_batched, inds_batched, sids_batched
+    ids_batched = torch.cat(ids, dim=0)
+    return img_batched, gps_batched, inds_batched, ids_batched
 
 def collate_landscape(original_batch):
-    imgs, gpss = zip(*original_batch)
-    img_batched = torch.cat(list(imgs), dim=0)  # Reshape to stack the views along the batch dim. Output is: [imgA_view1, imgA_view2, ..., imgB_view1, imgB_view2...]
+    imgs, gpss, inds, ids = zip(*original_batch)
+    img_batched = torch.cat(list(imgs), dim=0)
     gps_batched = torch.stack(list(gpss), dim=0)
-    # In order to address the inconsistent number of views of LUCAS images, we must choose a strategy between the 2 following:
+    inds_batched = torch.stack(list(inds), dim=0)
+    ids_batched = torch.cat(ids, dim=0)
+    return img_batched, gps_batched, inds_batched, ids_batched
+
+# Version multi-view per row
+# def collate_landscape(original_batch):
+#     imgs, gpss = zip(*original_batch)
+#     img_batched = torch.cat(list(imgs), dim=0)  # Reshape to stack the views along the batch dim. Output is: [imgA_view1, imgA_view2, ..., imgB_view1, imgB_view2...]
+#     gps_batched = torch.stack(list(gpss), dim=0)
+#     # In order to address the inconsistent number of views of LUCAS images, we must choose a strategy between the 2 following:
     
-    # a) Reshaping imgs to stack the views on the channel dim. This requires to adapt the model to accept k channels with k>3 probably.
-    # img_batched = img_batched.reshape(1, -1, img_batched.shape[2], img_batched.shape[3])[0] 
+#     # a) Reshaping imgs to stack the views on the channel dim. This requires to adapt the model to accept k channels with k>3 probably.
+#     # img_batched = img_batched.reshape(1, -1, img_batched.shape[2], img_batched.shape[3])[0] 
     
-    # b) Repeating the gps embeddings to match the new expanded batch dim because of LUCAS views. This requires to add an if case in the contrastive loss computation as the shapes of the similarity matrix are based on the batch_size which is artificially expanded.
-    repeats = torch.tensor([x.shape[0] for x in imgs])
-    gps_batched = torch.repeat_interleave(gps_batched, repeats, dim=0)  # Output is: [gps_imgA, gps_imgA,..., gps_imgB, gps_imgB...]
-    return img_batched, gps_batched
+#     # b) Repeating the gps embeddings to match the new expanded batch dim because of LUCAS views. This requires to add an if case in the contrastive loss computation as the shapes of the similarity matrix are based on the batch_size which is artificially expanded.
+#     repeats = torch.tensor([x.shape[0] for x in imgs])
+#     gps_batched = torch.repeat_interleave(gps_batched, repeats, dim=0)  # Output is: [gps_imgA, gps_imgA,..., gps_imgB, gps_imgB...]
+#     return img_batched, gps_batched
 
 def collate_satellite(original_batch):
     imgs, gpss, inds, sids = zip(*original_batch)
@@ -102,13 +111,13 @@ def main(args):
         custom_collate = collate_species
         train_dataset = SpeciesDatasetSimple(
             root_path = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
-            fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-0.06min.csv',
+            fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-0.06min_no_3-duplicates.csv',
             transform = transforms_species(),
             subset = args.subset,
         )
         val_dataset = SpeciesDatasetSimple(
             root_path = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
-            fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-0.06min.csv',
+            fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-0.06min_no_3-duplicates.csv',
             transform = transforms_species(),
             subset = args.subset,
         )
@@ -116,14 +125,14 @@ def main(args):
     elif args.arch == 'landscape':
         custom_collate = collate_landscape
         train_dataset = LandscapeDatasetSimple(
-            root_path = 'dataset/scale_2_landscape/LUCAS',
-            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_train-10.0min_CBN-Med.csv',
+            root_path = 'dataset/scale_2_landscape/',
+            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_exists_essentials_train-0.06min.csv',
             transform = transforms_species(),
             subset = args.subset,
         )
         val_dataset = LandscapeDatasetSimple(
-            root_path = 'dataset/scale_2_landscape/LUCAS',
-            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_val-10.0min_CBN-Med.csv',
+            root_path = 'dataset/scale_2_landscape/',
+            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_exists_essentials_val-0.06min.csv',
             transform = transforms_species(),
             subset = args.subset,
         )
@@ -166,7 +175,7 @@ def main(args):
         end_factor=1.0,     # Ends at 1.0 * lr = 1e-3
         total_iters=args.warmup_epochs,
     )
-    cosine_scheduler = CosineAnnealingLR(optimizer, T_max=25, last_epoch=args.epochs-1)
+    cosine_scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
     scheduler = SequentialLR(optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[args.warmup_epochs])
 
     # Transfer learning / fine-tuning / resuming
@@ -179,8 +188,21 @@ def main(args):
             print("Optimizer state loaded from checkpoint")
         if 'epoch' in checkpoint:
             args.epochs += checkpoint['epoch']
+            cosine_scheduler.T_max = args.epochs  # update T_max of the scheduler to match the new number of epochs
             args.last_epoch = checkpoint['epoch']
             print(f"Resuming training from epoch {checkpoint['epoch']}")
+        # Pre-step the scheduler to "resume" it
+        for _ in range(args.last_epoch):
+            scheduler.step()
+
+    if isinstance(args.log_every_n_steps, float):
+        args.log_every_n_steps_train = max(int(args.log_every_n_steps * len(train_loader)), 1)
+        args.log_every_n_steps_val = max(int(args.log_every_n_steps * len(val_loader)), 1)
+    else:
+        args.log_every_n_steps_train = args.log_every_n_steps
+        args.log_every_n_steps_val = args.log_every_n_steps
+    args.log_every_n_steps_train = min(args.log_every_n_steps_train, len(train_loader))
+    args.log_every_n_steps_val = min(args.log_every_n_steps_val, len(val_loader))
 
     # Run
     ## It’s a no-op if the 'gpu_index' argument is a negative integer or None.
@@ -191,30 +213,31 @@ def main(args):
 
 if __name__ == "__main__":
     args = {
-        'name': 'test: species VS GPS',# 'SimCLR: satellite VS GPS, u_sId + ssplit 0.06min, all hot',
-        'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
-        'arch': 'species',  # always paired with gps
-        'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
-        'epochs': 2,
-        'out_dim': 512,
-        'batch_size': 32,
-        'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
-        'temperature': 0.07,
-        'warmup_epochs': 0,
-        # 'learning_rate': 0.0015625,  # SimCLRv2 recommends 0.1 for batch size 4096. Assuming linear correlation between lr and BS, BS of 64 gives: 0.1*(64/4096)
-        'learning_rate': 0.00025,
+        'arch': 'landscape',  # always paired with gps
+        'batch_size': 64,
+        'ckpt_path': None, # 'wandb/run-20250604_170638-3sn5y6f2/files/last.pth.tar',
+        'device': "cuda",
+        'disable_cuda': True,
         'dropout': 0.1,
-        'weight_decay': 1e-3,
         'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
-        'log_every_n_steps': 15,
-        'max_iter': torch.inf,
+        'epochs': 60,
         'fp16_precision': False,
-        'workers': 0,
-        'gpu_index': 0,
-        'disable_cuda': False,
-        'ckpt_path': None, # 'wandb/run-20250528_120700-z9uo00oi/files/checkpoint_0030.pth.tar',
-        'freeze_modality_backbone': False,
         'freeze_gps_backbone': False,
+        'freeze_modality_backbone': False,
+        'gpu_index': 0,
+        'learning_rate': 0.00025,
+        'log_every_n_steps': 0.1,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
+        'max_iter': torch.inf,
+        'name': "SimCLR: landscape VS GPS, 50% data, DinoV2_small as img backbone, symetrix, BS_64, syncLR",
+        'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
+        'out_dim': 512,
+        'subset': 0.5,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'symmetric_loss': True,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
+        'temperature': 0.07,
+        'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
+        'weight_decay': 1e-3,
+        'workers': 0,
+        'warmup_epochs': 0,
     }
     args_ns = SimpleNamespace(**args)
     main(args_ns)

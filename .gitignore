@@ -6,6 +6,10 @@
 
 !.gitignore
 
+# Jobs
+*.stderr
+*.stdout
+
 # Build utilities
 docs/_build
 

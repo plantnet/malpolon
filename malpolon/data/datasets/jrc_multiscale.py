@@ -29,28 +29,64 @@ def load_GPS_data(
     gdf_gps = gpd.GeoDataFrame(df_gps, geometry=gs, crs="EPSG:4326")
     return gdf_gps
 
+# Version multi-view per row
+# def load_LUCAS_img(
+#     id: Union[str, int],
+#     metadata: pd.DataFrame,
+#     root_path: str = "dataset/scale_2_landscape/",
+#     views: list = ['cover', 'north', 'south',  'east', 'west', 'point'],  # Takes values in ['cover', 'north', 'south',  'east', 'west', 'point']
+#     return_img_path: Optional[bool] = False,
+#     return_img_gps: Optional[bool] = False,
+#     id_col: str = 'id',
+#     transform: Callable = None,
+# ):
+#     img, fps = [], []
+#     metadata = metadata[metadata[id_col] == id].copy()
+#     gps = tuple(metadata[['gps_long', 'gps_lat']].values.flatten())
+#     for v_i, v in enumerate(views):
+#         if metadata[f'file_path_gisco_{v}'].values[0] is None or (isinstance(metadata[f'file_path_gisco_{v}'].values[0], str) and len(metadata[f'file_path_gisco_{v}'].values[0]) <= 0):
+#             continue
+#         try:
+#             fp = '/'.join(metadata[f'file_path_gisco_{v}'].values[0].split('/')[-5:])
+#             img.append(torchvision.io.read_image(str(Path(root_path) / Path(fp))))
+#             fps.append(fp)
+#         except:
+#             print(f"Image {fp} not found.")
+#     if len(img) == 0:
+#         img = torch.zeros(1, 3, 518, 518) -1
+#     else:
+#         img = [transform(i) for i in img]
+#         img = torch.stack(img, dim=0)
+#     if return_img_gps and return_img_path:
+#         return img, gps, fps
+#     if return_img_gps:
+#         return img, gps
+#     if return_img_path:
+#         return img, fps
+#     return img
+
+# Version expanded and exists
 def load_LUCAS_img(
     id: Union[str, int],
     metadata: pd.DataFrame,
     root_path: str = "dataset/scale_2_landscape/",
-    views: list = ['cover', 'north', 'south',  'east', 'west', 'point'],  # Takes values in ['cover', 'north', 'south',  'east', 'west', 'point']
     return_img_path: Optional[bool] = False,
     return_img_gps: Optional[bool] = False,
-    id_col: str = 'id',
+    gps_col: list = ['lon', 'lat'],
+    fp_cols: str = ['full_path', 'full_path_missing', 'full_path_2022', 'full_path_cover'],
     transform: Callable = None,
 ):
     img, fps = [], []
-    metadata = metadata[metadata[id_col] == id].copy()
-    gps = tuple(metadata[['gps_long', 'gps_lat']].values.flatten())
-    for v_i, v in enumerate(views):
-        if metadata[f'file_path_gisco_{v}'].values[0] is None or (isinstance(metadata[f'file_path_gisco_{v}'].values[0], str) and len(metadata[f'file_path_gisco_{v}'].values[0]) <= 0):
-            continue
+    metadata = metadata.iloc[id]
+    gps = tuple(metadata[gps_col].values.flatten())
+    for fp_col in fp_cols:
         try:
-            fp = '/'.join(metadata[f'file_path_gisco_{v}'].values[0].split('/')[-5:])
+            fp = metadata[fp_col]
             img.append(torchvision.io.read_image(str(Path(root_path) / Path(fp))))
             fps.append(fp)
+            break
         except:
-            print(f"Image {fp} not found.")
+            continue
     if len(img) == 0:
         img = torch.zeros(1, 3, 518, 518) -1
     else:
@@ -146,47 +182,71 @@ class LandscapeDatasetSimple(DatasetSimple):
         **kwargs,
     ) -> None:
         super().__init__(root_path, fp_metadata, transform, dataset_kwargs, **kwargs)
-        self.fp_columns = ['file_path_gisco_north', 'file_path_gisco_south', 'file_path_gisco_east', 'file_path_gisco_west', 'file_path_gisco_point', 'file_path_gisco_cover']
-        if 'file_path_gisco_cover' not in self.metadata.columns:
-            self.metadata['file_path_gisco_cover'] = self.metadata['file_path_gisco_north'].copy()
-            self.metadata[self.fp_columns] = self.metadata[self.fp_columns].fillna('')
-            self.metadata['file_path_gisco_cover'] = self.metadata['file_path_gisco_cover'].apply(lambda x: str(Path(x).parent / Path(Path(x).stem[:-1] + 'C' + Path(x).suffix)))
-        # import time
-        # time.time()
-        # print('Starting to filter metadata...')
-        # self._filter_metadata_on_existing_data()
-        # print(f'Elapsed time for filtering metadata: {time.time() - start_time:.2f} seconds')
-
-    def _filter_metadata_on_existing_data(self):
-        fp_to_none = 0
-        dropped_rows = 0
-        from tqdm import tqdm
-        for rowi, row in tqdm(self.metadata.iterrows()):
-            n_missing_files = 0
-            for c in self.fp_columns:
-                if not os.path.exists(os.path.join(self.root_path, '/'.join(row[c].split('/')[-5:]))):
-                    n_missing_files += 1
-                    self.metadata.loc[rowi, c] = None
-                    fp_to_none += 1
-            if n_missing_files >= 6:
-                self.metadata.drop(rowi, inplace=True)
-                dropped_rows += 1
-        print(f"Filtered {fp_to_none} file paths to None and dropped {dropped_rows} rows from metadata.")
 
     def __getitem__(self, index) -> Any:
         img, coords = self.img, self.coords
         if not self.metadata.empty:
             sample = self.metadata.iloc[index]
-            img = load_LUCAS_img(sample['id'], self.metadata, self.root_path, **self.dataset_kwargs, transform=self.transform)
+            img = load_LUCAS_img(index, self.metadata, self.root_path, **self.dataset_kwargs, transform=self.transform)
             img = img.to(torch.float32)
             # img = self.transform(img)
             if torch.equal(img, torch.zeros(1, 3, 518, 518) -1):
                 coords = (1000, 1000)
             else:
-                coords = tuple(sample[['gps_long', 'gps_lat']].values.flatten())
+                coords = tuple(sample[['lon', 'lat']].values.flatten())
+            id = sample['id']
 
         # return {'img': img, 'gps': coords}
-        return img, torch.Tensor(coords)
+        return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([id])
+
+# Version multi-view per row
+# class LandscapeDatasetSimple(DatasetSimple):
+#     def __init__(
+#         self,
+#         root_path: str = None,
+#         fp_metadata: str = None,
+#         transform: Callable = None,
+#         dataset_kwargs: dict = {},
+#         **kwargs,
+#     ) -> None:
+#         super().__init__(root_path, fp_metadata, transform, dataset_kwargs, **kwargs)
+#         self.fp_columns = ['file_path_gisco_north', 'file_path_gisco_south', 'file_path_gisco_east', 'file_path_gisco_west', 'file_path_gisco_point', 'file_path_gisco_cover']
+#         if 'file_path_gisco_cover' not in self.metadata.columns:
+#             self.metadata['file_path_gisco_cover'] = self.metadata['file_path_gisco_north'].copy()
+#             self.metadata[self.fp_columns] = self.metadata[self.fp_columns].fillna('')
+#             self.metadata['file_path_gisco_cover'] = self.metadata['file_path_gisco_cover'].apply(lambda x: str(Path(x).parent / Path(Path(x).stem[:-1] + 'C' + Path(x).suffix)))
+
+#     def _filter_metadata_on_existing_data(self):
+#         fp_to_none = 0
+#         dropped_rows = 0
+#         from tqdm import tqdm
+#         for rowi, row in tqdm(self.metadata.iterrows()):
+#             n_missing_files = 0
+#             for c in self.fp_columns:
+#                 if not os.path.exists(os.path.join(self.root_path, '/'.join(row[c].split('/')[-5:]))):
+#                     n_missing_files += 1
+#                     self.metadata.loc[rowi, c] = None
+#                     fp_to_none += 1
+#             if n_missing_files >= 6:
+#                 self.metadata.drop(rowi, inplace=True)
+#                 dropped_rows += 1
+#         print(f"Filtered {fp_to_none} file paths to None and dropped {dropped_rows} rows from metadata.")
+
+#     def __getitem__(self, index) -> Any:
+#         img, coords = self.img, self.coords
+#         if not self.metadata.empty:
+#             sample = self.metadata.iloc[index]
+#             img = load_LUCAS_img(sample['id'], self.metadata, self.root_path, **self.dataset_kwargs, transform=self.transform)
+#             img = img.to(torch.float32)
+#             # img = self.transform(img)
+#             if torch.equal(img, torch.zeros(1, 3, 518, 518) -1):
+#                 coords = (1000, 1000)
+#             else:
+#                 coords = tuple(sample[['gps_long', 'gps_lat']].values.flatten())
+#             id = sample['id']
+
+#         # return {'img': img, 'gps': coords}
+#         return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([id])
     
 
 class SatelliteDatasetSimple(DatasetSimple):
