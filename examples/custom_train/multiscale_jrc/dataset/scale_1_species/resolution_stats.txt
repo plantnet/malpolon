@@ -1,0 +1,4 @@
+Mean resolution: 698 x 910
+Min resolution: 183 x 253
+Max resolution: 2773 x 2773
+Total number of files: 117461

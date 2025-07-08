@@ -21,7 +21,6 @@ def plot_bars_surveyId_distribution(df_train, df_val, scale='linear'):
     mpl.rcParams['hatch.color'] = 'yellow'
     _, ax = plt.subplots(figsize=(15, 5))
     df_ref_name = 'glc24_pa_train_CBN-med'
-    ax.set_title(f"glc24_pa_train_CBN-med: surveyId distribution ({scale})", fontsize=fontsize, fontweight='bold')
     counts_speciesId = pd.concat([df_train, df_val], ignore_index=True)['surveyId'].value_counts()
     counts_speciesId_train = df_train['surveyId'].value_counts()
     counts_speciesId_val = df_val['surveyId'].value_counts()
@@ -33,6 +32,9 @@ def plot_bars_surveyId_distribution(df_train, df_val, scale='linear'):
     ax2 = ax.twiny(); ax2.set_xlim(ax.get_xlim()); ax2.set_xlabel('Nb of unique surveyId', fontsize=fontsize)
     ax.set_xticks(np.arange(len(counts_speciesId))[1::floor(len(counts_speciesId)*0.1)], counts_speciesId.index[1::floor(len(counts_speciesId)*0.1)], rotation=45)
     ax2.set_xticks(np.arange(len(counts_speciesId))[1::floor(len(counts_speciesId)*0.1)], np.arange(len(counts_speciesId))[1::floor(len(counts_speciesId)*0.1)])
+    ax.set_title(f"glc24_pa_train_CBN-med: surveyId distribution ({scale})"\
+                 f"Nb of unique speciesKey in Train: {len(df_train['surveyId'].unique())}\n"+\
+                 f"Nb of unique speciesKey in Val: {len(df_val['surveyId'].unique())}", fontsize=fontsize, fontweight='bold')
     plt.show()
      
 
