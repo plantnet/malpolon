@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     Modifier = Callable[..., nn.Module]
 
 MALPOLON_MODELS = {'glc24_multimodal_ensemble': MultimodalEnsemble,
-                  }
 
 
 class _ModelBuilder:
