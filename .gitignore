@@ -33,6 +33,8 @@ examples/benchmarks/geolifeclef/geolifeclef2024/dataset
 examples/benchmarks/cifar-10/dataset/*
 examples/benchmarks/cifar-10/outputs/*
 
+examples/custom_train/multiscale_jrc/dataset/scale_2_landscape/LUCAS_subset/*/*[NSEWP].jpg
+
 # Packaging
 dist/
 build/
