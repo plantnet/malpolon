@@ -26,8 +26,8 @@ if TYPE_CHECKING:
     Provider = Callable[..., nn.Module]
     Modifier = Callable[..., nn.Module]
 
+
 MALPOLON_MODELS = {'glc24_multimodal_ensemble': MultimodalEnsemble,
-                  }
 
 
 class _ModelBuilder:

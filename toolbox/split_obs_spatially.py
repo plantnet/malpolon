@@ -15,6 +15,7 @@ from malpolon.plot.map import plot_observation_dataset as plot_od
 def main(input_path: str,
          spacing: float = 10 / 60,
          plot: bool = False,
+
          val_size: float = 0.15,
          col_lon: str = 'lon',
          col_lat: str = 'lat'):
@@ -24,6 +25,7 @@ def main(input_path: str,
     i.e. if arguments col_lon and col_lat are provided with different values than
     their defaults, the script will rename the columns in the output files to
     'lon' and 'lat'.
+
 
     Parameters
     ----------
@@ -42,6 +44,7 @@ def main(input_path: str,
     df = pd.read_csv(f'{input_name}.csv')
     coords, data = {}, {}
     for col in df.columns:
+
         if col in [col_lon, col_lat]:
             coords[col] = df[col].to_numpy()
         else:
@@ -55,6 +58,7 @@ def main(input_path: str,
     df_val[['lon', 'lat']] = pd.DataFrame({'lon': val_split[0][0], 'lat': val_split[0][1]})
     df_train['subset'] = ['train'] * len(df_train)
     df_val['subset'] = ['val'] * len(df_val)
+
     df_train_val = pd.concat([df_train, df_val])
 
     df_train_val.to_csv(f'{input_name}_train_val-{spacing*60}min.csv', index=False)
@@ -79,6 +83,7 @@ if __name__ == '__main__':
                         help="Size of the validation subset to produce.",
                         default=0.15,
                         type=float)
+
     parser.add_argument("--col_lon",
                         help="Name of the longitude column.",
                         default='lon',
@@ -87,8 +92,11 @@ if __name__ == '__main__':
                         help="Name of the latitude column.",
                         default='lat',
                         type=str)
+
     parser.add_argument("-p", "--plot",
                         help="If true, plot the train/val split at the end of the script.",
                         action='store_true')
     args = parser.parse_args()
+
     main(args.input_path, args.spacing, plot=args.plot, val_size=args.val_size, col_lon=args.col_lon, col_lat=args.col_lat)
+

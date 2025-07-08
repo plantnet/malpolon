@@ -166,6 +166,7 @@ def get_files_path_recursively(path, *args, suffix='') -> list:
 def split_obs_spatially(input_path: str,
                         spacing: float = 10 / 60,
                         plot: bool = False,
+
                         val_size: float = 0.15,
                         col_lon: str = 'lon',
                         col_lat: str = 'lat'):
@@ -180,6 +181,7 @@ def split_obs_spatially(input_path: str,
     ----------
     obs_path : str
         obs CSV input file's path.
+
     spacing : float, optional
         size of the spatial split in degrees (or whatever unit the coordinates are in),
         by default 10/60
@@ -187,12 +189,15 @@ def split_obs_spatially(input_path: str,
         if true, plots the train/val split on a 2D map,
         by default False
     val_size : float, optional
+
         size of the validaiton split, by default 0.15
+
     """
     input_name = input_path[:-4] if input_path.endswith(".csv") else input_path
     df = pd.read_csv(f'{input_name}.csv')
     coords, data = {}, {}
     for col in df.columns:
+
         if col in [col_lon, col_lat]:
             coords[col] = df[col].to_numpy()
         else:
@@ -211,6 +216,7 @@ def split_obs_spatially(input_path: str,
     df_train_val.to_csv(f'{input_name}_train_val-{spacing*60}min.csv', index=False)
     df_train.to_csv(f'{input_name}_train-{spacing*60}min.csv', index=False)
     df_val.to_csv(f'{input_name}_val-{spacing*60}min.csv', index=False)
+
 
     if plot:
         plot_od(df=df_train_val, show_map=True)
