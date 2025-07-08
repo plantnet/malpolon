@@ -128,11 +128,16 @@ def get_model_species():
     return model_species
 
 def get_model_landscape(out_dim=512):
-    # model_root_path_landscape = 'weights/scale_2_landscape/'
+    model_root_path_landscape = 'weights/scale_2_landscape/'
+    # model_landscape = timm.create_model(
+    #     'resnet18',
+    #     pretrained=True,
+    #     num_classes=out_dim,
+    # )
     model_landscape = timm.create_model(
-        'resnet18',
+        # 'vit_base_patch14_reg4_dinov2.lvd142m',
+        'vit_small_patch14_dinov2.lvd142m',
         pretrained=True,
-        num_classes=out_dim,
     )
     return model_landscape
 
@@ -220,7 +225,8 @@ class ModelSimCLR(nn.Module):
             replace_last_k_layers_with_identity(self.modality_encoder, 4)
         elif base_model == 'landscape':
             self.modality_encoder = modality_dict[base_model](out_dim=out_dim) # assuming resnet18
-            dim_mlp = self.modality_encoder.fc.out_features
+            # dim_mlp = self.modality_encoder.fc.out_features  # ResNet18
+            dim_mlp = self.modality_encoder.num_features  # DinoV2
             self.modality_contrastive_head = torch.nn.Sequential(
                 OrderedDict(
                     [

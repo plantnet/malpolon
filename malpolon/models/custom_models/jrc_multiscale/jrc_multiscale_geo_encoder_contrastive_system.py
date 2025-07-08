@@ -142,16 +142,17 @@ class SimCLR(object):
         wandb.define_metric("t-sne/val/*", step_metric='epoch')
 
     def info_nce_loss(self, features, dataset_type: str = 'species'):
-        batch_size = self.args.batch_size
-        if dataset_type == 'landscape':
-            batch_size = features.shape[0] // self.args.n_views  # LUCAS image views stacked along the batch dim
-        labels = torch.cat([torch.arange(batch_size) for i in range(self.args.n_views)], dim=0)
+        # Flexible bastch_size strategy on hold
+        # batch_size = self.args.batch_size
+        # if dataset_type == 'landscape':
+        #     batch_size = features.shape[0] // self.args.n_views  # LUCAS image views stacked along the batch dim
+        labels = torch.cat([torch.arange(features.shape[0]//self.args.n_views) for i in range(self.args.n_views)], dim=0)
         # Labels is a vector of size 64 with values 0 to 31 concatenated n_views times. E.g. if n_views==2: [0, 1, 2, ..., 31, 0, 1, 2, ..., 31]
         labels = (torch.unsqueeze(labels, 0) == torch.unsqueeze(labels, 1)).float()
         # Labels is transformed to one-hot and is of shape (64, 64).
         # There are 2 diagonals of ones: the 64x64 main diagonal, and a shifted diagonal (of the 2nd [0:31] vector originlly concatenated) which warps at the end of the columns to continue at the start of them on the next rows.
         labels = labels.to(self.args.device)
-
+        
         # Features are the output of the MLP head. Shape (batch_size, 512)
         features = F.normalize(features, dim=1)
         # Features are L2-normalized to unit length. Shape (batch_size, 512)
@@ -244,8 +245,10 @@ class SimCLR(object):
                     std_mean_diff = (std_mean_img[0] - std_mean_gps[0], std_mean_img[1] - std_mean_gps[1])
                     norm_img, norm_gps = torch.norm(features_img, dim=1), torch.norm(features_gps, dim=1)
                     features = torch.cat([features_img, features_gps], dim=0)
-                    # logits, labels, sim_matrix = self.info_nce_loss(features, dataset_type=self.args.arch)
-                    logits, labels, sim_matrix = self.info_nce_loss_single_diag(features_img, features_gps, dataset_type=self.args.arch)
+                    if self.args.symmetric_loss:
+                        logits, labels, sim_matrix = self.info_nce_loss(features, dataset_type=self.args.arch)
+                    else:
+                        logits, labels, sim_matrix = self.info_nce_loss_single_diag(features_img, features_gps, dataset_type=self.args.arch)
                     sim_matrices.append(sim_matrix)
                     loss = self.criterion(logits, labels)
                     running_loss.append(loss.item())
@@ -256,7 +259,7 @@ class SimCLR(object):
                 scaler.step(self.optimizer)
                 scaler.update()
 
-                if step % self.args.log_every_n_steps == 0:            
+                if step % self.args.log_every_n_steps_train == 0:            
                     # Log input batch images
                     fig, axes = plt.subplots(4, 8, figsize=(16, 8))  # 4 rows, 8 columns
                     axes = axes.flatten()
@@ -286,12 +289,12 @@ class SimCLR(object):
                     wandb.log({f'SimMatrix_train/e_{epoch_counter:03d}_s_{step:03d}': wandb.Image(hm)})
                     plt.close()
                     
-                    # Log mean of similarity matrices computed over self.args.log_every_n_steps steps
+                    # Log mean of similarity matrices computed over self.args.log_every_n_steps_train steps
                     sim_matrix_mean = torch.Tensor(np.array(sim_matrices)).mean(dim=0)
                     plt.figure(figsize=(12, 10))
                     plt.title("Similarity Matrix")
                     hm = sns.heatmap(sim_matrix_mean, cmap="viridis", annot=False)
-                    wandb.log({f'SimMatrix_mean-{self.args.log_every_n_steps}-steps_train/{epoch_counter:03d}_s_{step:03d}': wandb.Image(hm)})
+                    wandb.log({f'SimMatrix_mean-{self.args.log_every_n_steps_train}-steps_train/{epoch_counter:03d}_s_{step:03d}': wandb.Image(hm)})
                     plt.close()
                     sim_matrices = []
                     
@@ -338,8 +341,10 @@ class SimCLR(object):
 
                     vfeatures_img, vfeatures_gps = self.model(vimages, vgps)
                     vfeatures = torch.cat([vfeatures_img, vfeatures_gps], dim=0)
-                    # vlogits, vlabels, vsim_matrix = self.info_nce_loss(vfeatures, dataset_type=self.args.arch)
-                    vlogits, vlabels, vsim_matrix = self.info_nce_loss_single_diag(vfeatures_img, vfeatures_gps, dataset_type=self.args.arch)
+                    if self.args.symmetric_loss:
+                        vlogits, vlabels, vsim_matrix = self.info_nce_loss(vfeatures, dataset_type=self.args.arch)
+                    else:
+                        vlogits, vlabels, vsim_matrix = self.info_nce_loss_single_diag(vfeatures_img, vfeatures_gps, dataset_type=self.args.arch)
                     vsim_matrices.append(vsim_matrix)
                     vloss = self.criterion(vlogits, vlabels)
                     running_vloss.append(vloss.item())
@@ -365,7 +370,7 @@ class SimCLR(object):
                     else:
                         print("Batch size (val) is too small for accuracy calculation.")
 
-                    if vstep % self.args.log_every_n_steps == 0:
+                    if vstep % self.args.log_every_n_steps_val == 0:
                         # Log input batch images
                         fig, axes = plt.subplots(4, 8, figsize=(16, 8))  # 4 rows, 8 columns
                         axes = axes.flatten()
