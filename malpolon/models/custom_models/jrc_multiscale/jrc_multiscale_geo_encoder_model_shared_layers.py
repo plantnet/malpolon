@@ -286,26 +286,3 @@ class ModelSimCLR(nn.Module):
 
         img_z = self.modality_contrastive_head(img_h)
         return gps_z, img_z
-
-
-class MultiLabelClassifier(nn.Module):
-    def __init__(self, satellite_encoder, gps_encoder, embed_dim, num_labels, type):
-        super().__init__()
-        self.sat_encoder = satellite_encoder
-        self.gps_encoder = gps_encoder
-        if type == 'fine_tuning':
-            self.classifier = nn.Sequential(
-                nn.Linear(embed_dim * 2, 512),
-                nn.ReLU(),
-                nn.Dropout(0.3),
-                nn.Linear(512, num_labels)
-            )
-        elif type == 'linear_probing':
-            self.classifier = nn.Linear(embed_dim * 2, num_labels)
-
-    def forward(self, sat_img, gps):
-        sat_feat = self.sat_encoder(sat_img)
-        gps_feat = self.gps_encoder(gps)
-        joint = torch.cat([sat_feat, gps_feat], dim=1)
-        return self.classifier(joint)
-
