@@ -226,12 +226,14 @@ class SimCLR(object):
         self.model = kwargs['model'].to(self.args.device)
         self.optimizer = kwargs['optimizer']
         self.scheduler = kwargs['scheduler']
+        self.resume_wandb_run = getattr(self.args, 'resume_wandb_run', False)
         self.log_images = getattr(self.args, 'log_images', True)
         self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
         self.skip_modalities = getattr(self.args, 'skip_modalities', [])
+        self.inference = bool(getattr(self.args, 'predict', False))
         self.writer = wandb.init(
             entity="tlarcher-phd-jrc",
-            id=self.args.ckpt_path.split('/')[-2].split('-')[2] if self.args.ckpt_path else None,
+            id=self.args.ckpt_path.split('/')[-2].split('-')[2] if (self.args.ckpt_path and self.resume_wandb_run) else None,
             project=self.args.wandb_project,
             name=self.args.name,#'Unique surveyId spatial split 0.06min, dropout',
             notes=f"Shuffle train ON, val OFF. Info_nce_loss symmetrical. "\
@@ -244,6 +246,7 @@ class SimCLR(object):
                   f"Weight_decay {self.args.weight_decay}. ",
             group="SimCLR: satellite VS GPS",
             config=kwargs['args'],
+            job_type='inference' if self.inference else 'train',
         )
         logging.basicConfig(filename=os.path.join(self.writer.dir, 'training.log'), level=logging.DEBUG)
         wandb_init()

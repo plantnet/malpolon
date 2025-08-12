@@ -414,7 +414,7 @@ class MultiscaleDatasetSimple(Dataset):
         return sample
 
 class MultiscaleDatasetJoint(MultiscaleDatasetSimple):
-    """Dataset intended for evaluation.
+    """Dataset intended for downstream task evaluation.
 
     All modalities will be loaded using a common metadata file (or at least separate metadata files
     which share identical indexing and lengths)
