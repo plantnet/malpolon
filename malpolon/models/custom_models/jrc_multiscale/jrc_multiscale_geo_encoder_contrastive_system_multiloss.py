@@ -159,8 +159,9 @@ def log_similarity_matrix_mean(sim_matrices, epoch_counter, step,
 def log_acc_topk_step(logits, labels, modality_name, topk=(1, 5), mode='train'):
     if logits[0].shape[0] >= max(topk):
         acc_topks = accuracy(logits, labels, topk=topk)
-        for acc_topk, topk in zip(acc_topks, topk):
-            wandb.log({f"acc/{mode}/top{topk}_{modality_name}": acc_topk[0]})
+        if mode != 'test':
+            for acc_topk, topk in zip(acc_topks, topk):
+                wandb.log({f"acc/{mode}/top{topk}_{modality_name}": acc_topk[0]})
     else:
         print("Batch size is too small for accuracy calculation.")
         return None, None
@@ -230,7 +231,7 @@ class SimCLR(object):
         self.skip_modalities = getattr(self.args, 'skip_modalities', [])
         self.writer = wandb.init(
             entity="tlarcher-phd-jrc",
-            id=self.args.ckpt_path.split('/')[1].split('-')[2] if self.args.ckpt_path else None,
+            id=self.args.ckpt_path.split('/')[-2].split('-')[2] if self.args.ckpt_path else None,
             project=self.args.wandb_project,
             name=self.args.name,#'Unique surveyId spatial split 0.06min, dropout',
             notes=f"Shuffle train ON, val OFF. Info_nce_loss symmetrical. "\
@@ -448,8 +449,8 @@ class SimCLR(object):
                     # vsatellite_id = val_dict['satellite'][3]
 
                     val_dict.pop('indices', None)
-                    val_dict_items = val_dict.items()
-                    val_dict_items = [(k, v) for k, v in val_dict_items]  # if k in modalities_to_process]
+                    val_dict_items = val_dict.items()  # Useless if keeping all modalities
+                    val_dict_items = [(k, v) for k, v in val_dict_items]  # Useless if keeping all modalities
                     wandb.log({"val_steps": val_steps})
                     vloss, vall_logits, vall_features_img, vall_features_gps, vall_images, vidxs, vids  = 0, [], [], [], [], [], []
                     
@@ -540,3 +541,74 @@ class SimCLR(object):
             }, is_best=(vloss < best_val_loss), dirpath=self.writer.dir)
         logging.info(f"Model checkpoint and metadata has been saved at {self.writer.dir}.")
         logging.info("Training has finished.")
+
+    def predict(self, test_dataloader: torch.utils.data.DataLoader):
+        """Predict the model using SimCLR.
+
+        Args:
+            dataloader (torch.utils.data.DataLoader): pytorch dataloader for validation data
+        """
+        modalities_name = ['species', 'landscape', 'satellite']
+        modalities_to_process = [b for b in modalities_name if b not in self.skip_modalities]
+        self.model.eval()
+        features_img, features_gps = [], []
+        sim_matrices, top1s, top5s = [], [], []
+        print("Running inference...")
+        with torch.no_grad():
+            for step, test_dict in enumerate(tqdm(test_dataloader)):
+                all_logits, all_features_img, all_features_gps, idxs, ids  = [], [], [], [], []
+                batch_inds = test_dict['indices']
+                test_dict.pop('indices', None)
+                for i, (mod_name, (images, gps, inds, survey_ids)) in enumerate(test_dict.items()):
+                    images = images.to(self.args.device)
+                    gps = gps.to(self.args.device)
+                    features_img, features_gps = self.model[mod_name](images, gps) if isinstance(self.model, torch.nn.ModuleDict) else self.model[i](images, gps)
+                    features = torch.cat([features_img, features_gps], dim=0)
+                    if self.args.symmetric_loss:
+                        logits, labels, sim_matrix = self.info_nce_loss(features, dataset_type=self.args.arch)
+                    else:
+                        logits, labels, sim_matrix = self.info_nce_loss_single_diag(features_img, features_gps, dataset_type=self.args.arch)
+
+                    all_features_img.append(features_img)
+                    all_features_gps.append(features_gps)
+                    all_logits.append(logits)
+                    sim_matrices.append(sim_matrix)
+                    ids.append(survey_ids)
+                    idxs.append(inds)
+                    
+                # Log accuracy step wise
+                for logits, modality_name in zip(all_logits, modalities_name):
+                    vtop1, vtop5 = log_acc_topk_step(logits, labels, modality_name, topk=(1, 5), mode='test')
+                    if all(topk is not None for topk in [vtop1, vtop5]):
+                        top1s.append(vtop1)
+                        top5s.append(vtop5)
+                        
+            # Log similarity matrix epoch wise
+            sim_matrix_mean = mean_sim_matrices_over_modalities(sim_matrices)
+            log_similarity_matrix_mean(sim_matrix_mean, 0, step, log_images=self.log_images, mode='test')
+            for vtop1, vtop5, modality_name in zip(top1s, top5s, modalities_name):
+                wandb.log({f"acc_epoch (batch avg)/test/top1_{modality_name}": vtop1,
+                           f"acc_epoch (batch avg)/test/top5_{modality_name}": vtop5})
+                print(f'Test accuracy for {modality_name} - Top-1: {vtop1:.4f}, Top-5: {vtop5:.4f}')
+            wandb.log({"acc_epoch (batch avg)/test/top1": np.array(top1s).mean(),
+                        "acc_epoch (batch avg)/test/top5": np.array(top5s).mean()})
+            print(f'Test accuracy (mean) - Top-1: {np.array(top1s).mean():.4f}, Top-5: {np.array(top5s).mean():.4f}')
+            # Log t-sne projection
+            for vfeatures_img, vfeatures_gps, modality_name in zip(all_features_img, all_features_gps, modalities_name):
+                log_tsne(vfeatures_img, vfeatures_gps, 0, modality_name, log_images=self.log_images, mode='test')
+                
+                    
+    # model.eval()
+    # model.to(device)
+    
+    # all_preds = []
+
+    # with torch.no_grad():
+    #     for inputs in dataloader:
+    #         if isinstance(inputs, (list, tuple)):
+    #             inputs = inputs[0]  # in case dataset returns (input, label)
+    #         inputs = inputs.to(device)
+            
+    #         outputs = model(inputs)  # shape: (batch_size, num_classes)
+    #         preds = torch.argmax(outputs, dim=1)  # get predicted class indices
+    #         all_preds.extend(preds.cpu().tolist())

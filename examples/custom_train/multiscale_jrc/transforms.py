@@ -21,6 +21,24 @@ from torchvision import transforms
 from tqdm import tqdm
 
 
+class ExpandEmptyTensor:
+    """Expands zeroes tensors (missing data)."""
+    def _call__(
+        self,
+        img: np.ndarray,
+    ):
+        """Call method
+
+        Args:
+            img (np.ndarray): batched image tensor of shape (B, C, 1, 1) or (B, C, 518, 518)
+
+        Returns:
+            np.ndarray: _description_
+        """
+        if sum(img.shape) <= 6:
+            return np.zeros((img.shape[0], 518, 518))
+        return img
+
 class SafeRescaleTo255:
     """Rescale an image band to [0, 255] and clip values."""
     def __call__(

@@ -289,23 +289,45 @@ class ModelSimCLR(nn.Module):
 
 
 class MultiLabelClassifier(nn.Module):
-    def __init__(self, satellite_encoder, gps_encoder, embed_dim, num_labels, type):
+    """
+    Out features shapes:
+      - Contrastive head: 512 for all
+      - Encoders:
+          - GPS: 512 -> model['satellite'].gps_encoder.LocEnc1.head[0].out_features
+          - species: 768 -> model['species'].num_features
+          - landscape: 384 -> model['landscape'].num_features
+          - satellite: 768 -> model['satellite'].features[-1][-1].mlp[3].out_features
+    """
+    def __init__(self, gps_encoder, species_encoder, landscape_encoder, satellite_encoder, classifier_type='linear_probing', num_labels=11255):
         super().__init__()
-        self.sat_encoder = satellite_encoder
-        self.gps_encoder = gps_encoder
-        if type == 'fine_tuning':
+        self.gps_out_features = gps_encoder.LocEnc1.head[0].out_features
+        self.species_out_features = species_encoder.num_features
+        self.landscape_out_features = landscape_encoder.num_features
+        self.satellite_out_features = satellite_encoder.features[-1][-1].mlp[3].out_features
+        self.modalities_out_features = sum([self.gps_out_features, self.species_out_features, self.landscape_out_features, self.satellite_out_features])
+
+        if classifier_type == 'fine_tuning':
             self.classifier = nn.Sequential(
-                nn.Linear(embed_dim * 2, 512),
+                nn.Linear(self.gps_out_features + self.modalities_out_features, 2048),
                 nn.ReLU(),
                 nn.Dropout(0.3),
-                nn.Linear(512, num_labels)
+                nn.Linear(2048, 4096),
+                nn.Dropout(0.1),
+                nn.Linear(4096, num_labels)
             )
-        elif type == 'linear_probing':
-            self.classifier = nn.Linear(embed_dim * 2, num_labels)
+        elif classifier_type == 'linear_probing':
+            self.classifier = nn.Linear(self.gps_out_features + self.modalities_out_features, num_labels)
 
-    def forward(self, sat_img, gps):
-        sat_feat = self.sat_encoder(sat_img)
-        gps_feat = self.gps_encoder(gps)
-        joint = torch.cat([sat_feat, gps_feat], dim=1)
-        return self.classifier(joint)
+    def forward(self, img, gps):
+        gps_h = self.gps_encoder(gps)
+        if self.base_model == 'species':
+            img_h = self.modality_encoder.forward_features(img)  # includes the (norm) layer
+            img_h = self.modality_encoder.pool(img_h)
+        elif self.base_model == 'landscape':
+            img_h = self.modality_encoder(img)
+        elif self.base_model == 'satellite':
+            img_h = self.modality_encoder(img)
+        
+        joint_h = torch.cat([gps_h, img_h], dim=1)
+        return self.classifier(joint_h)
 

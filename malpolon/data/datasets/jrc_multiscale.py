@@ -17,6 +17,10 @@ from torch.utils.data import DataLoader, Dataset
 from malpolon.data.datasets.geolifeclef2024 import JpegPatchProvider, PatchesDataset
 
 
+SPECIES_INPUT_SIZE = 518
+LANDSCAPE_INPUT_SIZE = 518
+SATELLITE_INPUT_SIZE = 128
+
 def load_GPS_data(
     fp_gps: str = "dataset/geoloc/PN_gbif_France_2005-2025_illustrated_CBN-med.csv",
     cols: Union[str, list] = 'all',
@@ -53,7 +57,7 @@ def load_GPS_data(
 #         except:
 #             print(f"Image {fp} not found.")
 #     if len(img) == 0:
-#         img = torch.zeros(1, 3, 518, 518) -1
+#         img = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE) -1
 #     else:
 #         img = [transform(i) for i in img]
 #         img = torch.stack(img, dim=0)
@@ -88,7 +92,7 @@ def load_LUCAS_img(
         except:
             continue
     if len(img) == 0:
-        img = torch.zeros(1, 3, 518, 518) -1
+        img = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE) -1
     else:
         img = [transform(i) for i in img]
         img = torch.stack(img, dim=0)
@@ -190,7 +194,7 @@ class LandscapeDatasetSimple(DatasetSimple):
             img = load_LUCAS_img(index, self.metadata, self.root_path, **self.dataset_kwargs, transform=self.transform)
             img = img.to(torch.float32)
             # img = self.transform(img)
-            if torch.equal(img, torch.zeros(1, 3, 518, 518) -1):
+            if torch.equal(img, torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE) -1):
                 coords = (1000, 1000)
             else:
                 coords = tuple(sample[['lon', 'lat']].values.flatten())
@@ -239,7 +243,7 @@ class LandscapeDatasetSimple(DatasetSimple):
 #             img = load_LUCAS_img(sample['id'], self.metadata, self.root_path, **self.dataset_kwargs, transform=self.transform)
 #             img = img.to(torch.float32)
 #             # img = self.transform(img)
-#             if torch.equal(img, torch.zeros(1, 3, 518, 518) -1):
+#             if torch.equal(img, torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE) -1):
 #                 coords = (1000, 1000)
 #             else:
 #                 coords = tuple(sample[['gps_long', 'gps_lat']].values.flatten())
@@ -256,7 +260,7 @@ class SatelliteDatasetSimple(DatasetSimple):
         fp_metadata: str = None,
         transform: Callable = None,
         kwargs_sat_provider: dict = {'select': ['red','green','blue','nir'],
-                                     'size': 128},
+                                     'size': SATELLITE_INPUT_SIZE},
         kwargs_sat_dataset: dict = {'item_columns': ['lat', 'lon', 'surveyId'],
                                     'labels_name': ['lat', 'lon']},
         **kwargs,
@@ -302,7 +306,7 @@ class MultiscaleDatasetSimple(Dataset):
         transform_landscape: Callable = None,
         transform_satellite: Callable = None,
         kwargs_sat_provider: dict = {'select': ['red','green','blue','nir'],
-                                     'size': 128},
+                                     'size': SATELLITE_INPUT_SIZE},
         kwargs_sat_dataset: dict = {'item_columns': ['lat', 'lon', 'surveyId'],
                                     'labels_name': ['lat', 'lon']},
         skip_modalities: List[str] = [],
@@ -310,34 +314,46 @@ class MultiscaleDatasetSimple(Dataset):
     ) -> None:
         super().__init__()
         self.skip_modalities = skip_modalities
-        self.species_dataset = SpeciesDatasetSimple(
-            root_path = root_path_species,
-            fp_metadata = fp_metadata_species,
-            transform = transform_species, 
-            **kwargs,
-        )
-        self.landscape_dataset = LandscapeDatasetSimple(
-            root_path = root_path_landscape,
-            fp_metadata = fp_metadata_landscape,
-            transform = transform_landscape, 
-            **kwargs,
-        )
-        self.satellite_dataset = SatelliteDatasetSimple(
-            root_path = root_path_satellite,
-            fp_metadata = fp_metadata_satellite,
-            transform = transform_satellite,
-            kwargs_sat_provider = kwargs_sat_provider,
-            kwargs_sat_dataset = kwargs_sat_dataset,
-            **kwargs,
-        )
+        if 'species' in self.skip_modalities:
+            self.species_dataset = None
+        else:
+            self.species_dataset = SpeciesDatasetSimple(
+                root_path = root_path_species,
+                fp_metadata = fp_metadata_species,
+                transform = transform_species, 
+                **kwargs,
+            )
+        if 'landscape' in self.skip_modalities:
+            self.landscape_dataset = None
+        else:
+            self.landscape_dataset = LandscapeDatasetSimple(
+                root_path = root_path_landscape,
+                fp_metadata = fp_metadata_landscape,
+                transform = transform_landscape, 
+                **kwargs,
+            )
+        if 'satellite' in self.skip_modalities:
+            self.satellite_dataset = None
+        else:
+            self.satellite_dataset = SatelliteDatasetSimple(
+                root_path = root_path_satellite,
+                fp_metadata = fp_metadata_satellite,
+                transform = transform_satellite,
+                kwargs_sat_provider = kwargs_sat_provider,
+                kwargs_sat_dataset = kwargs_sat_dataset,
+                **kwargs,
+            )
         
     def __len__(self):
-        return max(len(self.species_dataset), len(self.landscape_dataset), len(self.satellite_dataset))
+        len_species = len(self.species_dataset) if self.species_dataset is not None else 0
+        len_landscape = len(self.landscape_dataset) if self.landscape_dataset is not None else 0
+        len_satellite = len(self.satellite_dataset) if self.satellite_dataset is not None else 0
+        return max(len_species, len_landscape, len_satellite)
     
     def __getitem__(self, index) -> Any:
         # Species
         if 'species' in self.skip_modalities:
-            species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
         else:
             if index > len(self.species_dataset) - 1:
                 idx = torch.randint(0, len(self.species_dataset), (1,)).item()
@@ -347,7 +363,7 @@ class MultiscaleDatasetSimple(Dataset):
         
         # Landscape
         if 'landscape' in self.skip_modalities:
-            landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
         else:
             if index > len(self.landscape_dataset) - 1:
                 idx = torch.randint(0, len(self.landscape_dataset), (1,)).item()
@@ -357,7 +373,7 @@ class MultiscaleDatasetSimple(Dataset):
         
         # Satellite
         if 'satellite' in self.skip_modalities:
-            satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, SATELLITE_INPUT_SIZE, SATELLITE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
         else:
             if index > len(self.satellite_dataset) - 1:
                 idx = torch.randint(0, len(self.satellite_dataset), (1,)).item()
@@ -365,19 +381,19 @@ class MultiscaleDatasetSimple(Dataset):
                 idx = index
             satellite_img, satellite_coords, satellite_idx, satellite_id = self.satellite_dataset[idx]
 
-        sample = (species_img,
-                  landscape_img,
-                  satellite_img,
-                  species_coords,
-                  landscape_coords,
-                  satellite_coords,
-                  torch.tensor([index]),
-                  species_idx,
-                  landscape_idx,
-                  satellite_idx,
-                  species_id,
-                  landscape_id,
-                  satellite_id)
+        sample = (species_img,  # 1
+                  landscape_img,  # 2
+                  satellite_img,  # 3
+                  species_coords,  # 4
+                  landscape_coords,  # 5
+                  satellite_coords,  # 6
+                  torch.tensor([index]),  # 7
+                  species_idx,  # 8
+                  landscape_idx,  # 9
+                  satellite_idx,  # 10
+                  species_id,  # 11
+                  landscape_id,  # 12
+                  satellite_id)  # 13
         
         # sample = {'species':
         #             {'img': species_img,
@@ -397,81 +413,48 @@ class MultiscaleDatasetSimple(Dataset):
         
         return sample
 
+class MultiscaleDatasetJoint(MultiscaleDatasetSimple):
+    """Dataset intended for evaluation.
 
-# class MultiscaleDatasetSimple(Dataset):
-#     def __init__(
-#         self,
-#         root_path_species: str = None,
-#         fp_metadata_species: str = None,
-#         root_path_landscape: str = None,
-#         fp_metadata_landscape: str = None,
-#         root_path_satellite: str = None,
-#         fp_metadata_satellite: str = None,
-#         transform_species: Callable = None,
-#         transform_landscape: Callable = None,
-#         transform_satellite: Callable = None,
-#         kwargs_sat_provider: dict = {'select': ['red','green','blue','nir'],
-#                                      'size': 128},
-#         kwargs_sat_dataset: dict = {'item_columns': ['lat', 'lon', 'surveyId'],
-#                                     'labels_name': ['lat', 'lon']},
-#         **kwargs,
-#     ) -> None:
-#         super().__init__()
-#         self.root_path_species = root_path_species
-#         self.root_path_landscape = root_path_landscape
-#         self.root_path_satellite = root_path_satellite
-#         self.metadata_species = pd.read_csv(f'{Path(fp_metadata_species)}') if fp_metadata_species is not None else pd.DataFrame()
-#         self.metadata_landscape = pd.read_csv(f'{Path(fp_metadata_landscape)}') if fp_metadata_landscape is not None else pd.DataFrame()
-#         self.metadata_satellite = pd.read_csv(f'{Path(fp_metadata_satellite)}') if fp_metadata_satellite is not None else pd.DataFrame()
-#         self.transforms = {'species': lambda x: x if transform_species is None else transform_species,
-#                            'landscape': lambda x: x if transform_landscape is None else transform_landscape,
-#                            'satellite': lambda x: x if transform_satellite is None else transform_satellite}
-        
-#         self.sat_provider = JpegPatchProvider(
-#             self.root_path_satellite,  # 'dataset/scale_3_satellite/data_subset/PA_Train_SatellitePatches/',
-#             **kwargs_sat_provider, # default value, that of he pre-extracted patches
-#         )
-#         self.sat_dataset = PatchesDataset(
-#             occurrences=fp_metadata_satellite,  # 'dataset/scale_3_satellite/GLC24-PA-data_subset.csv',
-#             providers=[self.sat_provider],
-#             **kwargs_sat_dataset,
-#         )
-        
-#     def __len__(self):
-#         return max(len(self.metadata_species), len(self.metadata_landscape), len(self.metadata_satellite))
-    
-#     def __getitem__(self, index) -> Any:
-#         # Species
-#         species_img, species_coords = None, None
-#         if not self.metadata_species.empty:
-#             species_sample = self.metadata_species.iloc[index]
-#             species_img = load_species_img(species_sample['gbifID'], self.root_path_species)
-#             species_img = self.transforms['species'](species_img)
-#             species_coords = tuple(species_sample[['decimalLongitude', 'decimalLatitude']].values.flatten())
-        
-#         # Landscape
-#         landscape_img, landscape_coords = None, None
-#         if not self.metadata_landscape.empty:
-#             landscape_sample = self.metadata_landscape.iloc[index]
-#             landscape_img = load_LUCAS_img(landscape_sample['id'], self.metadata_landscape, self.root_path_landscape)
-#             landscape_img = self.transforms['landscape'](landscape_img)
-#             landscape_coords = tuple(landscape_sample[['gps_long', 'gps_lat']].values.flatten())
-        
-#         # Satellite
-#         satellite_img, satellite_coords = None, None
-#         if not self.metadata_satellite.empty:
-#             satellite_img, (sat_lat, sat_lon) = self.sat_dataset[index]  # Same as: sat_provider[{'surveyId': 80000}]
-#             satellite_img = torch.unsqueeze(satellite_img, dim=0)  # Adds a batch dimension
-#             satellite_img = self.transforms['satellite'](satellite_img)
-#             satellite_coords = (sat_lon, sat_lat)
+    All modalities will be loaded using a common metadata file (or at least separate metadata files
+    which share identical indexing and lengths)
 
-#         sample = {'species':
-#                     {'img': species_img,
-#                      'gps': species_coords},
-#                   'landscape':
-#                     {'img': landscape_img,
-#                      'gps': landscape_coords},
-#                   'satellite':
-#                     {'img': satellite_img,
-#                      'gps': satellite_coords}}
-#         return sample
+    Inherits MultiscaleDatasetSimple
+    """
+    def __init__(self, root_path_species: str = None, fp_metadata_species: str = None, root_path_landscape: str = None, fp_metadata_landscape: str = None, root_path_satellite: str = None, fp_metadata_satellite: str = None, transform_species: Callable[..., Any] = None, transform_landscape: Callable[..., Any] = None, transform_satellite: Callable[..., Any] = None, kwargs_sat_provider: dict = { 'select': ['red', 'green', 'blue', 'nir'],'size': SATELLITE_INPUT_SIZE }, kwargs_sat_dataset: dict = { 'item_columns': ['lat', 'lon', 'surveyId'],'labels_name': ['lat', 'lon'] }, skip_modalities: List[str] = [], **kwargs) -> None:
+        super().__init__(root_path_species, fp_metadata_species, root_path_landscape, fp_metadata_landscape, root_path_satellite, fp_metadata_satellite, transform_species, transform_landscape, transform_satellite, kwargs_sat_provider, kwargs_sat_dataset, skip_modalities, **kwargs)
+        
+    def __getitem__(self, index) -> Any:
+        # Species
+        if 'species' in self.skip_modalities:
+            species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+        else:
+            species_img, species_coords, species_idx, species_id = self.species_dataset[index]
+
+        # Landscape
+        if 'landscape' in self.skip_modalities:
+            landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+        else:
+            landscape_img, landscape_coords, landscape_idx, landscape_id = self.landscape_dataset[index]
+
+        # Satellite
+        if 'satellite' in self.skip_modalities:
+            satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, SATELLITE_INPUT_SIZE, SATELLITE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+        else:
+            satellite_img, satellite_coords, satellite_idx, satellite_id = self.satellite_dataset[index]
+
+        sample = (species_img,
+                  landscape_img,
+                  satellite_img,
+                  species_coords,
+                  landscape_coords,
+                  satellite_coords,
+                  torch.tensor([index]),
+                  species_idx,
+                  landscape_idx,
+                  satellite_idx,
+                  species_id,
+                  landscape_id,
+                  satellite_id)
+
+        return sample

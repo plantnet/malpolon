@@ -27,6 +27,11 @@ from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_mod
 )
 from transforms import (MinMaxNormalize, QuantileNormalizeFromPreComputedDatasetPercentiles)
 
+
+SPECIES_INPUT_SIZE = 518
+LANDSCAPE_INPUT_SIZE = 518
+SATELLITE_INPUT_SIZE = 128
+
 # To address inconsistent image sizes, two options:
 # 1. Define transforms to resize images to a fixed size
 def transforms_species():
@@ -35,7 +40,7 @@ def transforms_species():
         return CenterCrop((max_dim, max_dim))(img)
 
     ts = [lambda x: CenterCropToMaxDim(x),
-          Resize((518, 518))]  # bilinear by default
+          Resize((SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE))]  # bilinear by default
 
     return transforms.Compose(ts)
 
@@ -158,14 +163,14 @@ def main(args):
         custom_collate = collate_landscape
         train_dataset = LandscapeDatasetSimple(
             root_path = 'dataset/scale_2_landscape/',
-            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_exists_essentials_train-0.06min.csv',
+            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min.csv',
             transform = transforms_species(),
             subset = args.subset,
             skip_modalities = args.skip_modalities
         )
         val_dataset = LandscapeDatasetSimple(
             root_path = 'dataset/scale_2_landscape/',
-            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_exists_essentials_val-0.06min.csv',
+            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min.csv',
             transform = transforms_species(),
             subset = args.subset,
         )
@@ -191,7 +196,7 @@ def main(args):
             root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
             fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-0.06min_no_3-duplicates.csv',
             root_path_landscape = 'dataset/scale_2_landscape/',
-            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_exists_essentials_train-0.06min.csv',
+            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min.csv',
             root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
             fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
             transform_species = transforms_species(),
@@ -204,13 +209,26 @@ def main(args):
             root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
             fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-0.06min_no_3-duplicates.csv',
             root_path_landscape = 'dataset/scale_2_landscape/',
-            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_exists_essentials_val-0.06min.csv',
+            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min.csv',
             root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
             fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
             transform_species = transforms_species(),
             transform_landscape = transforms_species(),
             transform_satellite = transforms_satellite(),
             subset = args.subset,
+        )
+        test_dataset = MultiscaleDatasetSimple(
+            root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
+            fp_metadata_species = 'dataset/scale_1_species/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged.csv',
+            root_path_landscape = 'dataset/scale_2_landscape/',
+            fp_metadata_landscape = 'dataset/scale_2_landscape/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged.csv',
+            root_path_satellite = 'dataset/scale_3_satellite/PA_Test_SatellitePatches/',
+            fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged.csv',
+            transform_species = transforms_species(),
+            transform_landscape = transforms_species(),
+            transform_satellite = transforms_satellite(),
+            subset = args.subset,
+            skip_modalities = args.skip_modalities
         )
 
     # Dataloaders
@@ -220,6 +238,10 @@ def main(args):
 
     val_loader = DataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=False,
+        num_workers=args.workers, pin_memory=True, drop_last=False, collate_fn=custom_collate)
+    
+    test_loader = DataLoader(
+        test_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True, drop_last=False, collate_fn=custom_collate)
 
     # Model
@@ -232,7 +254,9 @@ def main(args):
                                   gps_encoder=model_species.gps_encoder, gps_head=model_species.gps_contrastive_head,
                                   freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
     
-    model = torch.nn.ModuleDict({'species': model_species, 'landscape': model_landscape, 'satellite': model_satellite})
+    # WARNING: it is preferred to use ModuleDict, but some old runs were trained using ModuleList. This has to be taken account of when loading checkpoints and running inference.
+    # model = torch.nn.ModuleDict({'species': model_species, 'landscape': model_landscape, 'satellite': model_satellite})
+    model = torch.nn.ModuleList([model_species, model_landscape, model_satellite])
     model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
 
     # Optimization
@@ -278,14 +302,21 @@ def main(args):
     ## It’s a no-op if the 'gpu_index' argument is a negative integer or None.
     with torch.cuda.device(args.gpu_index):
         simclr = SimCLR(model=model, optimizer=optimizer, scheduler=cosine_scheduler, args=args)
-        simclr.train(train_loader, val_loader, max_iter=args.max_iter)
+        if args.predict:
+            simclr.predict(test_loader)
+            import os
+            os.system('wandb offline')
+        else:
+            simclr.train(train_loader, val_loader, max_iter=args.max_iter)
+            import os
+            os.system('wandb online')
 
 
 if __name__ == "__main__":
     args = {
         'arch': 'multi-loss',  # always paired with gps
         'batch_size': 32,
-        'ckpt_path': None, # 'wandb/run-20250604_170638-3sn5y6f2/files/last.pth.tar',
+        'ckpt_path': 'wandb/archive/run-20250724_181933-tr7gs4v2/best.pth.tar',
         'device': "cuda",
         'disable_cuda': False,
         'dropout': 0.1,
@@ -310,6 +341,7 @@ if __name__ == "__main__":
         'warmup_epochs': 0,
         'log_images': True,  # If True, logs images to wandb
         'skip_modalities': ['species'],  # Will skip modalities during training
+        'predict': True,  # If True, will run the model in inference mode
     }
     # import os
     # os.system('wandb offline')
