@@ -303,20 +303,21 @@ def main(args):
     with torch.cuda.device(args.gpu_index):
         simclr = SimCLR(model=model, optimizer=optimizer, scheduler=cosine_scheduler, args=args)
         if args.predict:
+            # import os
+            # os.system('wandb offline')
             simclr.predict(test_loader)
-            import os
-            os.system('wandb offline')
         else:
-            simclr.train(train_loader, val_loader, max_iter=args.max_iter)
             import os
             os.system('wandb online')
+            simclr.train(train_loader, val_loader, max_iter=args.max_iter)
 
 
 if __name__ == "__main__":
     args = {
         'arch': 'multi-loss',  # always paired with gps
         'batch_size': 32,
-        'ckpt_path': 'wandb/archive/run-20250724_181933-tr7gs4v2/best.pth.tar',
+        'ckpt_path': 'wandb/archive/run-20250724_181933-tr7gs4v2/files/best.pth.tar',
+        'resume_wandb_run': False,  # If True, will resume the run from the last checkpoint under the same wandb run id.
         'device': "cuda",
         'disable_cuda': False,
         'dropout': 0.1,
@@ -329,10 +330,10 @@ if __name__ == "__main__":
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "SimCLR: multi-loss all bb hot, symetrix, no species in training",
+        'name': "Inference (missing species) > SimCLR: multi-loss all bb hot, symetrix",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'out_dim': 512,
-        'subset': 0.5,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'symmetric_loss': True,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
         'temperature': 0.07,
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'

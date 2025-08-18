@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import List, Union, Optional, Callable, Any
 from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader, Dataset
+from collections.abc import Iterable
 
 from malpolon.data.datasets.geolifeclef2024 import JpegPatchProvider, PatchesDataset
 
@@ -456,5 +457,87 @@ class MultiscaleDatasetJoint(MultiscaleDatasetSimple):
                   species_id,
                   landscape_id,
                   satellite_id)
+
+        return sample
+
+
+class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
+    """Dataset intended for downstream task evaluation.
+
+    All modalities will be loaded using a common metadata file (or at least separate metadata files
+    which share identical indexing and lengths)
+
+    Inherits MultiscaleDatasetSimple
+    """
+    def __init__(self, root_path_species: str = None, fp_metadata_species: str = None, root_path_landscape: str = None, fp_metadata_landscape: str = None, root_path_satellite: str = None, fp_metadata_satellite: str = None, transform_species: Callable[..., Any] = None, transform_landscape: Callable[..., Any] = None, transform_satellite: Callable[..., Any] = None, kwargs_sat_provider: dict = { 'select': ['red', 'green', 'blue', 'nir'],'size': SATELLITE_INPUT_SIZE }, kwargs_sat_dataset: dict = { 'item_columns': ['lat', 'lon', 'surveyId'],'labels_name': ['lat', 'lon'] }, skip_modalities: List[str] = [], **kwargs) -> None:
+        super().__init__(root_path_species, fp_metadata_species, root_path_landscape, fp_metadata_landscape, root_path_satellite, fp_metadata_satellite, transform_species, transform_landscape, transform_satellite, kwargs_sat_provider, kwargs_sat_dataset, skip_modalities, **kwargs)
+        self.task = kwargs['task'] if 'task' in kwargs else 'multilabel'
+        self.num_classes = kwargs['num_classes'] if 'num_classes' in kwargs else 1
+
+    def _labels_to_onehot(self, labels: Union[int, List[int]], num_classes: int) -> torch.Tensor:
+        """Convert labels to one-hot encoding."""
+        if not isinstance(labels, Iterable):
+            labels = [labels]
+        one_hot = torch.zeros(num_classes, dtype=torch.float32)
+        for label in labels:
+            one_hot[int(label)] = 1.0
+        return one_hot
+    
+    def _find_other_speciesid_from_surveyid(self, df, id: int) -> List[int]:
+        """Find other speciesId associated with the same surveyId."""
+        all_species_ids = df[df['id'] == id]['speciesId'].unique().tolist()
+        
+        return all_species_ids
+
+    def __getitem__(self, index) -> Any:
+        # Species
+        if 'species' in self.skip_modalities:
+            species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            species_label = torch.tensor([-1])
+        else:
+            species_img, species_coords, species_idx, species_id = self.species_dataset[index]
+            species_label = self.species_dataset.metadata.iloc[index]['speciesId'] if 'speciesId' in self.species_dataset.metadata.columns else -1
+            if 'multilabel' in self.task:
+                species_label = self._find_other_speciesid_from_surveyid(self.species_dataset.metadata, species_id.item())
+                species_label = self._labels_to_onehot(species_label, self.num_classes)
+
+        # Landscape
+        if 'landscape' in self.skip_modalities:
+            landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            landscape_label = torch.tensor([-1])
+        else:
+            landscape_img, landscape_coords, landscape_idx, landscape_id = self.landscape_dataset[index]
+            landscape_label = self.landscape_dataset.metadata.iloc[index]['speciesId'] if 'speciesId' in self.landscape_dataset.metadata.columns else -1
+            if 'multilabel' in self.task:
+                landscape_label = self._find_other_speciesid_from_surveyid(self.landscape_dataset.metadata, landscape_id.item())
+                landscape_label = self._labels_to_onehot(landscape_label, self.num_classes)
+
+        # Satellite
+        if 'satellite' in self.skip_modalities:
+            satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, SATELLITE_INPUT_SIZE, SATELLITE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            satellite_label = torch.tensor([-1])
+        else:
+            satellite_img, satellite_coords, satellite_idx, satellite_id = self.satellite_dataset[index]
+            satellite_label = self.satellite_dataset.metadata.iloc[index]['speciesId'] if 'speciesId' in self.satellite_dataset.metadata.columns else -1
+            if 'multilabel' in self.task:
+                satellite_label = self._find_other_speciesid_from_surveyid(self.satellite_dataset.metadata, satellite_id.item())
+                satellite_label = self._labels_to_onehot(satellite_label, self.num_classes)
+
+        sample = (species_img,  #1
+                  landscape_img,  #2
+                  satellite_img,  #3
+                  species_coords,  #4
+                  landscape_coords,  #5
+                  satellite_coords,  #6
+                  torch.tensor([index]),  #7
+                  species_idx,  #8
+                  landscape_idx,  #9
+                  satellite_idx,  #10
+                  species_id,  #11
+                  landscape_id,  #12
+                  satellite_id,  #13
+                  species_label,  #14
+                  landscape_label,  #15
+                  satellite_label)  #16
 
         return sample

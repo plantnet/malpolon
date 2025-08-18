@@ -298,13 +298,24 @@ class MultiLabelClassifier(nn.Module):
           - landscape: 384 -> model['landscape'].num_features
           - satellite: 768 -> model['satellite'].features[-1][-1].mlp[3].out_features
     """
-    def __init__(self, gps_encoder, species_encoder, landscape_encoder, satellite_encoder, classifier_type='linear_probing', num_labels=11255):
+    def __init__(self, gps_encoder, species_encoder, landscape_encoder, satellite_encoder, classifier_type='linear_probing', num_labels=11255, skip_modalities=[]):
         super().__init__()
+        modalities_name = ['species', 'landscape', 'satellite']
+        self.modalities_to_process = [b for b in modalities_name if b not in skip_modalities]
+        self.gps_encoder = gps_encoder
+        self.species_encoder = species_encoder
+        self.landscape_encoder = landscape_encoder
+        self.satellite_encoder = satellite_encoder
         self.gps_out_features = gps_encoder.LocEnc1.head[0].out_features
         self.species_out_features = species_encoder.num_features
         self.landscape_out_features = landscape_encoder.num_features
         self.satellite_out_features = satellite_encoder.features[-1][-1].mlp[3].out_features
-        self.modalities_out_features = sum([self.gps_out_features, self.species_out_features, self.landscape_out_features, self.satellite_out_features])
+        # self.modalities_out_features = sum([self.gps_out_features, self.species_out_features, self.landscape_out_features, self.satellite_out_features])
+        self.modalities_out_features = sum([out_features for modality, out_features in {
+            'species': self.species_out_features,
+            'landscape': self.landscape_out_features,
+            'satellite': self.satellite_out_features
+        }.items() if modality in self.modalities_to_process])
 
         if classifier_type == 'fine_tuning':
             self.classifier = nn.Sequential(
@@ -317,17 +328,23 @@ class MultiLabelClassifier(nn.Module):
             )
         elif classifier_type == 'linear_probing':
             self.classifier = nn.Linear(self.gps_out_features + self.modalities_out_features, num_labels)
+            # Freeze encoders
+            for encoder in [self.gps_encoder, self.species_encoder, self.landscape_encoder, self.satellite_encoder]:
+                for param in encoder.parameters():
+                    param.requires_grad = False
 
-    def forward(self, img, gps):
-        gps_h = self.gps_encoder(gps)
-        if self.base_model == 'species':
-            img_h = self.modality_encoder.forward_features(img)  # includes the (norm) layer
-            img_h = self.modality_encoder.pool(img_h)
-        elif self.base_model == 'landscape':
-            img_h = self.modality_encoder(img)
-        elif self.base_model == 'satellite':
-            img_h = self.modality_encoder(img)
+    def forward(self, img_sp, img_l, img_sat, gps):
+        with torch.no_grad():
+            gps_h = self.gps_encoder(gps)
+            features_h = [gps_h]
+            if 'species' in self.modalities_to_process:
+                _ = self.species_encoder.forward_features(img_sp)  # includes the (norm) layer
+                features_h.append(self.species_encoder.pool(_))
+            elif 'landscape' in self.modalities_to_process:
+                features_h.append(self.landscape_encoder(img_l))
+            elif 'satellite' in self.modalities_to_process:
+                features_h.append(self.satellite_encoder(img_sat))
         
-        joint_h = torch.cat([gps_h, img_h], dim=1)
+        joint_h = torch.cat(features_h, dim=1)
         return self.classifier(joint_h)
 

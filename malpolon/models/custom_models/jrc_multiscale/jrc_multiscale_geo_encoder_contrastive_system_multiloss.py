@@ -19,6 +19,7 @@ import numpy as np
 from sklearn.manifold import TSNE
 
 import torch
+import pandas as pd
 import torch.nn.functional as F
 from torch.amp import GradScaler, autocast
 from torch.nn import functional as F
@@ -517,8 +518,8 @@ class SimCLR(object):
                         break
                 wandb.log({"Loss_epoch (batch avg)/val": np.array(running_vloss).mean()})
                 for vtop1, vtop5, modality_name in zip(vtop1s, vtop5s, modalities_name):
-                    wandb.log({f"acc_epoch (batch avg)/train/top1_{modality_name}": vtop1,
-                               f"acc_epoch (batch avg)/train/top5_{modality_name}": vtop5})
+                    wandb.log({f"acc_epoch (batch avg)/val/top1_{modality_name}": vtop1,
+                               f"acc_epoch (batch avg)/val/top5_{modality_name}": vtop5})
                 wandb.log({"acc_epoch (batch avg)/val/top1": np.array(vtop1s).mean(),
                            "acc_epoch (batch avg)/val/top5": np.array(vtop5s).mean()})
                 
@@ -553,6 +554,7 @@ class SimCLR(object):
         """
         modalities_name = ['species', 'landscape', 'satellite']
         modalities_to_process = [b for b in modalities_name if b not in self.skip_modalities]
+        metrics = {}
         self.model.eval()
         features_img, features_gps = [], []
         sim_matrices, top1s, top5s = [], [], []
@@ -587,31 +589,23 @@ class SimCLR(object):
                         top5s.append(vtop5)
                         
             # Log similarity matrix epoch wise
+            while (sim_matrices[-1].shape[0] != self.args.batch_size//2) and (len(sim_matrices) > 3):  # True if the last matrix was computed on a smaller batch AND if there are more than 1 batch matrix
+                sim_matrices = sim_matrices[:-1]
             sim_matrix_mean = mean_sim_matrices_over_modalities(sim_matrices)
             log_similarity_matrix_mean(sim_matrix_mean, 0, step, log_images=self.log_images, mode='test')
             for vtop1, vtop5, modality_name in zip(top1s, top5s, modalities_name):
                 wandb.log({f"acc_epoch (batch avg)/test/top1_{modality_name}": vtop1,
                            f"acc_epoch (batch avg)/test/top5_{modality_name}": vtop5})
                 print(f'Test accuracy for {modality_name} - Top-1: {vtop1:.4f}, Top-5: {vtop5:.4f}')
+                metrics[f"acc_epoch (batch avg)/test/top1_{modality_name}"] = vtop1
+                metrics[f"acc_epoch (batch avg)/test/top5_{modality_name}"] = vtop5
             wandb.log({"acc_epoch (batch avg)/test/top1": np.array(top1s).mean(),
                         "acc_epoch (batch avg)/test/top5": np.array(top5s).mean()})
+            metrics["acc_epoch (batch avg)/test/top1"] = np.array(top1s).mean()
+            metrics["acc_epoch (batch avg)/test/top5"] = np.array(top5s).mean()
             print(f'Test accuracy (mean) - Top-1: {np.array(top1s).mean():.4f}, Top-5: {np.array(top5s).mean():.4f}')
             # Log t-sne projection
             for vfeatures_img, vfeatures_gps, modality_name in zip(all_features_img, all_features_gps, modalities_name):
                 log_tsne(vfeatures_img, vfeatures_gps, 0, modality_name, log_images=self.log_images, mode='test')
-                
-                    
-    # model.eval()
-    # model.to(device)
-    
-    # all_preds = []
-
-    # with torch.no_grad():
-    #     for inputs in dataloader:
-    #         if isinstance(inputs, (list, tuple)):
-    #             inputs = inputs[0]  # in case dataset returns (input, label)
-    #         inputs = inputs.to(device)
-            
-    #         outputs = model(inputs)  # shape: (batch_size, num_classes)
-    #         preds = torch.argmax(outputs, dim=1)  # get predicted class indices
-    #         all_preds.extend(preds.cpu().tolist())
+            df_metrics = pd.DataFrame(metrics, index=[0])
+            df_metrics.to_csv(os.path.join(self.writer.dir, 'test_metrics.csv'), index=False)
