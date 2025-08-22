@@ -217,19 +217,34 @@ def main(args):
             transform_satellite = transforms_satellite(),
             subset = args.subset,
         )
-        test_dataset = MultiscaleDatasetSimple(
+        train_dataset = MultiscaleDatasetSimple(
             root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
-            fp_metadata_species = 'dataset/scale_1_species/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged.csv',
+            fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-0.06min_no_3-duplicates.csv',
             root_path_landscape = 'dataset/scale_2_landscape/',
-            fp_metadata_landscape = 'dataset/scale_2_landscape/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged.csv',
-            root_path_satellite = 'dataset/scale_3_satellite/PA_Test_SatellitePatches/',
-            fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged.csv',
+            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min.csv',
+            root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
+            fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
             transform_species = transforms_species(),
             transform_landscape = transforms_species(),
             transform_satellite = transforms_satellite(),
             subset = args.subset,
             skip_modalities = args.skip_modalities
         )
+        # test_dataset = MultiscaleDatasetSimple(
+        #     root_path_species = 'dataset/scale_1_species/glc24_pa_test_private_CBN-med_matching-LUCAS-500m',
+        #     fp_metadata_species = 'dataset/scale_1_species/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species_1st_speciesKeys.csv',
+        #     root_path_landscape = 'dataset/scale_2_landscape/',
+        #     fp_metadata_landscape = 'dataset/scale_2_landscape/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species_1st_speciesKeys.csv',
+        #     root_path_satellite = 'dataset/scale_3_satellite/PA_Test_SatellitePatches/',
+        #     fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species_1st_speciesKeys.csv',
+        #     transform_species = transforms_species(),
+        #     transform_landscape = transforms_species(),
+        #     transform_satellite = transforms_satellite(),
+        #     subset = args.subset,
+        #     skip_modalities = args.skip_modalities,
+        #     query_ids = {'species': 'speciesKeys', 'landscape': 'id', 'satellite': 'surveyId'},
+        # )
+        
 
     # Dataloaders
     train_loader = DataLoader(
@@ -324,13 +339,13 @@ if __name__ == "__main__":
         'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
         'epochs': 40,
         'fp16_precision': True,
-        'freeze_gps_backbone': False,
-        'freeze_modality_backbone': False,
+        'freeze_gps_backbone': True,
+        'freeze_modality_backbone': True,
         'gpu_index': 0,
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "Inference (missing species) > SimCLR: multi-loss all bb hot, symetrix",
+        'name': "Sanity check on Inference  > SimCLR: multi-loss all bb hot, symetrix",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'out_dim': 512,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
@@ -341,7 +356,7 @@ if __name__ == "__main__":
         'workers': 0,
         'warmup_epochs': 0,
         'log_images': True,  # If True, logs images to wandb
-        'skip_modalities': ['species'],  # Will skip modalities during training
+        'skip_modalities': [],  # Will skip modalities during training
         'predict': True,  # If True, will run the model in inference mode
     }
     # import os

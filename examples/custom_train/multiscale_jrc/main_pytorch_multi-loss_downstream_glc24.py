@@ -243,9 +243,22 @@ def main(args):
     model = torch.nn.ModuleList([model_species, model_landscape, model_satellite])
     model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
 
+
+    # Transfer learning: linear probing / fine-tuning
+    if args.ckpt_path:
+        checkpoint = torch.load(args.ckpt_path, map_location='cuda' if not args.disable_cuda else 'cpu')
+        model.load_state_dict(checkpoint['state_dict'])
+        print(f"Checkpoint loaded from {args.ckpt_path}")
+    
+    # Evaluation strategy
+    if args.eval_type == 'knn':
+        raise NotImplementedError("KNN evaluation is not implemented in this script. Please implement it if needed.")
+    classifier = MultiLabelClassifier(model[0].gps_encoder, model[0].modality_encoder, model[1].modality_encoder, model[2].modality_encoder,
+                                      classifier_type=args.eval_type, num_labels=args.num_labels, skip_modalities=args.skip_modalities)
+
     # Optimization
     args.learning_rate = args.learning_rate * sqrt(args.batch_size)
-    optimizer = torch.optim.AdamW(model.parameters(),
+    optimizer = torch.optim.AdamW(classifier.parameters(),
                                   lr=args.learning_rate, weight_decay=args.weight_decay)
     warmup_scheduler = LinearLR(
         optimizer,
@@ -255,29 +268,6 @@ def main(args):
     )
     cosine_scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
     scheduler = SequentialLR(optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[args.warmup_epochs])
-
-    # Transfer learning / fine-tuning / resuming
-    if args.ckpt_path:
-        checkpoint = torch.load(args.ckpt_path, map_location='cuda' if not args.disable_cuda else 'cpu')
-        model.load_state_dict(checkpoint['state_dict'])
-        print(f"Checkpoint loaded from {args.ckpt_path}")
-        if 'optimizer' in checkpoint:
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            print("Optimizer state loaded from checkpoint")
-        if 'epoch' in checkpoint:
-            args.epochs += checkpoint['epoch']
-            cosine_scheduler.T_max = args.epochs  # update T_max of the scheduler to match the new number of epochs
-            args.last_epoch = checkpoint['epoch']
-            print(f"Resuming training from epoch {checkpoint['epoch']}")
-        # Pre-step the scheduler to "resume" it
-        for _ in range(args.last_epoch):
-            cosine_scheduler.step()
-    
-    # Evaluation strategy
-    if args.eval_type == 'knn':
-        raise NotImplementedError("KNN evaluation is not implemented in this script. Please implement it if needed.")
-    classifier = MultiLabelClassifier(model[0].gps_encoder, model[0].modality_encoder, model[1].modality_encoder, model[2].modality_encoder,
-                                      classifier_type=args.eval_type, num_labels=args.num_labels, skip_modalities=args.skip_modalities)
 
     if isinstance(args.log_every_n_steps, float):
         args.log_every_n_steps_train = max(int(args.log_every_n_steps * len(train_loader)), 1)
@@ -332,7 +322,7 @@ if __name__ == "__main__":
         'skip_modalities': ['species', 'landscape'],  # Will skip modalities during training
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
-        'predict': False,
+        'predict': False
     }
     # import os
     # os.system('wandb offline')

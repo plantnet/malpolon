@@ -85,6 +85,10 @@ def download_weights(
             )
         checkpoint_path = path
 
+def reinitialize_weights(module):
+    if hasattr(module, "reset_parameters"):
+        module.reset_parameters()
+
 def drop_last_k_layers(model, k):
     # Get all layers of the model
     layers = list(model.children())
@@ -327,11 +331,22 @@ class MultiLabelClassifier(nn.Module):
                 nn.Linear(4096, num_labels)
             )
         elif classifier_type == 'linear_probing':
-            self.classifier = nn.Linear(self.gps_out_features + self.modalities_out_features, num_labels)
+            # self.classifier = nn.Linear(self.gps_out_features + self.modalities_out_features, num_labels)
+            self.classifier = nn.Sequential(
+                nn.Linear(self.gps_out_features + self.modalities_out_features, 2048),
+                nn.ReLU(),
+                nn.Dropout(0.1),
+                nn.Linear(2048, 4096),
+                nn.Dropout(0.1),
+                nn.Linear(4096, num_labels)
+            )
             # Freeze encoders
             for encoder in [self.gps_encoder, self.species_encoder, self.landscape_encoder, self.satellite_encoder]:
                 for param in encoder.parameters():
                     param.requires_grad = False
+        # Sanity check
+        # for _, module in self.satellite_encoder.named_children():
+        #     module.reset_parameters()
 
     def forward(self, img_sp, img_l, img_sat, gps):
         with torch.no_grad():
@@ -348,3 +363,48 @@ class MultiLabelClassifier(nn.Module):
         joint_h = torch.cat(features_h, dim=1)
         return self.classifier(joint_h)
 
+
+class ImgToGPS(nn.Module):
+    def __init__(self, contrastive_model, modality, out_dim=2, freeze_encoder=True, ):
+        super().__init__()
+        modalities_name = ['species', 'landscape', 'satellite']
+        self.modalities_to_process = [b for b in modalities_name if b not in skip_modalities]
+        match modality:
+            case 'species':
+                species_encoder = _find_module_of_type(self.encoder, 'species')
+                self.embed_dim = species_encoder.num_features
+            case 'landscape':
+                landscape_encoder = _find_module_of_type(self.encoder, 'landscape')
+                self.landscape_out_features = landscape_encoder.num_features
+            case 'satellite':
+                satellite_encoder = _find_module_of_type(self.encoder, 'satellite')
+                self.satellite_out_features = satellite_encoder.features[-1][-1].mlp[3].out_features
+            case _:
+                raise InvalidDatasetSelection(
+                    "Invalid dataset selection. Check the config file and pass one of: 'species', 'landscape' or 'satellite'")
+        if modality == 'species':
+            self.embed_dim = species_encoder.num_features
+        self.landscape_out_features = landscape_encoder.num_features
+        self.satellite_out_features = satellite_encoder.features[-1][-1].mlp[3].out_features
+        # self.modalities_out_features = sum([self.gps_out_features, self.species_out_features, self.landscape_out_features, self.satellite_out_features])
+        self.modalities_out_features = sum([out_features for modality, out_features in {
+            'species': self.species_out_features,
+            'landscape': self.landscape_out_features,
+            'satellite': self.satellite_out_features
+        }.items() if modality in self.modalities_to_process])
+        self.encoder = img_encoder
+
+        if freeze_encoder:
+            for p in self.encoder.parameters():
+                p.requires_grad = False
+
+        self.head = nn.Sequential(
+            nn.Linear(embed_dim, 256),
+            nn.ReLU(),
+            nn.Linear(256, out_dim)   # GPS coordinates (lat, lon)
+        )
+
+    def forward(self, x):
+        z_img = self.encoder(x)  # get image embedding
+        gps_pred = self.head(z_img)
+        return gps_pred

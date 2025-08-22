@@ -118,7 +118,8 @@ def load_species_img(
             if return_img_path:
                 return img, [img_path.name]
             return img
-    raise FileNotFoundError(f"No matching image found for id: {id}")
+    print(f"WARNING: No matching species image found for id: {id} Returning zero tensor")
+    return torch.zeros(3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE) if not return_img_path else (torch.zeros(3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE), [])
 
 class DatasetSimple(Dataset):
     def __init__(
@@ -128,6 +129,7 @@ class DatasetSimple(Dataset):
         transform: Callable = None,
         dataset_kwargs: dict = {},
         subset: Union[int, float] = None,
+        query_id: str = 'surveyId',
         **kwargs,
     ) -> None:
         super().__init__()
@@ -141,6 +143,7 @@ class DatasetSimple(Dataset):
         self.transform = lambda x: x if transform is None else transform(x)
         self.dataset_kwargs = dataset_kwargs
         self.img, self.coords = torch.empty(0), (-np.inf, -np.inf)
+        self.query_id = query_id
         
     def __len__(self):
         return len(self.metadata)
@@ -157,21 +160,22 @@ class SpeciesDatasetSimple(DatasetSimple):
         fp_metadata: str = None,
         transform: Callable = None,
         dataset_kwargs: dict = {},
+        query_id: str = 'surveyId',
         **kwargs,
     ) -> None:
-        super().__init__(root_path, fp_metadata, transform, dataset_kwargs, **kwargs)
+        super().__init__(root_path, fp_metadata, transform, dataset_kwargs, query_id=query_id, **kwargs)
 
     def __getitem__(self, index) -> Any:
         img, coords = self.img, self.coords
         
         if not self.metadata.empty:
             sample = self.metadata.iloc[index]
-            img = load_species_img(sample['gbifID'], self.root_path, **self.dataset_kwargs)
+            img = load_species_img(int(sample[self.query_id]), self.root_path, **self.dataset_kwargs)
             img = img.unsqueeze(0)  # Adds a batch dimension
             img = img.to(torch.float32)
             img = self.transform(img)
             coords = tuple(sample[['lon', 'lat']].values.flatten())
-            id = sample['gbifID']
+            id = int(sample['surveyId'])
         
         # return {'img': img, 'gps': coords}
         return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([id])
@@ -184,9 +188,10 @@ class LandscapeDatasetSimple(DatasetSimple):
         fp_metadata: str = None,
         transform: Callable = None,
         dataset_kwargs: dict = {},
+        query_id: str = 'id',
         **kwargs,
     ) -> None:
-        super().__init__(root_path, fp_metadata, transform, dataset_kwargs, **kwargs)
+        super().__init__(root_path, fp_metadata, transform, dataset_kwargs, query_id=query_id, **kwargs)
 
     def __getitem__(self, index) -> Any:
         img, coords = self.img, self.coords
@@ -199,7 +204,7 @@ class LandscapeDatasetSimple(DatasetSimple):
                 coords = (1000, 1000)
             else:
                 coords = tuple(sample[['lon', 'lat']].values.flatten())
-            id = sample['id']
+            id = int(sample[self.query_id])
 
         # return {'img': img, 'gps': coords}
         return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([id])
@@ -264,11 +269,12 @@ class SatelliteDatasetSimple(DatasetSimple):
                                      'size': SATELLITE_INPUT_SIZE},
         kwargs_sat_dataset: dict = {'item_columns': ['lat', 'lon', 'surveyId'],
                                     'labels_name': ['lat', 'lon']},
+        query_id: str = 'surveyId',
         **kwargs,
     ) -> None:
-        super().__init__(root_path, fp_metadata, transform, **kwargs)
+        super().__init__(root_path, fp_metadata, transform, query_id=query_id, **kwargs)
         # Remove the duplicate GPS-img pairs corresponding to the multiple entries of the same surveyId because of multiple occurrences on the same place
-        self.metadata = self.metadata.drop_duplicates(subset=['surveyId'], keep='first')
+        self.metadata = self.metadata.drop_duplicates(subset=[self.query_id], keep='first')
         if not self.metadata.empty:
             self.sat_provider = JpegPatchProvider(
                 self.root_path,  # 'dataset/scale_3_satellite/data_subset/PA_Train_SatellitePatches/',
@@ -291,7 +297,7 @@ class SatelliteDatasetSimple(DatasetSimple):
             coords = (sat_lon, sat_lat)
 
         # return {'img': img, 'gps': coords}
-        return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([self.sat_dataset.items.iloc[index]['surveyId']])
+        return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([self.sat_dataset.items.iloc[index][self.query_id]])
 
 
 class MultiscaleDatasetSimple(Dataset):
@@ -311,6 +317,7 @@ class MultiscaleDatasetSimple(Dataset):
         kwargs_sat_dataset: dict = {'item_columns': ['lat', 'lon', 'surveyId'],
                                     'labels_name': ['lat', 'lon']},
         skip_modalities: List[str] = [],
+        query_ids: dict[str] = {'species': 'surveyId', 'landscape': 'id', 'satellite': 'surveyId'},
         **kwargs,
     ) -> None:
         super().__init__()
@@ -321,7 +328,8 @@ class MultiscaleDatasetSimple(Dataset):
             self.species_dataset = SpeciesDatasetSimple(
                 root_path = root_path_species,
                 fp_metadata = fp_metadata_species,
-                transform = transform_species, 
+                transform = transform_species,
+                query_id = query_ids['species'],
                 **kwargs,
             )
         if 'landscape' in self.skip_modalities:
@@ -331,6 +339,7 @@ class MultiscaleDatasetSimple(Dataset):
                 root_path = root_path_landscape,
                 fp_metadata = fp_metadata_landscape,
                 transform = transform_landscape, 
+                query_id = query_ids['landscape'],
                 **kwargs,
             )
         if 'satellite' in self.skip_modalities:
@@ -342,6 +351,7 @@ class MultiscaleDatasetSimple(Dataset):
                 transform = transform_satellite,
                 kwargs_sat_provider = kwargs_sat_provider,
                 kwargs_sat_dataset = kwargs_sat_dataset,
+                query_id = query_ids['satellite'],
                 **kwargs,
             )
         
@@ -483,9 +493,9 @@ class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
             one_hot[int(label)] = 1.0
         return one_hot
     
-    def _find_other_speciesid_from_surveyid(self, df, id: int) -> List[int]:
+    def _find_other_speciesid_from_surveyid(self, df, id: int, col_sid='speciesId') -> List[int]:
         """Find other speciesId associated with the same surveyId."""
-        all_species_ids = df[df['id'] == id]['speciesId'].unique().tolist()
+        all_species_ids = df[df['id'] == id][col_sid].unique().tolist()
         
         return all_species_ids
 
@@ -523,21 +533,21 @@ class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
                 satellite_label = self._find_other_speciesid_from_surveyid(self.satellite_dataset.metadata, satellite_id.item())
                 satellite_label = self._labels_to_onehot(satellite_label, self.num_classes)
 
-        sample = (species_img,  #1
-                  landscape_img,  #2
-                  satellite_img,  #3
-                  species_coords,  #4
-                  landscape_coords,  #5
-                  satellite_coords,  #6
-                  torch.tensor([index]),  #7
-                  species_idx,  #8
-                  landscape_idx,  #9
-                  satellite_idx,  #10
-                  species_id,  #11
-                  landscape_id,  #12
-                  satellite_id,  #13
-                  species_label,  #14
-                  landscape_label,  #15
-                  satellite_label)  #16
+        sample = (species_img,  #0
+                  landscape_img,  #1
+                  satellite_img,  #2
+                  species_coords,  #3
+                  landscape_coords,  #4
+                  satellite_coords,  #5
+                  torch.tensor([index]),  #6
+                  species_idx,  #7
+                  landscape_idx,  #8
+                  satellite_idx,  #9
+                  species_id,  #10
+                  landscape_id,  #11
+                  satellite_id,  #12
+                  species_label,  #13
+                  landscape_label,  #14
+                  satellite_label)  #15
 
         return sample

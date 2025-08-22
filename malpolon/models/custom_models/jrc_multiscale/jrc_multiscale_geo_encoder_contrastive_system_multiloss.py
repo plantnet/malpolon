@@ -378,7 +378,8 @@ class SimCLR(object):
                         all_logits.append(logits)
                         sim_matrices.append(sim_matrix)
                         loss += self.criterion(logits, labels)/len(modalities_to_process)  # Average loss over the 3 modalities + GPS
-
+                        # loss = loss/num_steps_par_batch
+                        loss = loss/batch_size
                         std_mean_img, std_mean_gps = torch.std_mean(features_img, dim=0), torch.std_mean(features_gps, dim=0)
                         std_mean_diff = (std_mean_img[0] - std_mean_gps[0], std_mean_img[1] - std_mean_gps[1])
                         norm_img, norm_gps = torch.norm(features_img, dim=1), torch.norm(features_gps, dim=1)

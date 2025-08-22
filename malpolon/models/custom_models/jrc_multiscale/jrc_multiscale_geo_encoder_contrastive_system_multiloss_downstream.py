@@ -19,6 +19,9 @@ import numpy as np
 
 import torch
 import torch.nn.functional as F
+from torchmetrics.functional.classification import multilabel_auroc, multilabel_average_precision
+from torchmetrics.functional.retrieval import retrieval_recall
+
 from torch.amp import GradScaler, autocast
 from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
@@ -225,6 +228,7 @@ class SimCLRToMultilabelClassification(object):
         self.criterion = torch.nn.BCEWithLogitsLoss().to(self.args.device)
         self.skip_modalities = getattr(self.args, 'skip_modalities', [])
         self.inference = bool(getattr(self.args, 'predict', False))
+        # Wandb logger
         self.writer = wandb.init(
             entity="tlarcher-phd-jrc",
             id=self.args.ckpt_path.split('/')[-2].split('-')[2] if (self.args.ckpt_path and self.resume_wandb_run) else None,
@@ -244,6 +248,9 @@ class SimCLRToMultilabelClassification(object):
         )
         logging.basicConfig(filename=os.path.join(self.writer.dir, 'training.log'), level=logging.DEBUG)
         wandb_init()
+        # Tensorboard logger
+        self.tensorboard_writer = SummaryWriter()
+        
 
     def info_nce_loss(self, features, dataset_type: str = 'species'):
         # Flexible bastch_size strategy on hold
@@ -326,19 +333,20 @@ class SimCLRToMultilabelClassification(object):
                                         train_dict['satellite'][0].to(self.args.device),
                                         train_dict[modalities_to_process[0]][1].to(self.args.device))
                     loss = self.criterion(logits, labels.to(self.args.device))
-                    running_loss.append(loss.to('cpu').item())
-                    logits = logits.to('cpu')
-                    all_images.extend((train_dict[mod_name][0] for mod_name in modalities_to_process))
+                logits = logits.to('cpu')
+                all_images.extend((train_dict[mod_name][0] for mod_name in modalities_to_process))
 
-                    scaler.scale(loss).backward()  # Gradients are accumulated. Calling backward after each modality loss equals calling backward once after sum + average of losses
+                scaler.scale(loss).backward()  # Gradients are accumulated. Calling backward after each modality loss equals calling backward once after sum + average of losses
                 scaler.step(self.optimizer)
                 scaler.update()
+                running_loss.append(loss.to('cpu').item())
 
                 if step % self.args.log_every_n_steps_train == 0:       
                     log_input_imgs_multimodalities(all_images, idxs, ids, step, epoch_counter, n_samples=8, n_modalities=len(modalities_to_process), mode='train', log_images=self.log_images)
                     
                     # Log loss and moments step wise
                     log_loss_scheduler(loss, self.scheduler)
+                    self.tensorboard_writer.add_scalar("Loss/train", loss, train_steps)
                     # log_moments(norm_img, norm_gps, std_mean_img, std_mean_gps, std_mean_diff)
 
                     # Log accuracy step wise                    
@@ -348,6 +356,23 @@ class SimCLRToMultilabelClassification(object):
                     wandb.log({f"acc_micro_step/train/": metrics['multilabel_accuracy_micro'][-1],
                                f"acc_macro_step/train/": metrics['multilabel_accuracy_macro'][-1],
                                f"f1_micro_step/train/": metrics['multilabel_f1_micro'][-1]})
+                    self.tensorboard_writer.add_scalar("acc_micro_step/train", metrics['multilabel_accuracy_micro'][-1], train_steps)
+                    self.tensorboard_writer.add_scalar("acc_macro_step/train", metrics['multilabel_accuracy_macro'][-1], train_steps)
+                    self.tensorboard_writer.add_scalar("f1_micro_step/train", metrics['multilabel_f1_micro'][-1], train_steps)
+
+                    # Log recall@K
+                    self.tensorboard_writer.add_scalar("recall/train", retrieval_recall(logits, labels.to(int)), train_steps)
+                    self.tensorboard_writer.add_scalar("recall@1/train", retrieval_recall(logits, labels.to(int), top_k=1), train_steps)
+                    self.tensorboard_writer.add_scalar("recall@20/train", retrieval_recall(logits, labels.to(int), top_k=5), train_steps)
+                    self.tensorboard_writer.add_scalar("recall@100/train", retrieval_recall(logits, labels.to(int), top_k=5), train_steps)
+                    
+                    # Log AUROC
+                    self.tensorboard_writer.add_scalar("MultilabelAUROC_micro/train", multilabel_auroc(logits, labels.to(int), self.args.num_labels, average='micro'), train_steps)
+                    self.tensorboard_writer.add_scalar("MultilabelAUROC_macro/train", multilabel_auroc(logits, labels.to(int), self.args.num_labels, average='macro'), train_steps)
+                    
+                    # Log mAP
+                    self.tensorboard_writer.add_scalar("MultilabelAveragePrecision_micro/train", multilabel_average_precision(logits, labels.to(int), self.args.num_labels, average='micro'), train_steps)
+                    self.tensorboard_writer.add_scalar("MultilabelAveragePrecision_macro/train", multilabel_average_precision(logits, labels.to(int), self.args.num_labels, average='macro'), train_steps)
 
                 train_steps += 1
                 if step >= max_iter:  # Debug purposes
@@ -356,6 +381,10 @@ class SimCLRToMultilabelClassification(object):
             wandb.log({f"acc_micro_epoch (batch_avg)/train/": np.array(metrics['multilabel_accuracy_micro']).mean(),
                        f"acc_macro_epoch (batch_avg)/train/": np.array(metrics['multilabel_accuracy_macro']).mean(),
                        f"f1_micro_epoch (batch_avg)/train/": np.array(metrics['multilabel_f1_micro']).mean()})
+            self.tensorboard_writer.add_scalar("Loss_epoch (batch avg)/train", np.array(running_loss).mean(), epoch_counter)
+            self.tensorboard_writer.add_scalar("acc_micro_epoch (batch_avg)/train", np.array(metrics['multilabel_accuracy_micro']).mean(), epoch_counter)
+            self.tensorboard_writer.add_scalar("acc_macro_epoch (batch_avg)/train", np.array(metrics['multilabel_accuracy_macro']).mean(), epoch_counter)
+            self.tensorboard_writer.add_scalar("f1_micro_epoch (batch_avg)/train", np.array(metrics['multilabel_f1_micro']).mean(), epoch_counter)
             
             # Evaluation
             self.model.eval()
@@ -380,9 +409,10 @@ class SimCLRToMultilabelClassification(object):
                                          val_dict['satellite'][0].to(self.args.device),
                                          val_dict[modalities_to_process[0]][1].to(self.args.device))
                     vloss = self.criterion(logits.to(self.args.device), labels.to(self.args.device))
-                    running_vloss.append(vloss.to('cpu').item())
                     vlogits = logits.to('cpu')
                     all_images.extend((train_dict[mod_name][0] for mod_name in modalities_to_process))
+
+                    running_vloss.append(vloss.to('cpu').item())
 
                     # Save best checkpoint
                     if vloss.item() <= best_val_loss:
@@ -401,6 +431,28 @@ class SimCLRToMultilabelClassification(object):
                         if all(topk is not None for topk in [vtop1, vtop5]):
                             vtop1s.append(vtop1)
                             vtop5s.append(vtop5)
+                        vmetrics['multilabel_accuracy_micro'].append(Fmetrics.classification.multilabel_accuracy(vlogits, vlabels, num_labels=self.num_labels, threshold=0.1, average='micro'))
+                        vmetrics['multilabel_accuracy_macro'].append(Fmetrics.classification.multilabel_accuracy(vlogits, vlabels, num_labels=self.num_labels, threshold=0.1, average='macro'))
+                        vmetrics['multilabel_f1_micro'].append(Fmetrics.classification.multilabel_f1_score(vlogits, vlabels, num_labels=self.num_labels, threshold=0.1, average='micro'))
+                    
+                        self.tensorboard_writer.add_scalar("acc_micro_step/train", vmetrics['multilabel_accuracy_micro'][-1], val_steps)
+                        self.tensorboard_writer.add_scalar("acc_macro_step/train", vmetrics['multilabel_accuracy_macro'][-1], val_steps)
+                        self.tensorboard_writer.add_scalar("f1_micro_step/train", vmetrics['multilabel_f1_micro'][-1], val_steps)
+
+                        # Log recall@K
+                        self.tensorboard_writer.add_scalar("recall/train", retrieval_recall(vlogits, vlabels.to(int)), val_steps)
+                        self.tensorboard_writer.add_scalar("recall@1/train", retrieval_recall(vlogits, vlabels.to(int), top_k=1), val_steps)
+                        self.tensorboard_writer.add_scalar("recall@20/train", retrieval_recall(vlogits, vlabels.to(int), top_k=5), val_steps)
+                        self.tensorboard_writer.add_scalar("recall@100/train", retrieval_recall(vlogits, vlabels.to(int), top_k=5), val_steps)
+                        
+                        # Log AUROC
+                        self.tensorboard_writer.add_scalar("MultilabelAUROC_micro/train", multilabel_auroc(vlogits, vlabels.to(int), self.args.num_labels, average='micro'), val_steps)
+                        self.tensorboard_writer.add_scalar("MultilabelAUROC_macro/train", multilabel_auroc(vlogits, vlabels.to(int), self.args.num_labels, average='macro'), val_steps)
+                        
+                        # Log mAP
+                        self.tensorboard_writer.add_scalar("MultilabelAveragePrecision_micro/train", multilabel_average_precision(vlogits, vlabels.to(int), self.args.num_labels, average='micro'), val_steps)
+                        self.tensorboard_writer.add_scalar("MultilabelAveragePrecision_macro/train", multilabel_average_precision(vlogits, vlabels.to(int), self.args.num_labels, average='macro'), val_steps)
+
 
                     if vstep % self.args.log_every_n_steps == 0:
                         # Log input batch images
@@ -408,6 +460,7 @@ class SimCLRToMultilabelClassification(object):
                         
                         # Log loss and moments step wise
                         log_loss_scheduler(vloss, self.scheduler, mode='val')
+                        self.tensorboard_writer.add_scalar("Loss/val", vloss, val_steps)
                         
                         # Log accuracy step wise                    
                         vmetrics['multilabel_accuracy_micro'].append(Fmetrics.classification.multilabel_accuracy(vlogits, vlabels, num_labels=self.num_labels, threshold=0.1, average='micro'))
@@ -416,6 +469,10 @@ class SimCLRToMultilabelClassification(object):
                         wandb.log({f"acc_micro_step/val/": vmetrics['multilabel_accuracy_micro'][-1],
                                    f"acc_macro_step/val/": vmetrics['multilabel_accuracy_macro'][-1],
                                    f"f1_micro_step/val/": vmetrics['multilabel_f1_micro'][-1]})
+                        self.tensorboard_writer.add_scalar("acc_micro_step/val", vmetrics['multilabel_accuracy_micro'][-1], val_steps)
+                        self.tensorboard_writer.add_scalar("acc_macro_step/val", vmetrics['multilabel_accuracy_macro'][-1], val_steps)
+                        self.tensorboard_writer.add_scalar("f1_micro_step/val", vmetrics['multilabel_f1_micro'][-1], val_steps)
+
                     
                     val_steps += 1
                     if vstep >= max_iter:
@@ -424,7 +481,12 @@ class SimCLRToMultilabelClassification(object):
                 wandb.log({f"acc_micro_epoch (batch_avg)/val/": np.array(vmetrics['multilabel_accuracy_micro']).mean(),
                            f"acc_macro_epoch (batch_avg)/val/": np.array(vmetrics['multilabel_accuracy_macro']).mean(),
                            f"f1_micro_epoch (batch_avg)/val/": np.array(vmetrics['multilabel_f1_micro']).mean()})
-
+                self.tensorboard_writer.add_scalar("Loss_epoch (batch avg)/val", np.array(running_loss).mean(), epoch_counter)
+                self.tensorboard_writer.add_scalar("acc_micro_epoch (batch_avg)/val", np.array(vmetrics['multilabel_accuracy_micro']).mean(), epoch_counter)
+                self.tensorboard_writer.add_scalar("acc_macro_epoch (batch_avg)/val", np.array(vmetrics['multilabel_accuracy_macro']).mean(), epoch_counter)
+                self.tensorboard_writer.add_scalar("f1_micro_epoch (batch_avg)/val", np.array(vmetrics['multilabel_f1_micro']).mean(), epoch_counter)
+            
+            self.scheduler.step()
             # Save model checkpoints
             save_checkpoint({
                 'epoch': epoch_counter,
