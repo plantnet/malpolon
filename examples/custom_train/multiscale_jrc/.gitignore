@@ -1,2 +1,14 @@
+# Loggers & checkpoints
 runs/
 weights/
+wandb/
+
+# Data
+*.tar.zst
+dataset/geoloc/glc24_pa_test_private*
+dataset/geoloc/GLC24_speciesIdTab_PA_PO.csv
+
+dataset/scale_2_landscape/LUCAS_nef_replicated/
+dataset/scale_2_landscape/lucas_harmo*.csv
+dataset/scale_2_landscape/old/
+
