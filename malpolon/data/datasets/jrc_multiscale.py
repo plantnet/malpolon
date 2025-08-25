@@ -175,7 +175,7 @@ class SpeciesDatasetSimple(DatasetSimple):
             img = img.to(torch.float32)
             img = self.transform(img)
             coords = tuple(sample[['lon', 'lat']].values.flatten())
-            id = int(sample['surveyId'])
+            id = int(sample[self.query_id])
         
         # return {'img': img, 'gps': coords}
         return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([id])

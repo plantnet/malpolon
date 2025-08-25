@@ -203,7 +203,8 @@ def main(args):
             transform_landscape = transforms_species(),
             transform_satellite = transforms_satellite(),
             subset = args.subset,
-            skip_modalities = args.skip_modalities
+            skip_modalities = args.skip_modalities,
+            query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
         )
         val_dataset = MultiscaleDatasetSimple(
             root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
@@ -216,19 +217,7 @@ def main(args):
             transform_landscape = transforms_species(),
             transform_satellite = transforms_satellite(),
             subset = args.subset,
-        )
-        train_dataset = MultiscaleDatasetSimple(
-            root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
-            fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-0.06min_no_3-duplicates.csv',
-            root_path_landscape = 'dataset/scale_2_landscape/',
-            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min.csv',
-            root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
-            transform_species = transforms_species(),
-            transform_landscape = transforms_species(),
-            transform_satellite = transforms_satellite(),
-            subset = args.subset,
-            skip_modalities = args.skip_modalities
+            query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
         )
         # test_dataset = MultiscaleDatasetSimple(
         #     root_path_species = 'dataset/scale_1_species/glc24_pa_test_private_CBN-med_matching-LUCAS-500m',
@@ -255,9 +244,9 @@ def main(args):
         val_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True, drop_last=False, collate_fn=custom_collate)
     
-    test_loader = DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True, drop_last=False, collate_fn=custom_collate)
+    # test_loader = DataLoader(
+    #     test_dataset, batch_size=args.batch_size, shuffle=False,
+    #     num_workers=args.workers, pin_memory=True, drop_last=False, collate_fn=custom_collate)
 
     # Model
     model_species = ModelSimCLR(base_model='species', out_dim=args.out_dim, dropout=args.dropout,
@@ -270,8 +259,8 @@ def main(args):
                                   freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
     
     # WARNING: it is preferred to use ModuleDict, but some old runs were trained using ModuleList. This has to be taken account of when loading checkpoints and running inference.
-    # model = torch.nn.ModuleDict({'species': model_species, 'landscape': model_landscape, 'satellite': model_satellite})
-    model = torch.nn.ModuleList([model_species, model_landscape, model_satellite])
+    model = torch.nn.ModuleDict({'species': model_species, 'landscape': model_landscape, 'satellite': model_satellite})
+    # model = torch.nn.ModuleList([model_species, model_landscape, model_satellite])
     model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
 
     # Optimization
@@ -322,8 +311,6 @@ def main(args):
             # os.system('wandb offline')
             simclr.predict(test_loader)
         else:
-            import os
-            os.system('wandb online')
             simclr.train(train_loader, val_loader, max_iter=args.max_iter)
 
 
@@ -331,7 +318,7 @@ if __name__ == "__main__":
     args = {
         'arch': 'multi-loss',  # always paired with gps
         'batch_size': 32,
-        'ckpt_path': 'wandb/archive/run-20250724_181933-tr7gs4v2/files/best.pth.tar',
+        'ckpt_path': '', # 'wandb/archive/run-20250724_181933-tr7gs4v2/files/best.pth.tar',
         'resume_wandb_run': False,  # If True, will resume the run from the last checkpoint under the same wandb run id.
         'device': "cuda",
         'disable_cuda': False,
@@ -339,13 +326,13 @@ if __name__ == "__main__":
         'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
         'epochs': 40,
         'fp16_precision': True,
-        'freeze_gps_backbone': True,
-        'freeze_modality_backbone': True,
+        'freeze_gps_backbone': False,
+        'freeze_modality_backbone': False,
         'gpu_index': 0,
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "Sanity check on Inference  > SimCLR: multi-loss all bb hot, symetrix",
+        'name': "SimCLR: multi-loss GPS freeze, symetrix. Landscape = ResNet50",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'out_dim': 512,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
@@ -357,7 +344,7 @@ if __name__ == "__main__":
         'warmup_epochs': 0,
         'log_images': True,  # If True, logs images to wandb
         'skip_modalities': [],  # Will skip modalities during training
-        'predict': True,  # If True, will run the model in inference mode
+        'predict': False,  # If True, will run the model in inference mode
     }
     # import os
     # os.system('wandb offline')

@@ -134,16 +134,16 @@ def get_model_species():
 
 def get_model_landscape(out_dim=512):
     model_root_path_landscape = 'weights/scale_2_landscape/'
-    # model_landscape = timm.create_model(
-    #     'resnet18',
-    #     pretrained=True,
-    #     num_classes=out_dim,
-    # )
     model_landscape = timm.create_model(
-        # 'vit_base_patch14_reg4_dinov2.lvd142m',
-        'vit_small_patch14_dinov2.lvd142m',
+        'resnet18',
         pretrained=True,
+        num_classes=out_dim,
     )
+    # model_landscape = timm.create_model(
+    #     # 'vit_base_patch14_reg4_dinov2.lvd142m',
+    #     'vit_small_patch14_dinov2.lvd142m',
+    #     pretrained=True,
+    # )
     return model_landscape
 
 def get_model_satellite():
