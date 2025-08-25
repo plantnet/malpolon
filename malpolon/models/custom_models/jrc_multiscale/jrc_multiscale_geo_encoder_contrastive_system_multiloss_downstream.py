@@ -364,12 +364,12 @@ class SimCLRToMultilabelClassification(object):
                     self.tensorboard_writer.add_scalar("recall/train", retrieval_recall(logits, labels.to(int)), train_steps)
                     self.tensorboard_writer.add_scalar("recall@1/train", retrieval_recall(logits, labels.to(int), top_k=1), train_steps)
                     self.tensorboard_writer.add_scalar("recall@20/train", retrieval_recall(logits, labels.to(int), top_k=5), train_steps)
-                    self.tensorboard_writer.add_scalar("recall@100/train", retrieval_recall(logits, labels.to(int), top_k=5), train_steps)
-                    
+                    self.tensorboard_writer.add_scalar("recall@100/train", retrieval_recall(logits, labels.to(int), top_k=100), train_steps)
+
                     # Log AUROC
                     self.tensorboard_writer.add_scalar("MultilabelAUROC_micro/train", multilabel_auroc(logits, labels.to(int), self.args.num_labels, average='micro'), train_steps)
                     self.tensorboard_writer.add_scalar("MultilabelAUROC_macro/train", multilabel_auroc(logits, labels.to(int), self.args.num_labels, average='macro'), train_steps)
-                    
+
                     # Log mAP
                     self.tensorboard_writer.add_scalar("MultilabelAveragePrecision_micro/train", multilabel_average_precision(logits, labels.to(int), self.args.num_labels, average='micro'), train_steps)
                     self.tensorboard_writer.add_scalar("MultilabelAveragePrecision_macro/train", multilabel_average_precision(logits, labels.to(int), self.args.num_labels, average='macro'), train_steps)
