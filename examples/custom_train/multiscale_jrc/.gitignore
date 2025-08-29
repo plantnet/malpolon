@@ -12,3 +12,7 @@ dataset/scale_2_landscape/LUCAS_nef_replicated/
 dataset/scale_2_landscape/lucas_harmo*.csv
 dataset/scale_2_landscape/old/
 
+# Jobs
+*.err
+*.out
+*.sh
