@@ -326,16 +326,16 @@ if __name__ == "__main__":
         'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
         'epochs': 40,
         'fp16_precision': True,
-        'freeze_gps_backbone': False,
+        'freeze_gps_backbone': True,
         'freeze_modality_backbone': False,
         'gpu_index': 0,
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "SimCLR: multi-loss GPS freeze, symetrix. Landscape = ResNet50",
+        'name': "test", # "SimCLR: multi-loss GPS freeze, symetrix. Landscape = Dinov2small, outdim=2048",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
-        'out_dim': 512,
-        'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'out_dim': 2048,
+        'subset': 0.5,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'symmetric_loss': True,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
         'temperature': 0.07,
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'

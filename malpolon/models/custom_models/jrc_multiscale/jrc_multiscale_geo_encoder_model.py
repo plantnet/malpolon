@@ -130,44 +130,48 @@ def get_model_species():
         num_classes=7806,
         checkpoint_path=ckpt_path,
     )
+    print(f'Loaded species model with {sum(p.numel() for p in model_species.parameters() if p.requires_grad):,} trainable parameters')
     return model_species
 
 def get_model_landscape(out_dim=512):
     model_root_path_landscape = 'weights/scale_2_landscape/'
-    model_landscape = timm.create_model(
-        'resnet18',
-        pretrained=True,
-        num_classes=out_dim,
-    )
     # model_landscape = timm.create_model(
-    #     # 'vit_base_patch14_reg4_dinov2.lvd142m',
-    #     'vit_small_patch14_dinov2.lvd142m',
+    #     'resnet18',
     #     pretrained=True,
+    #     num_classes=out_dim,
     # )
+    model_landscape = timm.create_model(
+        # 'vit_base_patch14_reg4_dinov2.lvd142m',
+        'vit_small_patch14_dinov2.lvd142m',
+        pretrained=True,
+    )
+    print(f'Loaded landscape model with {sum(p.numel() for p in model_landscape.parameters() if p.requires_grad):,} trainable parameters')
     return model_landscape
 
-def get_model_satellite():
+def get_model_satellite(ckpt: bool = False):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model_root_path_satellite = 'weights/scale_3_satellite/'
     model_satellite_config = str(Path(model_root_path_satellite) / Path('glc24_cnn_multimodal_ensemble.yaml'))
-    ckpt_path = str(Path(model_root_path_satellite) / 'pretrained.ckpt')
+    model_config = OmegaConf.load(model_satellite_config)
+    model = check_model(model_config.model)
 
-    if ckpt_path:
+    # Load MME's weights
+    if ckpt:
+        ckpt_path = str(Path(model_root_path_satellite) / 'pretrained.ckpt')
         download_weights("https://lab.plantnet.org/seafile/f/eb90daeb510c44349fb5/?dl=1",
                          ckpt_path,
                          model_root_path_satellite,
                          filename="pretrained.ckpt",
                          md5="680a6a8f66480dff21ead28031ab1ca0")
-    model_config = OmegaConf.load(model_satellite_config)
-    model = check_model(model_config.model)
-    checkpoint = torch.load(ckpt_path, weights_only=False, map_location=device)
+        checkpoint = torch.load(ckpt_path, weights_only=False, map_location=device)
 
-    state_dict = remove_state_dict_prefix(checkpoint['state_dict'].copy())
-    if 'pos_weight' in state_dict:
-        _ = state_dict.pop('pos_weight')
-    model.load_state_dict(state_dict)
+        state_dict = remove_state_dict_prefix(checkpoint['state_dict'].copy())
+        if 'pos_weight' in state_dict:
+            _ = state_dict.pop('pos_weight')
+        model.load_state_dict(state_dict)
+
     model_satellite = model.sentinel_model.to(device)
-    print(model_satellite)
+    print(f'Loaded satellite model with {sum(p.numel() for p in model_satellite.parameters() if p.requires_grad):,} trainable parameters')
     return model_satellite
 
 class BaseSimCLRException(Exception):

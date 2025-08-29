@@ -274,7 +274,8 @@ class SatelliteDatasetSimple(DatasetSimple):
     ) -> None:
         super().__init__(root_path, fp_metadata, transform, query_id=query_id, **kwargs)
         # Remove the duplicate GPS-img pairs corresponding to the multiple entries of the same surveyId because of multiple occurrences on the same place
-        self.metadata = self.metadata.drop_duplicates(subset=[self.query_id], keep='first')
+        if not getattr(kwargs, 'keep_id_duplicates', True):
+            self.metadata = self.metadata.drop_duplicates(subset=[self.query_id], keep='first')
         if not self.metadata.empty:
             self.sat_provider = JpegPatchProvider(
                 self.root_path,  # 'dataset/scale_3_satellite/data_subset/PA_Train_SatellitePatches/',
@@ -493,9 +494,9 @@ class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
             one_hot[int(label)] = 1.0
         return one_hot
     
-    def _find_other_speciesid_from_surveyid(self, df, id: int, col_sid='speciesId') -> List[int]:
+    def _find_other_speciesid_from_surveyid(self, df, id: int, col_sid='speciesId', col_queryid = 'id') -> List[int]:
         """Find other speciesId associated with the same surveyId."""
-        all_species_ids = df[df['id'] == id][col_sid].unique().tolist()
+        all_species_ids = df[df[col_queryid] == id][col_sid].unique().tolist()
         
         return all_species_ids
 
@@ -508,7 +509,7 @@ class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
             species_img, species_coords, species_idx, species_id = self.species_dataset[index]
             species_label = self.species_dataset.metadata.iloc[index]['speciesId'] if 'speciesId' in self.species_dataset.metadata.columns else -1
             if 'multilabel' in self.task:
-                species_label = self._find_other_speciesid_from_surveyid(self.species_dataset.metadata, species_id.item())
+                species_label = self._find_other_speciesid_from_surveyid(self.species_dataset.metadata, species_id.item(), col_queryid=self.species_dataset.query_id)
                 species_label = self._labels_to_onehot(species_label, self.num_classes)
 
         # Landscape
@@ -519,7 +520,7 @@ class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
             landscape_img, landscape_coords, landscape_idx, landscape_id = self.landscape_dataset[index]
             landscape_label = self.landscape_dataset.metadata.iloc[index]['speciesId'] if 'speciesId' in self.landscape_dataset.metadata.columns else -1
             if 'multilabel' in self.task:
-                landscape_label = self._find_other_speciesid_from_surveyid(self.landscape_dataset.metadata, landscape_id.item())
+                landscape_label = self._find_other_speciesid_from_surveyid(self.landscape_dataset.metadata, landscape_id.item(), col_queryid=self.landscape_dataset.query_id)
                 landscape_label = self._labels_to_onehot(landscape_label, self.num_classes)
 
         # Satellite
@@ -530,7 +531,7 @@ class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
             satellite_img, satellite_coords, satellite_idx, satellite_id = self.satellite_dataset[index]
             satellite_label = self.satellite_dataset.metadata.iloc[index]['speciesId'] if 'speciesId' in self.satellite_dataset.metadata.columns else -1
             if 'multilabel' in self.task:
-                satellite_label = self._find_other_speciesid_from_surveyid(self.satellite_dataset.metadata, satellite_id.item())
+                satellite_label = self._find_other_speciesid_from_surveyid(self.satellite_dataset.metadata, satellite_id.item(), col_queryid=self.satellite_dataset.query_id)
                 satellite_label = self._labels_to_onehot(satellite_label, self.num_classes)
 
         sample = (species_img,  #0

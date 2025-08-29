@@ -214,6 +214,15 @@ def wandb_init():
     wandb.define_metric("f1_micro_epoch (batch_avg)/val/", step_metric="epoch")
     wandb.define_metric("t-sne/val/*", step_metric='epoch')
 
+def find_best_threshold(y_true, y_probs):
+    thresholds = np.linspace(0, 1, 101)  # test thresholds from 0.0 to 1.0
+    best_thresh, best_f1 = 0.5, 0
+    for t in thresholds:
+        y_pred = (y_probs >= t).astype(int)
+        f1 = Fmetrics.classification.multilabel_f1_score(y_true, y_pred, average="macro")  # or "micro"/"weighted"
+        if f1 > best_f1:
+            best_f1, best_thresh = f1, t
+    return best_thresh, best_f1
 
 class SimCLRToMultilabelClassification(object):
     def __init__(self, *args, **kwargs):
@@ -250,6 +259,7 @@ class SimCLRToMultilabelClassification(object):
         wandb_init()
         # Tensorboard logger
         self.tensorboard_writer = SummaryWriter()
+        self.best_f1_thresh = 0.3  # Initial value, then updated after each val step
         
 
     def info_nce_loss(self, features, dataset_type: str = 'species'):
@@ -289,7 +299,8 @@ class SimCLRToMultilabelClassification(object):
         self,
         train_loader: torch.utils.data.DataLoader,
         val_loader: torch.utils.data.DataLoader,
-        max_iter: int = torch.inf
+        max_iter: int = torch.inf,
+        verbose: bool = False,
     ):
         """Train the model using SimCLR.
 
@@ -341,7 +352,16 @@ class SimCLRToMultilabelClassification(object):
                 scaler.update()
                 running_loss.append(loss.to('cpu').item())
 
-                if step % self.args.log_every_n_steps_train == 0:       
+                if step % self.args.log_every_n_steps_train == 0:   
+                    if verbose:
+                        print("\n")
+                        print(f"Step {step}, loss {loss.item()}.")
+                        print(f"Labels min {labels.min().item()}, max {labels.max().item()}.")
+                        print(f"Labels positive indices: {[(labels[i]==1).nonzero().tolist() for i in range(labels.shape[0])]}.")
+                        print(f"Labels sample (5 first rows, 25 first cols): {labels[:5, :25]}.")
+                        print(f"Logits min {logits.min().item()}, max {logits.max().item()}.")
+                        print(f"Logits max positive indices: {torch.argmax(logits, dim=1)}.")
+                        print(f"Logits sample (5 first rows, 25 first cols): {logits[:5, :25]}.")
                     log_input_imgs_multimodalities(all_images, idxs, ids, step, epoch_counter, n_samples=8, n_modalities=len(modalities_to_process), mode='train', log_images=self.log_images)
                     
                     # Log loss and moments step wise
@@ -349,10 +369,11 @@ class SimCLRToMultilabelClassification(object):
                     self.tensorboard_writer.add_scalar("Loss/train", loss, train_steps)
                     # log_moments(norm_img, norm_gps, std_mean_img, std_mean_gps, std_mean_diff)
 
-                    # Log accuracy step wise                    
-                    metrics['multilabel_accuracy_micro'].append(Fmetrics.classification.multilabel_accuracy(logits, labels, num_labels=self.num_labels, threshold=0.1, average='micro'))
-                    metrics['multilabel_accuracy_macro'].append(Fmetrics.classification.multilabel_accuracy(logits, labels, num_labels=self.num_labels, threshold=0.1, average='macro'))
-                    metrics['multilabel_f1_micro'].append(Fmetrics.classification.multilabel_f1_score(logits, labels, num_labels=self.num_labels, threshold=0.1, average='micro'))
+                    # Log accuracy step wise           
+                    from sklearn.metrics import precision_recall_fscore_support         
+                    metrics['multilabel_accuracy_micro'].append(Fmetrics.classification.multilabel_accuracy(logits, labels, num_labels=self.num_labels, threshold=self.best_f1_thresh, average='micro'))
+                    metrics['multilabel_accuracy_macro'].append(Fmetrics.classification.multilabel_accuracy(logits, labels, num_labels=self.num_labels, threshold=self.best_f1_thresh, average='macro'))
+                    metrics['multilabel_f1_micro'].append(Fmetrics.classification.multilabel_f1_score(logits, labels, num_labels=self.num_labels, threshold=self.best_f1_thresh, average='micro'))
                     wandb.log({f"acc_micro_step/train/": metrics['multilabel_accuracy_micro'][-1],
                                f"acc_macro_step/train/": metrics['multilabel_accuracy_macro'][-1],
                                f"f1_micro_step/train/": metrics['multilabel_f1_micro'][-1]})
@@ -431,9 +452,15 @@ class SimCLRToMultilabelClassification(object):
                         if all(topk is not None for topk in [vtop1, vtop5]):
                             vtop1s.append(vtop1)
                             vtop5s.append(vtop5)
-                        vmetrics['multilabel_accuracy_micro'].append(Fmetrics.classification.multilabel_accuracy(vlogits, vlabels, num_labels=self.num_labels, threshold=0.1, average='micro'))
-                        vmetrics['multilabel_accuracy_macro'].append(Fmetrics.classification.multilabel_accuracy(vlogits, vlabels, num_labels=self.num_labels, threshold=0.1, average='macro'))
-                        vmetrics['multilabel_f1_micro'].append(Fmetrics.classification.multilabel_f1_score(vlogits, vlabels, num_labels=self.num_labels, threshold=0.1, average='micro'))
+                        # Finding best threshold on the fly
+                        ## Method 1: searching through a range of thresholds
+                        best_thresh, best_f1 = find_best_threshold(vlabels, vlogits)
+                        self.best_f1_thresh = best_thresh
+                        ## Method 2: take p_k where k = ground(sum of probas)
+                        
+                        vmetrics['multilabel_accuracy_micro'].append(Fmetrics.classification.multilabel_accuracy(vlogits, vlabels, num_labels=self.num_labels, threshold=self.best_f1_thresh, average='micro'))
+                        vmetrics['multilabel_accuracy_macro'].append(Fmetrics.classification.multilabel_accuracy(vlogits, vlabels, num_labels=self.num_labels, threshold=self.best_f1_thresh, average='macro'))
+                        vmetrics['multilabel_f1_micro'].append(Fmetrics.classification.multilabel_f1_score(vlogits, vlabels, num_labels=self.num_labels, threshold=self.best_f1_thresh, average='micro'))
                     
                         self.tensorboard_writer.add_scalar("acc_micro_step/train", vmetrics['multilabel_accuracy_micro'][-1], val_steps)
                         self.tensorboard_writer.add_scalar("acc_macro_step/train", vmetrics['multilabel_accuracy_macro'][-1], val_steps)

@@ -179,7 +179,8 @@ def main(args):
             root_path_landscape = 'dataset/scale_2_landscape/',
             fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min.csv',
             root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
+            # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
+            fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_train.csv',
             transform_species = transforms_species(),
             transform_landscape = transforms_species(),
             transform_satellite = transforms_satellite(),
@@ -194,7 +195,8 @@ def main(args):
             root_path_landscape = 'dataset/scale_2_landscape/',
             fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min.csv',
             root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
+            # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
+            fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_val.csv',
             transform_species = transforms_species(),
             transform_landscape = transforms_species(),
             transform_satellite = transforms_satellite(),
@@ -287,7 +289,7 @@ def main(args):
     else:
         with torch.cuda.device(args.gpu_index):
             downstream_pipeline = SimCLRToMultilabelClassification(model=classifier, optimizer=optimizer, scheduler=cosine_scheduler, args=args)
-            downstream_pipeline.train(train_loader, val_loader, max_iter=args.max_iter)
+            downstream_pipeline.train(train_loader, val_loader, max_iter=args.max_iter, verbose=args.verbose)
 
 
 if __name__ == "__main__":
@@ -298,7 +300,7 @@ if __name__ == "__main__":
         'resume_wandb_run': False,
         'device': "cuda",
         'disable_cuda': False,
-        'dropout': 0.2,
+        'dropout': 0.1,
         'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
         'epochs': 40,
         'fp16_precision': False,
@@ -308,7 +310,7 @@ if __name__ == "__main__":
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "Test > Downstream task evaluation on GLC24 private test set with multi-loss model",
+        'name': "Downstream task > GLC24 train/val, multi-loss model (sat only) frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'out_dim': 512,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
@@ -322,7 +324,8 @@ if __name__ == "__main__":
         'skip_modalities': ['species', 'landscape'],  # Will skip modalities during training
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
-        'predict': False
+        'predict': False,
+        'verbose': False,
     }
     # import os
     # os.system('wandb offline')
