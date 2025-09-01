@@ -193,12 +193,13 @@ class ModelSimCLR(nn.Module):
     def __init__(self, base_model, out_dim=512, dropout=-1,
                  gps_encoder: nn.Module = None, gps_head: nn.Module = None,
                  freeze_modality_backbone=False, freeze_gps_backbone=False,
-                 unfreeze_modality_backbone_last_layer=False, unfreeze_gps_backbone_last_layer=False):
+                 unfreeze_modality_backbone_last_layer=False, unfreeze_gps_backbone_last_layer=False, sat_ckpt='MME'):
         super().__init__()
         self.base_model = base_model
         self.freeze_modality_backbone = freeze_modality_backbone
         self.freeze_gps_backbone = freeze_gps_backbone
         self.dropout = dropout
+        self.sat_ckpt = sat_ckpt
         modality_dict = {
             'gps': LocationEncoder,  # GeoCLIP. Selected by default.
             'species': get_model_species,  # DinoV2
@@ -256,7 +257,7 @@ class ModelSimCLR(nn.Module):
             )
             replace_last_k_layers_with_identity(self.modality_encoder, 1)
         elif base_model == 'satellite':
-            self.modality_encoder = modality_dict[base_model]()
+            self.modality_encoder = modality_dict[base_model](ckpt=self.sat_ckpt)  # assuming swin_t
             dim_mlp = self.modality_encoder.norm.normalized_shape[0]
             self.modality_contrastive_head = torch.nn.Sequential(
                 OrderedDict(

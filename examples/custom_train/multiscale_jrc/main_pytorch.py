@@ -163,7 +163,8 @@ def main(args):
 
     # Model
     model = ModelSimCLR(base_model=args.arch, out_dim=args.out_dim, dropout=args.dropout,
-                        freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
+                        freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone,
+                        sat_ckpt=None)
     model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
 
     # Optimization
@@ -214,13 +215,13 @@ def main(args):
 if __name__ == "__main__":
     args = {
         'arch': 'satellite',  # always paired with gps
-        'batch_size': 32,
+        'batch_size': 128,
         'ckpt_path': None, # 'wandb/run-20250604_170638-3sn5y6f2/files/last.pth.tar',
         'device': "cuda",
         'disable_cuda': True,
         'dropout': 0.1,
         'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
-        'epochs': 60,
+        'epochs': 40,
         'fp16_precision': False,
         'freeze_gps_backbone': False,
         'freeze_modality_backbone': False,
@@ -228,10 +229,10 @@ if __name__ == "__main__":
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.1,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "test",
+        'name': "SimCLR: satellite from scratch (no MME ckpt loaded), symetrix, BS 128",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'out_dim': 512,
-        'subset': 164,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'symmetric_loss': True,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
         'temperature': 0.07,
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
@@ -239,5 +240,7 @@ if __name__ == "__main__":
         'workers': 0,
         'warmup_epochs': 0,
     }
+    import os
+    os.system('wandb offline')
     args_ns = SimpleNamespace(**args)
     main(args_ns)

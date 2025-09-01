@@ -357,10 +357,10 @@ class SimCLRToMultilabelClassification(object):
                         print("\n")
                         print(f"Step {step}, loss {loss.item()}.")
                         print(f"Labels min {labels.min().item()}, max {labels.max().item()}.")
-                        print(f"Labels positive indices: {[(labels[i]==1).nonzero().tolist() for i in range(labels.shape[0])]}.")
+                        # print(f"Labels positive indices: {[(labels[i]==1).nonzero().tolist() for i in range(labels.shape[0])]}.")
                         print(f"Labels sample (5 first rows, 25 first cols): {labels[:5, :25]}.")
                         print(f"Logits min {logits.min().item()}, max {logits.max().item()}.")
-                        print(f"Logits max positive indices: {torch.argmax(logits, dim=1)}.")
+                        # print(f"Logits max positive indices: {torch.argmax(logits, dim=1)}.")
                         print(f"Logits sample (5 first rows, 25 first cols): {logits[:5, :25]}.")
                     log_input_imgs_multimodalities(all_images, idxs, ids, step, epoch_counter, n_samples=8, n_modalities=len(modalities_to_process), mode='train', log_images=self.log_images)
                     

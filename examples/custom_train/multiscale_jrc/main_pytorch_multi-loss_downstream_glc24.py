@@ -325,7 +325,7 @@ if __name__ == "__main__":
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
         'predict': False,
-        'verbose': False,
+        'verbose': True,
     }
     # import os
     # os.system('wandb offline')
