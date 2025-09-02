@@ -25,6 +25,7 @@ from torch.nn import functional as F
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from matplotlib import pyplot as plt
+from torch import nn
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -86,11 +87,45 @@ def update_ema(model, ema_model, tau):
         ema_param.data.mul_(tau).add_(param.data, alpha=1 - tau)
 
 
+class KoLeoLoss(nn.Module):
+    """Kozachenko-Leonenko entropic loss regularizer from Sablayrolles et al. - 2018 - Spreading vectors for similarity search"""
+
+    def __init__(self):
+        super().__init__()
+        self.pdist = nn.PairwiseDistance(2, eps=1e-8)
+
+    def pairwise_NNs_inner(self, x):
+        """
+        Pairwise nearest neighbors for L2-normalized vectors.
+        Uses Torch rather than Faiss to remain on GPU.
+        """
+        # parwise dot products (= inverse distance)
+        dots = torch.mm(x, x.t())
+        n = x.shape[0]
+        dots.view(-1)[:: (n + 1)].fill_(-1)  # Trick to fill diagonal with -1
+        # max inner prod -> min distance
+        _, I = torch.max(dots, dim=1)  # noqa: E741
+        return I
+
+    def forward(self, output, eps=1e-8):
+        """
+        Args:
+            output (BxD): backbone output of student
+        """
+        with torch.amp.autocast('cuda', enabled=False):
+            output = F.normalize(output, eps=eps, p=2, dim=-1)
+            I = self.pairwise_NNs_inner(output)  # noqa: E741
+            distances = self.pdist(output, output[I])  # BxD, BxD -> B
+            loss = -torch.log(distances + eps).mean()
+        return loss
+
+
 class SimCLR(object):
     def __init__(self, *args, **kwargs):
         self.args = kwargs['args']
         self.args.last_epoch = getattr(self.args, 'last_epoch', 0)
         self.model = kwargs['model'].to(self.args.device)
+        self.koleo_weight = self.args.koleo_weight if hasattr(self.args, 'koleo_weight') else 0.0
         self.optimizer = kwargs['optimizer']
         self.scheduler = kwargs['scheduler']
         self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
@@ -247,10 +282,12 @@ class SimCLR(object):
                     features = torch.cat([features_img, features_gps], dim=0)
                     if self.args.symmetric_loss:
                         logits, labels, sim_matrix = self.info_nce_loss(features, dataset_type=self.args.arch)
+                        koleo = KoLeoLoss()
+                        loss = self.criterion(logits, labels) + self.koleo_weight * koleo(features) 
                     else:
                         logits, labels, sim_matrix = self.info_nce_loss_single_diag(features_img, features_gps, dataset_type=self.args.arch)
                     sim_matrices.append(sim_matrix)
-                    loss = self.criterion(logits, labels)
+                    # loss = self.criterion(logits, labels)
                     running_loss.append(loss.item())
                     best_train_loss = min(best_train_loss, loss.item())
 

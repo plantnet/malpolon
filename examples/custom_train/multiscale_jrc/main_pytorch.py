@@ -214,11 +214,11 @@ def main(args):
 
 if __name__ == "__main__":
     args = {
-        'arch': 'satellite',  # always paired with gps
-        'batch_size': 128,
+        'arch': 'landscape',  # always paired with gps
+        'batch_size': 32,
         'ckpt_path': None, # 'wandb/run-20250604_170638-3sn5y6f2/files/last.pth.tar',
         'device': "cuda",
-        'disable_cuda': True,
+        'disable_cuda': False,
         'dropout': 0.1,
         'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
         'epochs': 40,
@@ -229,18 +229,19 @@ if __name__ == "__main__":
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.1,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "SimCLR: satellite from scratch (no MME ckpt loaded), symetrix, BS 128",
+        'name': "SimCLR: landscape (dinov2_small) from scratch, symetrix, BS 128, koleo",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'out_dim': 512,
-        'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'subset': 0.5,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'symmetric_loss': True,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
         'temperature': 0.07,
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
         'weight_decay': 1e-3,
         'workers': 0,
         'warmup_epochs': 0,
+        'koleo_weight': 0.1,
     }
-    import os
-    os.system('wandb offline')
+    # import os
+    # os.system('wandb offline')
     args_ns = SimpleNamespace(**args)
     main(args_ns)
