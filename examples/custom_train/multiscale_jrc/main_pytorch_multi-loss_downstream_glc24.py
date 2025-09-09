@@ -233,23 +233,25 @@ def main(args):
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
     test_loader.dataset[0]
     # Model
-    model_species = ModelSimCLR(base_model='species', out_dim=args.out_dim, dropout=args.dropout,
-                                freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
-    model_landscape = ModelSimCLR(base_model='landscape', out_dim=args.out_dim, dropout=args.dropout,
-                                  gps_encoder=model_species.gps_encoder, gps_head=model_species.gps_contrastive_head,
-                                  freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
+    # model_species = ModelSimCLR(base_model='species', out_dim=args.out_dim, dropout=args.dropout,
+    #                             freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
+    # model_landscape = ModelSimCLR(base_model='landscape', out_dim=args.out_dim, dropout=args.dropout,
+    #                               gps_encoder=model_species.gps_encoder, gps_head=model_species.gps_contrastive_head,
+    #                               freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
     model_satellite = ModelSimCLR(base_model='satellite', out_dim=args.out_dim, dropout=args.dropout,
-                                  gps_encoder=model_species.gps_encoder, gps_head=model_species.gps_contrastive_head,
+                                  # gps_encoder=model_species.gps_encoder, gps_head=model_species.gps_contrastive_head,
                                   freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
     # model = torch.nn.ModuleDict({'species': model_species, 'landscape': model_landscape, 'satellite': model_satellite})
-    model = torch.nn.ModuleList([model_species, model_landscape, model_satellite])
+    # model = torch.nn.ModuleList([model_species, model_landscape, model_satellite])
+    model = torch.nn.ModuleList([model_satellite])
     model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
 
 
     # Transfer learning: linear probing / fine-tuning
     if args.ckpt_path:
         checkpoint = torch.load(args.ckpt_path, map_location='cuda' if not args.disable_cuda else 'cpu')
-        model.load_state_dict(checkpoint['state_dict'])
+        # model.load_state_dict(checkpoint['state_dict'])
+        model[0].gps_encoder.load_state_dict(checkpoint['state_dict'])
         print(f"Checkpoint loaded from {args.ckpt_path}")
     
     # Evaluation strategy
@@ -310,7 +312,7 @@ if __name__ == "__main__":
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "Downstream task > GLC24 train/val, multi-loss model (sat only) frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val",
+        'name': "Downstream task > GLC24 train/val, multi-loss model (sat only) bb[:-1] frozen (last atn block hot), linear-probing (3 hidd layers), f1 threshold computed on val",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'out_dim': 512,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).

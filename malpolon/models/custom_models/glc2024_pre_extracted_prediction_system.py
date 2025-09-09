@@ -96,6 +96,7 @@ class ClassificationSystemGLC24(ClassificationSystem):
     def _step(
         self, split: str, batch: tuple[Any, Any], batch_idx: int
     ) -> Union[Tensor, dict[str, Any]]:
+        # filtered_state_dict['features.0.0.weight'][10,0,0] -> tensor([ 0.0521, -0.0102, -0.0585,  0.0481], device='cuda:0')
         if split == "train":
             log_kwargs = {"on_step": True, "on_epoch": True, "sync_dist": True}
         else:

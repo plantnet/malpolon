@@ -523,6 +523,7 @@ class SimCLRToMultilabelClassification(object):
             }, is_best=(loss < best_train_loss), dirpath=self.writer.dir)
         logging.info(f"Model checkpoint and metadata has been saved at {self.writer.dir}.")
         logging.info("Training has finished.")
+        wandb.finish()
 
     def predict(self, test_dataloader: torch.utils.data.DataLoader):
         """Predict the model using SimCLR.
@@ -570,3 +571,4 @@ class SimCLRToMultilabelClassification(object):
             wandb.log({"acc_epoch (batch avg)/test/top1": np.array(top1s).mean(),
                         "acc_epoch (batch avg)/test/top5": np.array(top5s).mean()})
             print(f'Test accuracy (mean) - Top-1: {np.array(top1s).mean():.4f}, Top-5: {np.array(top5s).mean():.4f}')
+        wandb.finish()

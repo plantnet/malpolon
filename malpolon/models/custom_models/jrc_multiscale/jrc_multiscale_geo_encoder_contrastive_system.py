@@ -265,6 +265,7 @@ class SimCLR(object):
 
         for epoch_counter in range(self.args.last_epoch, self.args.epochs + self.args.last_epoch):
             running_loss, sim_matrices, top1s, top5s = [], [], [], []
+            running_criterion, running_koleo = [], []
             wandb.log({"epoch": epoch_counter})
             print("Training the model...")
             print(f"> Starting epoch {epoch_counter}...")
@@ -283,7 +284,12 @@ class SimCLR(object):
                     if self.args.symmetric_loss:
                         logits, labels, sim_matrix = self.info_nce_loss(features, dataset_type=self.args.arch)
                         koleo = KoLeoLoss()
-                        loss = self.criterion(logits, labels) + self.koleo_weight * koleo(features) 
+                        criterion = self.criterion(logits, labels)
+                        koleo_train = koleo(features)
+                        # loss = self.criterion(logits, labels) + self.koleo_weight * koleo(features)
+                        loss = criterion + self.koleo_weight * koleo_train
+                        running_criterion.append(criterion.item())
+                        running_koleo.append(koleo_train.item())
                     else:
                         logits, labels, sim_matrix = self.info_nce_loss_single_diag(features_img, features_gps, dataset_type=self.args.arch)
                     sim_matrices.append(sim_matrix)
@@ -479,3 +485,4 @@ class SimCLR(object):
             }, is_best=(vloss < best_val_loss), dirpath=self.writer.dir)
         logging.info(f"Model checkpoint and metadata has been saved at {self.writer.dir}.")
         logging.info("Training has finished.")
+        wandb.finish()

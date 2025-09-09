@@ -546,6 +546,7 @@ class SimCLR(object):
             }, is_best=(vloss < best_val_loss), dirpath=self.writer.dir)
         logging.info(f"Model checkpoint and metadata has been saved at {self.writer.dir}.")
         logging.info("Training has finished.")
+        wandb.finish()
 
     def predict(self, test_dataloader: torch.utils.data.DataLoader):
         """Predict the model using SimCLR.
@@ -610,3 +611,4 @@ class SimCLR(object):
                 log_tsne(vfeatures_img, vfeatures_gps, 0, modality_name, log_images=self.log_images, mode='test')
             df_metrics = pd.DataFrame(metrics, index=[0])
             df_metrics.to_csv(os.path.join(self.writer.dir, 'test_metrics.csv'), index=False)
+        wandb.finish()

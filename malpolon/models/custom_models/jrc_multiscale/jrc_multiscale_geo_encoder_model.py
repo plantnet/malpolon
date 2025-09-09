@@ -277,6 +277,8 @@ class ModelSimCLR(nn.Module):
         if self.freeze_modality_backbone:
             for param in self.modality_encoder.parameters():
                 param.requires_grad = False
+            for param in self.modality_encoder.blocks[-1].parameters():
+                param.requires_grad = True
         if dropout >= 0:
             set_dropout_p(self.gps_encoder, new_p=dropout)
             set_dropout_p(self.modality_encoder, new_p=dropout)
