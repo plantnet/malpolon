@@ -82,19 +82,19 @@ def main(cfg: DictConfig) -> None:
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer, deterministic=True)
 
     ### Insert JRC pretext task weights
-    from types import MethodType
-    def on_fit_start(
-        self,
-        ckpt_path: str = '/home/tlarcher/Documents/Pl@ntNet/git/malpolon/examples/custom_train/multiscale_jrc/wandb/archive/run-20250902_003104-x5xix5vr/files/last.pth.tar',
-    ) -> None:
-        print("Training is about to start. Overriding weights...")
-        checkpoint = torch.load(ckpt_path, map_location='cuda')
-        filtered_state_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.startswith('modality_encoder')}
-        filtered_state_dict = classif_system.remove_state_dict_prefix(filtered_state_dict, prefix='modality_encoder.')
-        self.model.sentinel_model.load_state_dict(filtered_state_dict, strict=False)
-        self.jrc_weights_loaded = True
-    classif_system.on_fit_start = MethodType(on_fit_start, classif_system)
-    classif_system.on_load_checkpoint = MethodType(on_fit_start, classif_system)
+    # from types import MethodType
+    # def on_fit_start(
+    #     self,
+    #     ckpt_path: str = '/home/tlarcher/Documents/Pl@ntNet/git/malpolon/examples/custom_train/multiscale_jrc/wandb/archive/run-20250902_003104-x5xix5vr/files/last.pth.tar',
+    # ) -> None:
+    #     print("Training is about to start. Overriding weights...")
+    #     checkpoint = torch.load(ckpt_path, map_location='cuda')
+    #     filtered_state_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.startswith('modality_encoder')}
+    #     filtered_state_dict = classif_system.remove_state_dict_prefix(filtered_state_dict, prefix='modality_encoder.')
+    #     self.model.sentinel_model.load_state_dict(filtered_state_dict, strict=False)
+    #     self.jrc_weights_loaded = True
+    # classif_system.on_fit_start = MethodType(on_fit_start, classif_system)
+    # classif_system.on_load_checkpoint = MethodType(on_fit_start, classif_system)
     # classif_system.on_train_start = MethodType(on_fit_start, classif_system)
     ###
 

@@ -3,8 +3,8 @@ hydra:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
 run:
-  predict: true
-  checkpoint_path: "outputs/glc24_cnn_multimodal_ensemble/pretrained.ckpt"
+  predict: false
+  checkpoint_path: # "outputs/glc24_cnn_multimodal_ensemble/pretrained.ckpt"
 
 data:
   root: "dataset/geolifeclef-2024/"
@@ -43,7 +43,7 @@ model:
   provider_name: "malpolon" # choose from ["malpolon", "timm", "torchvision"]
   model_name: "glc24_multimodal_ensemble"
   model_kwargs:
-    pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
+    pretrained: false # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
   modifiers:
     change_last_layer:
       num_outputs: *num_classes
@@ -65,27 +65,27 @@ optim:
       # callable: 'Fmetrics.classification.multilabel_accuracy'
       kwargs:
         num_labels: *num_classes
-        # threshold: 0.1
+        threshold: 0.1
         average: micro
     multilabel_recall:
       callable: 'Fmetrics.classification.multilabel_recall'
       kwargs:
         num_labels: *num_classes
-        # threshold: 0.1
+        threshold: 0.1
         average: micro
     multilabel_precision:
       callable: 'Fmetrics.classification.multilabel_precision'
       kwargs:
         num_labels: *num_classes
-        # threshold: 0.1
+        threshold: 0.1
         average: micro
     multilabel_f1-score:
       callable: 'Fmetrics.classification.multilabel_f1_score'
       kwargs:
         num_labels: *num_classes
-        # threshold: 0.1
+        threshold: 0.1
         average: micro
 
 loggers:
-  exp_name: "test insert inference jrc > multimodal_resnet18-swint_ensemble"  # Name of your experiment
+  exp_name: "MME from scratch"  # Name of your experiment
   log_dir_name: "tensorboard_logs/"  # Name of the logs directory
