@@ -2,6 +2,7 @@
 
 Author: Theo Larcher <theo.larcher@inria.fr>
 """
+import os
 from types import SimpleNamespace
 from typing import Any, Callable, List
 from math import sqrt
@@ -177,8 +178,9 @@ def main(args):
             root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
             fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-0.06min_no_3-duplicates.csv',
             root_path_landscape = 'dataset/scale_2_landscape/',
-            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min.csv',
+            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min_abaca.csv',
             root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
+            # fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_train-10.0min.csv',
             # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
             fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_train.csv',
             transform_species = transforms_species(),
@@ -188,13 +190,15 @@ def main(args):
             skip_modalities = args.skip_modalities,
             task = 'multilabel_classification',
             num_classes=args.num_labels,
+            query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
         )
         val_dataset = MultiscaleDatasetJointWithLabels(
             root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
             fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-0.06min_no_3-duplicates.csv',
             root_path_landscape = 'dataset/scale_2_landscape/',
-            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min.csv',
+            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_abaca.csv',
             root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
+            # fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_val-10.0min.csv',
             # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
             fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_val.csv',
             transform_species = transforms_species(),
@@ -204,6 +208,7 @@ def main(args):
             skip_modalities = args.skip_modalities,
             task = 'multilabel_classification',
             num_classes=args.num_labels,
+            query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
         )
         test_dataset = MultiscaleDatasetJointWithLabels(
             root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
@@ -219,6 +224,7 @@ def main(args):
             skip_modalities = args.skip_modalities,
             task = 'multilabel_classification',
             num_classes=args.num_labels,
+            query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
         )
 
     # Dataloaders
@@ -231,7 +237,6 @@ def main(args):
     test_loader = DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
-    test_loader.dataset[0]
     # Model
     model_species = ModelSimCLR(base_model='species', out_dim=args.out_dim, dropout=args.dropout,
                                 freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
@@ -241,8 +246,8 @@ def main(args):
     model_satellite = ModelSimCLR(base_model='satellite', out_dim=args.out_dim, dropout=args.dropout,
                                   gps_encoder=model_species.gps_encoder, gps_head=model_species.gps_contrastive_head,
                                   freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
-    # model = torch.nn.ModuleDict({'species': model_species, 'landscape': model_landscape, 'satellite': model_satellite})
-    model = torch.nn.ModuleList([model_species, model_landscape, model_satellite])
+    model = torch.nn.ModuleDict({'species': model_species, 'landscape': model_landscape, 'satellite': model_satellite})
+    # model = torch.nn.ModuleList([model_species, model_landscape, model_satellite])
     model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
 
 
@@ -255,8 +260,10 @@ def main(args):
     # Evaluation strategy
     if args.eval_type == 'knn':
         raise NotImplementedError("KNN evaluation is not implemented in this script. Please implement it if needed.")
-    classifier = MultiLabelClassifier(model[0].gps_encoder, model[0].modality_encoder, model[1].modality_encoder, model[2].modality_encoder,
+    classifier = MultiLabelClassifier(model['species'].gps_encoder, model['species'].modality_encoder, model['landscape'].modality_encoder, model['satellite'].modality_encoder,
                                       classifier_type=args.eval_type, num_labels=args.num_labels, skip_modalities=args.skip_modalities)
+    # classifier = MultiLabelClassifier(model[0].gps_encoder, model[0].modality_encoder, model[1].modality_encoder, model[2].modality_encoder,
+    #                                   classifier_type=args.eval_type, num_labels=args.num_labels, skip_modalities=args.skip_modalities)
 
     # Optimization
     args.learning_rate = args.learning_rate * sqrt(args.batch_size)
@@ -295,8 +302,9 @@ def main(args):
 if __name__ == "__main__":
     args = {
         'arch': 'multi-loss',  # always paired with gps
+        'OAR_job_id': os.getenv("OAR_JOB_ID", "no_jobid"),
         'batch_size': 32,
-        'ckpt_path': 'wandb/archive/run-20250724_181933-tr7gs4v2/files/last.pth.tar',
+        'ckpt_path': 'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar',
         'resume_wandb_run': False,
         'device': "cuda",
         'disable_cuda': False,
@@ -310,22 +318,22 @@ if __name__ == "__main__":
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "Downstream task > GLC24 train/val, multi-loss model (sat only) frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val",
+        'name': "Downstream task > GLC24 train/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, sat+land (from u6tiioze)",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
-        'out_dim': 512,
+        'out_dim': 2048,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'symmetric_loss': True,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
         'temperature': 0.07,
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
         'weight_decay': 1e-3,
-        'workers': 0,
+        'workers': 16,
         'warmup_epochs': 0,
         'log_images': False,  # If True, logs images to wandb
         'skip_modalities': ['species', 'landscape'],  # Will skip modalities during training
-        'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
+        'eval_type': 'fine_tuning',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
         'predict': False,
-        'verbose': True,
+        'verbose': False,
     }
     # import os
     # os.system('wandb offline')

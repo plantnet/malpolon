@@ -81,20 +81,55 @@ def main(cfg: DictConfig) -> None:
     ]
     trainer = pl.Trainer(logger=[logger_csv, logger_tb], callbacks=callbacks, **cfg.trainer, deterministic=True)
 
+    ### Insert JRC pretext task weights
+    def insert_jrc_weights(model):
+        print("Manually overriding sat weights...")
+        prefix = 'satellite_encoder'  # 'modality_encoder', 'satellite_encoder'
+        ckpt_path = '/home/tlarcher/git/malpolon/examples/custom_train/multiscale_jrc/wandb/run-20251014_024543-ysg61d9y/files/last.pth.tar'
+        checkpoint = torch.load(ckpt_path, map_location='cuda')
+        filtered_state_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.startswith(prefix)}
+        filtered_state_dict = classif_system.remove_state_dict_prefix(filtered_state_dict, prefix=f'{prefix}.')
+        model.sentinel_model.load_state_dict(filtered_state_dict, strict=True)
+        return model
+
+    # from types import MethodType
+    # def on_fit_start(
+    #     self,
+    #     ckpt_path: str = '/home/tlarcher/git/malpolon/examples/custom_train/multiscale_jrc/wandb/run-20251014_024543-ysg61d9y/files/last.pth.tar',
+    # ) -> None:
+    #     print("Training is about to start. Overriding weights...")
+    #     prefix = 'satellite_encoder'  # 'modality_encoder', 'satellite_encoder'
+    #     checkpoint = torch.load(ckpt_path, map_location='cuda')
+    #     filtered_state_dict = {k: v for k, v in checkpoint['state_dict'].items() if k.startswith(prefix)}
+    #     filtered_state_dict = classif_system.remove_state_dict_prefix(filtered_state_dict, prefix=f'{prefix}.')
+    #     self.model.sentinel_model.load_state_dict(filtered_state_dict, strict=True)
+    #     self.jrc_weights_loaded = True
+    # classif_system.on_fit_start = MethodType(on_fit_start, classif_system)
+    # classif_system.on_load_checkpoint = MethodType(on_fit_start, classif_system)
+    # classif_system.on_train_start = MethodType(on_fit_start, classif_system)
+    ###
+
     # Run
     if cfg.run.predict:
+        # Returns an object of type class ClassificationSystemGLC24 with loaded checkpoint weights
         model_loaded = ClassificationSystemGLC24.load_from_checkpoint(classif_system.checkpoint_path,
                                                                       model=classif_system.model,
                                                                       hparams_preprocess=False,
                                                                       strict=False,
                                                                       weights_dir=log_dir)
+        # Doesn't work for unknown reason
+        # model_loaded.on_fit_start = MethodType(on_fit_start, classif_system)
+        # model_loaded.on_load_checkpoint = MethodType(on_fit_start, classif_system)
+        # model_loaded.on_train_start = MethodType(on_fit_start, classif_system)
+        
+        model_loaded.model = insert_jrc_weights(model_loaded.model)
 
         predictions = model_loaded.predict(datamodule, trainer)
         preds, probas = datamodule.predict_logits_to_class(predictions,
                                                            np.arange(cfg.data.num_classes),
                                                            activation_fn=torch.nn.Sigmoid())
         datamodule.export_predict_csv(preds, probas,
-                                      out_dir=log_dir, out_name='predictions_test_dataset', top_k=25, return_csv=True)
+                                      out_dir=log_dir, out_name='predictions_test_dataset', top_k=None, return_csv=True)
         print('Test dataset prediction (extract) : ', predictions[:1])
 
     else:

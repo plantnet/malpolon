@@ -2,6 +2,7 @@
 
 Author: Theo Larcher <theo.larcher@inria.fr>
 """
+import os
 from types import SimpleNamespace
 from typing import Any, List
 from math import sqrt
@@ -114,25 +115,27 @@ def main(args):
             fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-0.06min_no_3-duplicates.csv',
             transform = transforms_species(),
             subset = args.subset,
+	    query_id = 'gbifID',
         )
         val_dataset = SpeciesDatasetSimple(
             root_path = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
             fp_metadata = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-0.06min_no_3-duplicates.csv',
             transform = transforms_species(),
             subset = args.subset,
+	    query_id = 'gbifID',	
         )
 
     elif args.arch == 'landscape':
         custom_collate = collate_landscape
         train_dataset = LandscapeDatasetSimple(
             root_path = 'dataset/scale_2_landscape/',
-            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_exists_essentials_train-0.06min.csv',
+            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min_abaca.csv',
             transform = transforms_species(),
             subset = args.subset,
         )
         val_dataset = LandscapeDatasetSimple(
             root_path = 'dataset/scale_2_landscape/',
-            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_exists_essentials_val-0.06min.csv',
+            fp_metadata = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_abaca.csv',
             transform = transforms_species(),
             subset = args.subset,
         )
@@ -140,14 +143,14 @@ def main(args):
     elif args.arch == 'satellite':
         custom_collate = collate_satellite
         train_dataset = SatelliteDatasetSimple(
-            root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
+            root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',  # /mnt/data_disk/malpolon/jrc/
+            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',  # /mnt/data_disk/malpolon/jrc/
             transform = transforms_satellite(),
             subset = args.subset,
         )
         val_dataset = SatelliteDatasetSimple(
-            root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
+            root_path = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',  # /mnt/data_disk/malpolon/jrc/
+            fp_metadata = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',  # /mnt/data_disk/malpolon/jrc/
             transform = transforms_satellite(),
             subset = args.subset,
         )
@@ -166,7 +169,16 @@ def main(args):
                         freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone,
                         sat_ckpt=None)
     model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
+    # model = torch.nn.DataParallel(model, device_ids=[0])
 
+    ema_model = None
+    if args.ema_decay >= 0 and args.ema_decay < 1:
+        ema_model = ModelSimCLR(base_model=args.arch, out_dim=args.out_dim, dropout=args.dropout,
+                                freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone,
+                                sat_ckpt=None)
+        ema_model = ema_model.to('cpu')
+        ema_model.load_state_dict(model.state_dict())
+    
     # Optimization
     args.learning_rate = args.learning_rate * sqrt(args.batch_size)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
@@ -214,32 +226,37 @@ def main(args):
 
 if __name__ == "__main__":
     args = {
-        'arch': 'landscape',  # always paired with gps
+        'arch': 'satellite',  # always paired with gps
+        'OAR_job_id': os.getenv("OAR_JOB_ID", "no_jobid"),
         'batch_size': 32,
         'ckpt_path': None, # 'wandb/run-20250604_170638-3sn5y6f2/files/last.pth.tar',
         'device': "cuda",
         'disable_cuda': False,
         'dropout': 0.1,
+        'ema_model': False,
         'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
+        'ema_update_step': 1,
         'epochs': 40,
-        'fp16_precision': False,
+        'fp16_precision': True,
         'freeze_gps_backbone': False,
         'freeze_modality_backbone': False,
         'gpu_index': 0,
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.1,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "SimCLR: landscape (dinov2_small) from scratch, symetrix, BS 128, koleo",
+        'name': "[TEST] SimCLR: Satellite from scratch, koleo ddiags, cosine_embedding_from_sim",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'out_dim': 512,
-        'subset': 0.5,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
-        'symmetric_loss': True,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
+        'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'symmetric_loss': False,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
         'temperature': 0.07,
-        'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
+        'wandb_project': 'Sandbox', # Takes values in ['Sandbox', 'Contrastive learning pairwise']
         'weight_decay': 1e-3,
-        'workers': 0,
+        'workers': os.cpu_count(),
         'warmup_epochs': 0,
         'koleo_weight': 0.1,
+        'koleo_eps': 1e-4,
+        'loss_criterion': 'crisp',  # Takes values in ['cross_entropy', 'crisp', 'cosine_embedding', 'cosine_embedding_from_sim', 'cosine_similarity_mean', 'cosine_loss_pytorch_like', 'cosine_embedding_loss']. By Default: cross_entropy
     }
     # import os
     # os.system('wandb offline')

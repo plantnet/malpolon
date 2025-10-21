@@ -3,8 +3,8 @@ hydra:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
 run:
-  predict: false
-  checkpoint_path: # "outputs/glc24_cnn_multimodal_ensemble/runOK_2024-08-12_11-50-01/last.ckpt"
+  predict: true
+  checkpoint_path: "outputs/glc24_cnn_multimodal_ensemble/pretrained.ckpt"
 
 data:
   root: "dataset/geolifeclef-2024/"
@@ -35,7 +35,7 @@ trainer:
   accelerator: "gpu"
   devices: 'auto'
   max_epochs: 20
-  val_check_interval: 100
+#  val_check_interval: 1000
   check_val_every_n_epoch: 1
   # log_every_n_steps: 100
 
@@ -43,7 +43,7 @@ model:
   provider_name: "malpolon" # choose from ["malpolon", "timm", "torchvision"]
   model_name: "glc24_multimodal_ensemble"
   model_kwargs:
-    pretrained: true # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
+    pretrained: false # Deprecated in torchvision since 0.13 (replaced by "weights") but used by timm
   modifiers:
     change_last_layer:
       num_outputs: *num_classes

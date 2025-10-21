@@ -8,18 +8,15 @@ Author: Theo Larcher <theo.larcher@inria.fr>
 License: GPLv3
 Python version: 3.12.9
 """
-from abc import abstractmethod
 from collections import OrderedDict
-from copy import deepcopy
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Optional
 
 import timm
 import torch
 import torch.nn as nn
 from geoclip import LocationEncoder
 from omegaconf import OmegaConf
-from torch import nn
 from torchvision.datasets.utils import download_and_extract_archive, download_url
 
 from malpolon.models.utils import check_model

@@ -258,7 +258,7 @@ class SimCLRToMultilabelClassification(object):
         logging.basicConfig(filename=os.path.join(self.writer.dir, 'training.log'), level=logging.DEBUG)
         wandb_init()
         # Tensorboard logger
-        self.tensorboard_writer = SummaryWriter()
+        self.tensorboard_writer = SummaryWriter(log_dir=os.path.join(self.writer.dir, 'tensorboard_logs/'))
         self.best_f1_thresh = 0.3  # Initial value, then updated after each val step
         
 
@@ -321,12 +321,13 @@ class SimCLRToMultilabelClassification(object):
 
         for epoch_counter in range(self.args.epochs):
             metrics = {'multilabel_accuracy_micro': [],
-                    'multilabel_accuracy_macro': [],
-                    'multilabel_f1_micro': []}
+                       'multilabel_accuracy_macro': [],
+                       'multilabel_f1_micro': []}
             running_loss, top1s, top5s = [], [], []
             wandb.log({"epoch": epoch_counter})
             print("Training the model...")
             print(f"> Starting epoch {epoch_counter}...")
+            self.model.train()
             for step, train_dict in enumerate(tqdm(train_loader)):
                 batch_inds = train_dict['indices']
                 train_dict.pop('indices', None)
@@ -334,16 +335,18 @@ class SimCLRToMultilabelClassification(object):
                 train_dict_items = train_dict.items()
                 train_dict_items = [(k, v) for k, v in train_dict_items if k in modalities_to_process]
                 wandb.log({"train_steps": train_steps})
-                self.optimizer.zero_grad()
-                loss, all_logits, all_images, idxs, ids = 0, [], [], [], []
 
                 with autocast(device_type=str(self.args.device), enabled=self.args.fp16_precision):
-                    labels = train_dict[modalities_to_process[0]][-1]
-                    logits = self.model(train_dict['species'][0].to(self.args.device),
-                                        train_dict['landscape'][0].to(self.args.device),
-                                        train_dict['satellite'][0].to(self.args.device),
-                                        train_dict[modalities_to_process[0]][1].to(self.args.device))
-                    loss = self.criterion(logits, labels.to(self.args.device))
+                    self.optimizer.zero_grad()
+                    loss, all_logits, all_images, idxs, ids = 0, [], [], [], []
+                    for i, v in enumerate(train_dict_items):
+                        mod_name, (images, gps, inds, survey_ids, labels) = v[0], v[1]
+                        labels = train_dict[modalities_to_process[0]][-1]
+                        logits = self.model(train_dict['species'][0].to(self.args.device),
+                                            train_dict['landscape'][0].to(self.args.device),
+                                            train_dict['satellite'][0].to(self.args.device),
+                                            train_dict[modalities_to_process[0]][1].to(self.args.device))
+                        loss += self.criterion(logits, labels.to(self.args.device))
                 logits = logits.to('cpu')
                 all_images.extend((train_dict[mod_name][0] for mod_name in modalities_to_process))
 
@@ -429,22 +432,11 @@ class SimCLRToMultilabelClassification(object):
                                          val_dict['landscape'][0].to(self.args.device),
                                          val_dict['satellite'][0].to(self.args.device),
                                          val_dict[modalities_to_process[0]][1].to(self.args.device))
-                    vloss = self.criterion(logits.to(self.args.device), labels.to(self.args.device))
+                    vloss = self.criterion(vlogits.to(self.args.device), vlabels.to(self.args.device))
                     vlogits = logits.to('cpu')
                     all_images.extend((train_dict[mod_name][0] for mod_name in modalities_to_process))
 
                     running_vloss.append(vloss.to('cpu').item())
-
-                    # Save best checkpoint
-                    if vloss.item() <= best_val_loss:
-                        logging.info(f"Saving new best model at epoch {epoch_counter}, step {vstep} with loss {vloss.item()}.")
-                        save_checkpoint({
-                            'epoch': epoch_counter,
-                            'arch': self.args.arch,
-                            'state_dict': self.model.state_dict(),
-                            'optimizer': self.optimizer.state_dict(),
-                        }, is_best=True, dirpath=self.writer.dir)
-                    best_val_loss = min(best_val_loss, vloss.item())
 
                     # Log accuracy step wise
                     for vlogits, modality_name in zip(vall_logits, modalities_name):
@@ -500,10 +492,21 @@ class SimCLRToMultilabelClassification(object):
                         self.tensorboard_writer.add_scalar("acc_macro_step/val", vmetrics['multilabel_accuracy_macro'][-1], val_steps)
                         self.tensorboard_writer.add_scalar("f1_micro_step/val", vmetrics['multilabel_f1_micro'][-1], val_steps)
 
-                    
                     val_steps += 1
                     if vstep >= max_iter:
                         break
+
+                # Save best checkpoint
+                if vloss.item() <= best_val_loss:
+                    logging.info(f"Saving new best model at epoch {epoch_counter}, step {vstep} with loss {vloss.item()}.")
+                    save_checkpoint({
+                        'epoch': epoch_counter,
+                        'arch': self.args.arch,
+                        'state_dict': self.model.state_dict(),
+                        'optimizer': self.optimizer.state_dict(),
+                    }, is_best=True, dirpath=self.writer.dir)
+
+                best_val_loss = min(best_val_loss, vloss.item())
                 wandb.log({"Loss_epoch (batch avg)/val": np.array(running_vloss).mean()})
                 wandb.log({f"acc_micro_epoch (batch_avg)/val/": np.array(vmetrics['multilabel_accuracy_micro']).mean(),
                            f"acc_macro_epoch (batch_avg)/val/": np.array(vmetrics['multilabel_accuracy_macro']).mean(),

@@ -19,6 +19,7 @@ import numpy as np
 from sklearn.manifold import TSNE
 
 import torch
+from torch import nn
 import pandas as pd
 import torch.nn.functional as F
 from torch.amp import GradScaler, autocast
@@ -27,8 +28,113 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 
+from malpolon.models.custom_models.jrc_multiscale.jrc_contrastive_losses import (
+    KoLeoLoss, cosine_embedding_loss, cosine_similarity_mean, cosine_loss_pytorch_like,
+    cosine_embedding_from_sim
+)
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
+def save_1d_tensor_as_vertical_image(tensor, filename="tensor_vertical_image.png"):
+    """
+    Saves a 1D tensor as an image, displaying the values of the tensor's elements
+    with their indices shown vertically.
+
+    Args:
+        tensor (torch.Tensor): The 1D tensor to visualize.
+        filename (str): The name of the file to save the image.
+    """
+    # Ensure the tensor is on the CPU and convert to a NumPy array
+    if isinstance(tensor, torch.Tensor):
+        tensor = tensor.detach().cpu().numpy()
+
+    # Create a figure
+    fig, ax = plt.subplots(figsize=(2, len(tensor) * 0.5))
+    ax.axis("off")  # Turn off the axis
+
+    # Create a table-like visualization
+    for i, value in enumerate(tensor):
+        # Display the value
+        ax.text(
+            1, len(tensor) - i - 0.5, str(value),  # Position and value
+            ha="center", va="center",  # Center alignment
+            fontsize=12, color="black", bbox=dict(boxstyle="square", facecolor="white")
+        )
+        # Display the index next to the value
+        ax.text(
+            0, len(tensor) - i - 0.5, str(i),  # Position and index
+            ha="center", va="center",  # Center alignment
+            fontsize=10, color="gray"
+        )
+
+    # Set limits to fit the tensor
+    ax.set_xlim(-0.5, 1.5)
+    ax.set_ylim(0, len(tensor))
+
+    # Save the image
+    plt.savefig(filename, bbox_inches="tight", dpi=300)
+    plt.close()
+
+def save_heatmap(output, filename="heatmap.png", title=""):
+    """
+    Saves the given tensor `output` as a heatmap image.
+
+    Args:
+        output (torch.Tensor): The tensor to visualize as a heatmap.
+        filename (str): The name of the file to save the heatmap.
+    """
+    # Ensure the tensor is on the CPU and convert to NumPy
+    if isinstance(output, torch.Tensor):
+        output = output.detach().cpu().numpy()
+
+    # Create the heatmap
+    plt.figure(figsize=(10, 8))
+    plt.imshow(output, cmap="viridis", aspect="auto")
+    plt.colorbar(label="Value")
+    plt.title(title)
+    plt.xlabel("Features")
+    plt.ylabel("Samples")
+
+    # Save the heatmap
+    plt.savefig(filename)
+    plt.close()
+
+def save_heatmap_with_max_neg_sim(output, highlight_indices=None, filename="heatmap.png", title=""):
+    """
+    Saves the given tensor `output` as a heatmap image and highlights specific indices in red.
+
+    Args:
+        output (torch.Tensor): The tensor to visualize as a heatmap.
+        filename (str): The name of the file to save the heatmap.
+        highlight_indices (torch.Tensor): A 1D tensor containing column indices to highlight for each row.
+    """
+    # Ensure the tensor is on the CPU and convert to NumPy
+    if isinstance(output, torch.Tensor):
+        output = output.detach().cpu().numpy()
+
+    # Create the heatmap
+    plt.figure(figsize=(10, 8))
+    plt.imshow(output, cmap="viridis", aspect="auto")
+    plt.colorbar(label="Value")
+    plt.title(title)
+    plt.xlabel("Features")
+    plt.ylabel("Samples")
+
+    # Highlight specific indices in red
+    if highlight_indices is not None:
+        if isinstance(highlight_indices, torch.Tensor):
+            highlight_indices = highlight_indices.detach().cpu().numpy()
+        rows = np.arange(len(highlight_indices))
+        plt.scatter(highlight_indices, rows, color="red", label="Highlighted Indices", s=10)
+
+    # Add legend if highlights exist
+    if highlight_indices is not None:
+        plt.legend(loc="upper right")
+
+    # Save the heatmap
+    plt.savefig(filename)
+    plt.close()
 
 def save_checkpoint(state, is_best, dirpath='./wandb/'):
     torch.save(state, os.path.join(dirpath, 'last.pth.tar'))
@@ -174,6 +280,9 @@ def log_tsne(features_img, features_gps, epoch_counter, modality_name,
         return
     n = features_img.shape[0]
     embeddings = torch.cat([features_img, features_gps], dim=0)
+    if sum(torch.isnan(torch.flatten(embeddings))) > 0:
+        print("NaN detected in embeddings, skipping t-SNE log.")
+        return
     tsne = TSNE(n_components=2, perplexity=min(30, n-1), learning_rate=200, metric='cosine', init='pca', random_state=42)
     proj = tsne.fit_transform(embeddings.detach().to('cpu').numpy())
     proj_a, proj_b = proj[:n], proj[n:]
@@ -219,24 +328,28 @@ def wandb_init():
     wandb.define_metric("SimMatrix_mean-epoch_val/*", step_metric="epoch")
     wandb.define_metric("t-sne/val/*", step_metric='epoch')
 
-
 class SimCLR(object):
     def __init__(self, *args, **kwargs):
         self.args = kwargs['args']
         self.args.last_epoch = getattr(self.args, 'last_epoch', 0)
         self.model = kwargs['model'].to(self.args.device)
+        self.koleo_weights = self.args.koleo_weights if hasattr(self.args, 'koleo_weights') else 0.0
+        self.koleo_eps = self.args.koleo_eps if hasattr(self.args, 'koleo_eps') else 1e-4
+        self.koleo_modalities = self.args.koleo_modalities if hasattr(self.args, 'koleo_modalities') else ['species', 'landscape', 'satellite']
+        self.ema_model = kwargs['model'] if getattr(self.args, 'use_ema', False) else None
+        self.ema_decay = getattr(self.args, 'ema_decay', 0.99)
+        self.ema_update_step = getattr(self.args, 'ema_update_step', 1)
         self.optimizer = kwargs['optimizer']
         self.scheduler = kwargs['scheduler']
         self.resume_wandb_run = getattr(self.args, 'resume_wandb_run', False)
         self.log_images = getattr(self.args, 'log_images', True)
-        self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
         self.skip_modalities = getattr(self.args, 'skip_modalities', [])
         self.inference = bool(getattr(self.args, 'predict', False))
         self.writer = wandb.init(
             entity="tlarcher-phd-jrc",
             id=self.args.ckpt_path.split('/')[-2].split('-')[2] if (self.args.ckpt_path and self.resume_wandb_run) else None,
             project=self.args.wandb_project,
-            name=self.args.name,#'Unique surveyId spatial split 0.06min, dropout',
+            name=self.args.name,  #'Unique surveyId spatial split 0.06min, dropout',
             notes=f"Shuffle train ON, val OFF. Info_nce_loss symmetrical. "\
                   f"All unique surveyId obs."\
                   f"Modality backbone: {'frozen' if self.args.freeze_modality_backbone else 'hot'}"\
@@ -249,8 +362,11 @@ class SimCLR(object):
             config=kwargs['args'],
             job_type='inference' if self.inference else 'train',
         )
+        print(f"[INFO] Wandb ID: {self.writer.id}")
+        print(f"[INFO] Wandb output directory: {self.writer.dir}")
         logging.basicConfig(filename=os.path.join(self.writer.dir, 'training.log'), level=logging.DEBUG)
         wandb_init()
+        self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
 
     def info_nce_loss(self, features, dataset_type: str = 'species'):
         # Flexible bastch_size strategy on hold
@@ -333,9 +449,16 @@ class SimCLR(object):
 
         for epoch_counter in range(self.args.last_epoch, self.args.epochs + self.args.last_epoch):
             running_loss, sim_matrices, top1s, top5s = [], [], [], []
+            running_criterion, running_koleo = [], []
             wandb.log({"epoch": epoch_counter})
             print("Training the model...")
             print(f"> Starting epoch {epoch_counter}...")
+            ### Debug
+            # lmin, lmax, lmean, lstd = [], [], [], []
+            # lgpsmin, lgpsmax, lgpsmean, lgpsstd = [], [], [], []
+            # stats_name = ['min','max','mean','std']
+            ###
+            self.model.train()
             for step, train_dict in enumerate(tqdm(train_loader)):
                 batch_inds = train_dict['indices']
                 # species_img = train_dict['species'][0]
@@ -371,13 +494,25 @@ class SimCLR(object):
                         gps = gps.to(self.args.device)
                         features_img, features_gps = self.model[mod_name](images, gps)
                         features = torch.cat([features_img, features_gps], dim=0)
+                        if torch.isnan(features_img).sum() > 0:
+                            print("NaN detected in image features.")
                         if self.args.symmetric_loss:
                             logits, labels, sim_matrix = self.info_nce_loss(features, dataset_type=self.args.arch)
+                            koleo = KoLeoLoss()
+                            # criterion = self.criterion(logits, labels)
+                            criterion = cosine_embedding_loss(features_img, features_gps).item()
+                            if mod_name in self.koleo_modalities:
+                                koleo_train = koleo(features, eps=self.koleo_eps[i])
+                                loss += (self.koleo_weights[i] * koleo_train)/len(modalities_to_process)
+                                print(f'KoLeo loss {mod_name}: {self.koleo_weights[i] * koleo_train.item()}')
+                                print(f'Criterion loss {mod_name}: {criterion}')
+                                running_koleo.append(koleo_train.item())
+                            running_criterion.append(criterion)
                         else:
                             logits, labels, sim_matrix = self.info_nce_loss_single_diag(features_img, features_gps, dataset_type=self.args.arch)
                         all_logits.append(logits)
                         sim_matrices.append(sim_matrix)
-                        loss += self.criterion(logits, labels)/len(modalities_to_process)  # Average loss over the 3 modalities + GPS
+                        loss += criterion/len(modalities_to_process)  # Average loss over the 3 modalities + GPS
                         # loss = loss/num_steps_par_batch
                         # loss = loss/batch_size
                         std_mean_img, std_mean_gps = torch.std_mean(features_img, dim=0), torch.std_mean(features_gps, dim=0)
@@ -389,6 +524,8 @@ class SimCLR(object):
                         all_features_gps.append(features_gps)
                         idxs.append(inds)
                         ids.append(survey_ids)
+                    
+                    print(f"Epoch {epoch_counter} loss: {loss.item():.4f}")
 
                     scaler.scale(loss).backward()  # Gradients are accumulated. Calling backward after each modality loss equals calling backward once after sum + average of losses
                     running_loss.append(loss.item())
@@ -475,7 +612,9 @@ class SimCLR(object):
                         else:
                             vlogits, vlabels, vsim_matrix = self.info_nce_loss_single_diag(vfeatures_img, vfeatures_gps, dataset_type=self.args.arch)
                         # vloss = self.criterion(vlogits, vlabels)
-                        vloss += self.criterion(vlogits, vlabels)/3  # Average loss over the 3 modalities + GPS
+                        # vloss += self.criterion(vlogits, vlabels)/3  # Average loss over the 3 modalities + GPS
+                        vloss += cosine_embedding_loss(vfeatures_img, vfeatures_gps)/3
+                        print(f'Criterion vloss {mod_name}: {vloss}')
 
                         vall_images.append(vimages)
                         vall_features_img.append(vfeatures_img)
