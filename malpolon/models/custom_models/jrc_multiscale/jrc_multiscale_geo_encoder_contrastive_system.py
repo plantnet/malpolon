@@ -30,7 +30,7 @@ from torch import nn
 
 from malpolon.models.custom_models.jrc_multiscale.jrc_contrastive_losses import (
     KoLeoLoss, cosine_embedding_loss, cosine_similarity_mean, cosine_loss_pytorch_like,
-    cosine_embedding_from_sim, crisp_loss,
+    cosine_embedding_from_sim, crisp_loss, crisp_loss_manual, cosine_mcr
 )
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -241,7 +241,7 @@ def wandb_init():
     wandb.define_metric("MultilabelAveragePrecision_micro_step", step_metric="val_steps")
     wandb.define_metric("MultilabelAveragePrecision_macro_step", step_metric="val_steps")
 
-def get_criterion(criterion_name, features_img, features_gps, sim_matrix, logits, labels):
+def get_criterion(criterion_name, features_img, features_gps, sim_matrix, logits, labels, temperature=0.07):
     """Retrieves the right criterion with correct inputs.
     
     Possible values of criterion_name: 'cross_entropy', 'cosine_embedding', 'cosine_embedding_from_sim',
@@ -252,7 +252,9 @@ def get_criterion(criterion_name, features_img, features_gps, sim_matrix, logits
         criterion = torch.nn.CrossEntropyLoss().to(features_img.device)
         loss = criterion(logits, labels)
     elif criterion_name == 'crisp':
-        loss = crisp_loss(sim_matrix, temperature=2.659)
+        loss, sim_matrix, labels = crisp_loss(sim_matrix, temperature=temperature, return_sim_matrix_and_targets=True)
+    elif criterion_name == 'crisp_manual':
+        loss, sim_matrix, labels = crisp_loss_manual(sim_matrix, temperature=temperature, return_sim_matrix_and_targets=True)
     elif criterion_name == 'cosine_embedding_loss':
         loss = cosine_embedding_loss(features_img, features_gps, pos_weight=0.8, margin=0.3)
     elif criterion_name == 'cosine_embedding_from_sim':
@@ -261,9 +263,11 @@ def get_criterion(criterion_name, features_img, features_gps, sim_matrix, logits
         loss = cosine_similarity_mean(features_img, features_gps, lambd=0.8, mask='double_diag')
     elif criterion_name == 'cosine_loss_pytorch_like':
         loss = cosine_loss_pytorch_like(sim_matrix, lambd=0.8, margin=0.2, mask='double_diag') 
+    elif criterion_name == 'cosine_mcr':
+        loss = cosine_mcr(features_img, features_gps, weight_mcr=0.1, eps_mcr=0.05)
     else:
         raise NotImplementedError(f"Loss criterion {criterion_name} not implemented.")
-    return loss
+    return loss, sim_matrix, labels
 
 class SimCLR(object):
     def __init__(self, *args, **kwargs):
@@ -344,7 +348,7 @@ class SimCLR(object):
         labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)  # labels at index 0 are the positives
 
         logits = logits / self.args.temperature
-        return logits, labels, similarity_matrix.detach().to('cpu').numpy()
+        return logits, labels, similarity_matrix
 
     def info_nce_loss_single_diag(self, features_img, features_gps, dataset_type: str = 'species'):
         # Not handling the landscape case with more than 2 views !
@@ -367,7 +371,8 @@ class SimCLR(object):
         labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)  # labels at index 0 are the positives
 
         logits = logits / self.args.temperature
-        return logits, labels, similarity_matrix.detach().to('cpu').numpy()
+        # Logits are just a re-arrangement of the sim_matrix, scaled by a temperature factor. Labels are re-arranged accordingly
+        return logits, labels, similarity_matrix
 
     def train(
         self,
@@ -418,14 +423,15 @@ class SimCLR(object):
                     else:
                         logits, labels, sim_matrix = self.info_nce_loss_single_diag(features_img, features_gps, dataset_type=self.args.arch)
                         koleo = KoLeoLoss(mask='main_diag')
-                    criterion = get_criterion(self.criterion_name, features_img, features_gps, sim_matrix, logits, labels)
+                    criterion, sim_matrix, labels = get_criterion(self.criterion_name, features_img, features_gps, sim_matrix.clone(), logits.clone(), labels.clone(), temperature=self.args.temperature)
                     koleo_train = koleo(features, eps=self.koleo_eps)
                     loss = criterion + self.koleo_weight * koleo_train
                     running_criterion.append(criterion.item())
                     running_koleo.append(koleo_train.item())
-                    sim_matrices.append(sim_matrix)
                     running_loss.append(loss.item())
                     best_train_loss = min(best_train_loss, loss.item())
+                    sim_matrix = sim_matrix.detach().to('cpu').numpy()
+                    sim_matrices.append(sim_matrix)
                     print(f"Epoch {epoch_counter} loss: {loss.item():.4f} criterion: {criterion:.4f} Koleo: {(self.koleo_weight * koleo_train.item()):.4f}")
 
                 self.optimizer.zero_grad()
@@ -548,10 +554,11 @@ class SimCLR(object):
                             vlogits, vlabels, vsim_matrix = self.info_nce_loss(vfeatures, dataset_type=self.args.arch)
                         else:
                             vlogits, vlabels, vsim_matrix = self.info_nce_loss_single_diag(vfeatures_img, vfeatures_gps, dataset_type=self.args.arch)
-                        vsim_matrices.append(vsim_matrix)
-                        vcriterion = get_criterion(self.criterion_name, vfeatures_img, vfeatures_gps, vsim_matrix, vlogits, vlabels)
+                        vcriterion, vsim_matrix, vlabels = get_criterion(self.criterion_name, vfeatures_img, vfeatures_gps, vsim_matrix, vlogits, vlabels, temperature=self.args.temperature)
                         vloss = vcriterion
                         running_vloss.append(vloss.item())
+                        vsim_matrix = vsim_matrix.detach().to('cpu').numpy()
+                        vsim_matrices.append(vsim_matrix)
                         print(f"Epoch {epoch_counter} val step {vstep:.4f} loss: {vloss.item():.4f}")
 
                     # Log accuracy step wise

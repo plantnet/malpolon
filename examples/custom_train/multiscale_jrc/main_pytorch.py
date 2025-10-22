@@ -157,7 +157,7 @@ def main(args):
 
     # Dataloaders
     train_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True,
+        train_dataset, batch_size=args.batch_size, shuffle=args.shuffle_train,
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
 
     val_loader = DataLoader(
@@ -237,6 +237,7 @@ if __name__ == "__main__":
         'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
         'ema_update_step': 1,
         'epochs': 40,
+        'shuffle_train': False,
         'fp16_precision': True,
         'freeze_gps_backbone': False,
         'freeze_modality_backbone': False,
@@ -256,7 +257,7 @@ if __name__ == "__main__":
         'warmup_epochs': 0,
         'koleo_weight': 0.1,
         'koleo_eps': 1e-4,
-        'loss_criterion': 'crisp',  # Takes values in ['cross_entropy', 'crisp', 'cosine_embedding', 'cosine_embedding_from_sim', 'cosine_similarity_mean', 'cosine_loss_pytorch_like', 'cosine_embedding_loss']. By Default: cross_entropy
+        'loss_criterion': 'cosine_mcr',  # Takes values in ['cross_entropy', 'cosine_mcr', 'crisp', 'cosine_embedding', 'cosine_embedding_from_sim', 'cosine_similarity_mean', 'cosine_loss_pytorch_like', 'cosine_embedding_loss']. By Default: cross_entropy
     }
     # import os
     # os.system('wandb offline')

@@ -80,30 +80,55 @@ class KoLeoLoss(nn.Module):
             loss = -torch.log(distances + eps).mean()
         return loss
 
-def crisp_loss_manual(sim, temperature=2.659):
-    """Computes the CRISP loss from Huynh et al., ECCV 2024.
+# def crisp_loss_manual(sim_raw, temperature=2.659,
+#                       return_sim_matrix_and_targets=False):
+#     """Computes the CRISP loss from Huynh et al., ECCV 2024.
     
-    Same as crisp_loss but manual implementation of Softmax with log-sum-exp trick.
+#     Same as crisp_loss but manual implementation of Softmax with log-sum-exp trick.
+#     """
+#     sim = torch.from_numpy(sim_raw) if isinstance(sim_raw, np.ndarray) else sim_raw
+#     sim /= temperature
+#     N = sim.shape[0]
+#     positive_mask = torch.eye(N).bool()
+
+#     sim_max_col = sim.max(dim=1, keepdim=True).values
+#     sim_max_row = sim.max(dim=0, keepdim=True).values
+
+#     log_sum_exp_col = sim_max_col + torch.log(torch.sum(torch.exp(sim - sim_max_col), dim=1, keepdim=True))
+#     log_sum_exp_row = sim_max_row + torch.log(torch.sum(torch.exp(sim - sim_max_row), dim=0, keepdim=True))
+#     positive_matches = sim[positive_mask]
+
+#     nll_row = -(positive_matches - log_sum_exp_row)  # -x_n + lse(x)
+#     nll_col = -(positive_matches - log_sum_exp_col)
+#     nll = torch.tensor([nll_row.mean(), nll_col.mean()]).mean()
+#     nll = nll.to(sim.device)
+#     if return_sim_matrix_and_targets:
+#         return nll, sim, torch.where(positive_mask.bool())[0].to(sim.device)
+#     return nll
+
+def crisp_loss_manual(sim, temperature=2.659, return_sim_matrix_and_targets=False):
+    """
+    Manual implementation of the symmetric CRISP / InfoNCE loss.
+    sim: (N, N) similarity matrix between two sets of embeddings.
+    Positive pairs are on the diagonal.
     """
     N = sim.shape[0]
-    targets = torch.arange(N)
-    main_diag = torch.eye(N).bool()
-    sim /= temperature
+    sim = sim / temperature
+    labels = torch.arange(N, device=sim.device)
+    
+    # Row-wise and column-wise cross entropy
+    loss_i = F.cross_entropy(sim, labels)
+    loss_t = F.cross_entropy(sim.T, labels)
+    loss = 0.5 * (loss_i + loss_t)
+    if return_sim_matrix_and_targets:
+        return loss, sim, labels.to(sim.device)
+    return loss
 
-    sim_max_col = sim.max(dim=1, keepdim=True).values
-    sim_max_row = sim.max(dim=0, keepdim=True).values
-
-    log_sum_exp_col = sim_max_col + torch.log(torch.sum(torch.exp(sim - sim_max_col), dim=1, keepdim=True))
-    log_sum_exp_row = sim_max_row + torch.log(torch.sum(torch.exp(sim - sim_max_row), dim=0, keepdim=True))
-    positive_matches = sim[main_diag]
-
-    nll_row = -(positive_matches - log_sum_exp_row)  # -x_n + lse(x)
-    nll_col = -(positive_matches - log_sum_exp_col)
-    nll = torch.tensor([nll_row.mean(), nll_col.mean()]).mean()
-    return nll
-
-def crisp_loss(sim, temperature=2.659):
+def crisp_loss(sim_raw, temperature=2.659,
+               return_sim_matrix_and_targets=False):
     """Computes the CRISP loss from Huynh et al., ECCV 2024.
+    
+    ContRastive Image-Remote Sensing Pre-training
     
     This loss implements a symetric cross-entropy applied to a similarity matrix between 2 sets 
     of embeddings. It is symetric in the sense that it computes the NLL loss both row-wise and
@@ -114,20 +139,26 @@ def crisp_loss(sim, temperature=2.659):
     
     Huynh, A.V., Gillespie, L.E., Lopez-Saucedo, J., Tang, C., Sikand, R., Expósito-Alonso, M. (2025). Contrastive Ground-Level Image and Remote Sensing Pre-training Improves Representation Learning for Natural World Imagery. In: Leonardis, A., Ricci, E., Roth, S., Russakovsky, O., Sattler, T., Varol, G. (eds) Computer Vision – ECCV 2024. ECCV 2024. Lecture Notes in Computer Science, vol 15138. Springer, Cham. https://doi.org/10.1007/978-3-031-72989-8_10
     """
+    sim = torch.from_numpy(sim_raw) if isinstance(sim_raw, np.ndarray) else sim_raw
+    sim = sim / temperature
     N = sim.shape[0]
-    targets = torch.arange(N)
-    main_diag = torch.eye(sim.shape[0]).bool()
-    sim /= temperature
+    positive_mask = torch.eye(N).bool()
 
-    sm_row = torch.nn.Softmax(dim=0)
-    sm_col = torch.nn.Softmax(dim=1)
+    # sm_col = torch.nn.Softmax(dim=1)
+    # sm_row = torch.nn.Softmax(dim=0)
 
-    sm_col = -torch.log(sm_col(sim))
-    sm_row = -torch.log(sm_row(sim))
+    # sm_col = -torch.log(sm_col(sim))
+    # sm_row = -torch.log(sm_row(sim))
+    sm_col = -F.log_softmax(sim, dim=1)
+    sm_row = -F.log_softmax(sim, dim=0)
 
-    positive_matches = sm_col[main_diag]
+    positive_matches_col = sm_col[positive_mask]  # L_gl
+    positive_matches_row = sm_row[positive_mask]  # L_a
 
-    nll = torch.tensor([positive_matches.mean(), positive_matches.mean()]).mean()
+    nll = torch.tensor([positive_matches_col.mean(), positive_matches_row.mean()]).mean()
+    nll = nll.to(sim.device)
+    if return_sim_matrix_and_targets:
+        return nll, sim, torch.where(positive_mask.bool())[0].to(sim.device)
     return nll
 
 def cosine_similarity_mean(cos_sim, lambd=0.8, mask='double_diag'):
@@ -193,12 +224,8 @@ def cosine_embedding_loss(img_emb, gps_emb, pos_weight=0.8, margin=0.3):
     import torch
     import torch.nn as nn
     import torch.nn.functional as F
-    
-    # Example embeddings
-    batch_size, dim = 8, 512
-    img_emb = F.normalize(torch.randn(batch_size, dim), dim=-1)
-    gps_emb = F.normalize(torch.randn(batch_size, dim), dim=-1)
 
+    batch_size, dim = img_emb.shape
     criterion = nn.CosineEmbeddingLoss(margin)
 
     # Create labels: +1 for diag (pos), -1 for off-diagonal (neg)
@@ -217,5 +244,33 @@ def cosine_embedding_loss(img_emb, gps_emb, pos_weight=0.8, margin=0.3):
     print(loss.item())
     return loss
 
-def crisp_loss(sim_matrix: torch.tensor, temperature: float = 0.1):
-    pass
+# === Minimum Covariance Regularizer ===
+def half_logdet(X):
+    return torch.linalg.cholesky_ex(X)[0].diagonal().log().sum()
+
+
+class MCR(torch.nn.Module):
+    def __init__(self, eps=0.05):
+        super(MCR, self).__init__()
+        self.eps = eps
+    
+    def forward(self, X):
+        m, p = X.shape
+        # X = F.normalize(X, dim=-1, p=2)
+        cov = X.T @ X  # [p, p]
+        scalar = p / (m * self.eps)
+        I = torch.eye(p, device=X.device)
+        loss = -half_logdet(I + scalar * cov)
+        loss *= (p + m) / (p * m)  # balancing factor
+        return loss
+
+def cosine_mcr(img_emb, gps_emb, weight_mcr, eps_mcr=0.05):
+    mcr = MCR(eps=eps_mcr)
+    img_emb = F.normalize(img_emb, dim=-1, p=2)
+    gps_emb = F.normalize(gps_emb, dim=-1, p=2)
+    # cosine = F.mse_loss(img_emb, gps_emb)
+    cosine = (1 - F.cosine_similarity(img_emb, gps_emb)).mean()
+    mcr_img, mcr_gps = mcr(img_emb), mcr(gps_emb)
+    print(f'Cosine: {cosine.item()}, MCR_weighted: {weight_mcr * (mcr_img + mcr_gps).mean()}, MCR_img: {mcr_img.item()}, MCR_gps: {mcr_gps.item()}')
+    loss = cosine + weight_mcr * (mcr_img + mcr_gps).mean()
+    return loss
