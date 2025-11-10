@@ -171,37 +171,35 @@ def log_acc_topk_step(logits, labels, modality_name, topk=(1, 5), mode='train'):
     return tuple(map(lambda x: x[0].item(), acc_topks))
 
 def wandb_init():
-    # Iterations metrics
+    # Iterations metricsx
     wandb.define_metric("epoch")
     wandb.define_metric("train_steps")
     wandb.define_metric("val_steps")
-    
-    wandb.define_metric("acc_epoch (batch avg)/*", step_metric="epoch")
 
     # Train metrics
     wandb.define_metric("Loss_step/train", step_metric="train_steps")
     wandb.define_metric("norm_img_avg/train", step_metric="train_steps")
     wandb.define_metric("norm_gps_avg/train", step_metric="train_steps")
     wandb.define_metric("norm_avg_diff/train", step_metric="train_steps")
-    wandb.define_metric("acc_micro_step/train/*", step_metric="train_steps")
-    wandb.define_metric("acc_macro_step/train/*", step_metric="train_steps")
-    wandb.define_metric("f1_micro_step/train/*", step_metric="train_steps")
+    wandb.define_metric("acc/train/*", step_metric="train_steps")
     wandb.define_metric("Input_imgs_train/*", step_metric='train_steps')
     wandb.define_metric("SimMatrix_train/*", step_metric='train_steps')
     wandb.define_metric("Loss_epoch (batch avg)/train", step_metric="epoch")
     wandb.define_metric("acc_epoch (batch avg)/train/top1", step_metric="epoch")
     wandb.define_metric("acc_epoch (batch avg)/train/top5", step_metric="epoch")
-    wandb.define_metric("acc_micro_epoch (batch_avg)/train/", step_metric="epoch")
-    wandb.define_metric("acc_macro_epoch (batch_avg)/train/", step_metric="epoch")
-    wandb.define_metric("f1_micro_epoch (batch_avg)/train/", step_metric="epoch")
     wandb.define_metric("t-sne/train/*", step_metric='epoch')
+    wandb.define_metric("recall_step/train", step_metric="train_steps")
+    wandb.define_metric("recall@1_step/train", step_metric="train_steps")
+    wandb.define_metric("recall@20_step/train", step_metric="train_steps")
+    wandb.define_metric("recall@100_step/train", step_metric="train_steps")
+    wandb.define_metric("MultilabelAUROC_micro_step/train", step_metric="train_steps")    
+    wandb.define_metric("MultilabelAUROC_macro_step/train", step_metric="train_steps")    
+    wandb.define_metric("MultilabelAveragePrecision_micro_step/train", step_metric="train_steps")
+    wandb.define_metric("MultilabelAveragePrecision_macro_step/train", step_metric="train_steps")
 
     # Validation metrics
     wandb.define_metric("Loss_step/val", step_metric="val_steps")
     wandb.define_metric("acc/val/*", step_metric="val_steps")
-    wandb.define_metric("acc_micro_step/val/*", step_metric="val_steps")
-    wandb.define_metric("acc_macro_step/val/*", step_metric="val_steps")
-    wandb.define_metric("f1_micro_step/val/*", step_metric="val_steps")
     wandb.define_metric("Input_imgs_val/*", step_metric='val_steps')
     wandb.define_metric("SimMatrix_val/*", step_metric='val_steps')
     wandb.define_metric("Loss_epoch (batch avg)/val", step_metric="epoch")
@@ -209,10 +207,15 @@ def wandb_init():
     wandb.define_metric("acc_epoch (batch avg)/val/top1", step_metric="epoch")
     wandb.define_metric("acc_epoch (batch avg)/val/top5", step_metric="epoch")
     wandb.define_metric("SimMatrix_mean-epoch_val/*", step_metric="epoch")
-    wandb.define_metric("acc_micro_epoch (batch_avg)/val/", step_metric="epoch")
-    wandb.define_metric("acc_macro_epoch (batch_avg)/val/", step_metric="epoch")
-    wandb.define_metric("f1_micro_epoch (batch_avg)/val/", step_metric="epoch")
     wandb.define_metric("t-sne/val/*", step_metric='epoch')
+    wandb.define_metric("recall_step/val", step_metric="val_steps")
+    wandb.define_metric("recall@1_step/val", step_metric="val_steps")
+    wandb.define_metric("recall@20_step/val", step_metric="val_steps")
+    wandb.define_metric("recall@100_step/val", step_metric="val_steps")
+    wandb.define_metric("MultilabelAUROC_micro_step/val", step_metric="val_steps")
+    wandb.define_metric("MultilabelAUROC_macro_step/val", step_metric="val_steps")
+    wandb.define_metric("MultilabelAveragePrecision_micro_step/val", step_metric="val_steps")
+    wandb.define_metric("MultilabelAveragePrecision_macro_step/val", step_metric="val_steps")
 
 def find_best_threshold(y_true, y_probs):
     thresholds = np.linspace(0, 1, 101)  # test thresholds from 0.0 to 1.0
@@ -349,6 +352,7 @@ class SimCLRToMultilabelClassification(object):
                         loss += self.criterion(logits, labels.to(self.args.device))
                 logits = logits.to('cpu')
                 all_images.extend((train_dict[mod_name][0] for mod_name in modalities_to_process))
+                print(f'Logits shape: {logits.shape}, Labels shape: {labels.shape}, Labels sum: {labels.sum().item()}')
 
                 scaler.scale(loss).backward()  # Gradients are accumulated. Calling backward after each modality loss equals calling backward once after sum + average of losses
                 scaler.step(self.optimizer)
@@ -385,18 +389,20 @@ class SimCLRToMultilabelClassification(object):
                     self.tensorboard_writer.add_scalar("f1_micro_step/train", metrics['multilabel_f1_micro'][-1], train_steps)
 
                     # Log recall@K
-                    self.tensorboard_writer.add_scalar("recall/train", retrieval_recall(logits, labels.to(int)), train_steps)
-                    self.tensorboard_writer.add_scalar("recall@1/train", retrieval_recall(logits, labels.to(int), top_k=1), train_steps)
-                    self.tensorboard_writer.add_scalar("recall@20/train", retrieval_recall(logits, labels.to(int), top_k=5), train_steps)
-                    self.tensorboard_writer.add_scalar("recall@100/train", retrieval_recall(logits, labels.to(int), top_k=100), train_steps)
+                    n_cls = logits.shape[1]
+                    labels_oh = F.one_hot(labels, num_classes=n_cls)
+                    wandb.log({"recall_step/train": retrieval_recall(logits, labels_oh)})
+                    wandb.log({"recall@1_step/train": retrieval_recall(logits, labels_oh, top_k=1)})
+                    wandb.log({"recall@20_step/train": retrieval_recall(logits, labels_oh, top_k=5)})
+                    wandb.log({"recall@100_step/train": retrieval_recall(logits, labels_oh, top_k=100)})
 
                     # Log AUROC
-                    self.tensorboard_writer.add_scalar("MultilabelAUROC_micro/train", multilabel_auroc(logits, labels.to(int), self.args.num_labels, average='micro'), train_steps)
-                    self.tensorboard_writer.add_scalar("MultilabelAUROC_macro/train", multilabel_auroc(logits, labels.to(int), self.args.num_labels, average='macro'), train_steps)
+                    wandb.log({"MultilabelAUROC_micro_step/train": multilabel_auroc(logits, labels_oh, n_cls, average='micro')})
+                    wandb.log({"MultilabelAUROC_macro_step/train": multilabel_auroc(logits, labels_oh, n_cls, average='macro')})
 
                     # Log mAP
-                    self.tensorboard_writer.add_scalar("MultilabelAveragePrecision_micro/train", multilabel_average_precision(logits, labels.to(int), self.args.num_labels, average='micro'), train_steps)
-                    self.tensorboard_writer.add_scalar("MultilabelAveragePrecision_macro/train", multilabel_average_precision(logits, labels.to(int), self.args.num_labels, average='macro'), train_steps)
+                    wandb.log({"MultilabelAveragePrecision_micro_step/train": multilabel_average_precision(logits, labels_oh, n_cls, average='micro')})
+                    wandb.log({"MultilabelAveragePrecision_macro_step/train": multilabel_average_precision(logits, labels_oh, n_cls, average='macro')})
 
                 train_steps += 1
                 if step >= max_iter:  # Debug purposes
@@ -433,9 +439,9 @@ class SimCLRToMultilabelClassification(object):
                                          val_dict['satellite'][0].to(self.args.device),
                                          val_dict[modalities_to_process[0]][1].to(self.args.device))
                     vloss = self.criterion(vlogits.to(self.args.device), vlabels.to(self.args.device))
-                    vlogits = logits.to('cpu')
+                    vlogits = vlogits.to('cpu')
                     all_images.extend((train_dict[mod_name][0] for mod_name in modalities_to_process))
-
+                    print(f'vLogits shape: {vlogits.shape}, vLabels shape: {vlabels.shape}, vLabels sum: {vlabels.sum().item()}')
                     running_vloss.append(vloss.to('cpu').item())
 
                     # Log accuracy step wise
@@ -459,18 +465,20 @@ class SimCLRToMultilabelClassification(object):
                         self.tensorboard_writer.add_scalar("f1_micro_step/train", vmetrics['multilabel_f1_micro'][-1], val_steps)
 
                         # Log recall@K
-                        self.tensorboard_writer.add_scalar("recall/train", retrieval_recall(vlogits, vlabels.to(int)), val_steps)
-                        self.tensorboard_writer.add_scalar("recall@1/train", retrieval_recall(vlogits, vlabels.to(int), top_k=1), val_steps)
-                        self.tensorboard_writer.add_scalar("recall@20/train", retrieval_recall(vlogits, vlabels.to(int), top_k=5), val_steps)
-                        self.tensorboard_writer.add_scalar("recall@100/train", retrieval_recall(vlogits, vlabels.to(int), top_k=5), val_steps)
-                        
+                        n_cls = vlogits.shape[1]
+                        vlabels_oh = F.one_hot(vlabels, num_classes=n_cls)
+                        wandb.log({"recall_step/val": retrieval_recall(vlogits, vlabels_oh)})
+                        wandb.log({"recall@1_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=1)})
+                        wandb.log({"recall@20_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=5)})
+                        wandb.log({"recall@100_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=100)})
+
                         # Log AUROC
-                        self.tensorboard_writer.add_scalar("MultilabelAUROC_micro/train", multilabel_auroc(vlogits, vlabels.to(int), self.args.num_labels, average='micro'), val_steps)
-                        self.tensorboard_writer.add_scalar("MultilabelAUROC_macro/train", multilabel_auroc(vlogits, vlabels.to(int), self.args.num_labels, average='macro'), val_steps)
-                        
+                        wandb.log({"MultilabelAUROC_micro_step/val": multilabel_auroc(vlogits, vlabels_oh, n_cls, average='micro')})
+                        wandb.log({"MultilabelAUROC_macro_step/val": multilabel_auroc(vlogits, vlabels_oh, n_cls, average='macro')})
+
                         # Log mAP
-                        self.tensorboard_writer.add_scalar("MultilabelAveragePrecision_micro/train", multilabel_average_precision(vlogits, vlabels.to(int), self.args.num_labels, average='micro'), val_steps)
-                        self.tensorboard_writer.add_scalar("MultilabelAveragePrecision_macro/train", multilabel_average_precision(vlogits, vlabels.to(int), self.args.num_labels, average='macro'), val_steps)
+                        wandb.log({"MultilabelAveragePrecision_micro_step/val": multilabel_average_precision(vlogits, vlabels_oh, n_cls, average='micro')})
+                        wandb.log({"MultilabelAveragePrecision_macro_step/val": multilabel_average_precision(vlogits, vlabels_oh, n_cls, average='macro')})
 
 
                     if vstep % self.args.log_every_n_steps == 0:

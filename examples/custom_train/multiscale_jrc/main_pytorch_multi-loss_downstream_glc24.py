@@ -229,7 +229,7 @@ def main(args):
 
     # Dataloaders
     train_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True,
+        val_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
     val_loader = DataLoader(
         val_dataset, batch_size=args.batch_size, shuffle=True,
@@ -318,11 +318,11 @@ if __name__ == "__main__":
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "Downstream task > GLC24 train/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, sat+land (from u6tiioze)",
+        'name': "[DEBUG] Downstream task > GLC24 val/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, sat+land (from u6tiioze)",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'out_dim': 2048,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
-        'symmetric_loss': True,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
+        'symmetric_loss': False,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
         'temperature': 0.07,
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
         'weight_decay': 1e-3,

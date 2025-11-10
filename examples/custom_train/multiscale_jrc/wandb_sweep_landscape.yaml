@@ -1,0 +1,39 @@
+# Init
+program: main_pytorch.py
+name: landscape_sweep_crisp
+project: Landscape_sweep
+entity: tlarcher-phd-jrc
+
+method: random
+metric:
+  name: Loss_epoch (batch avg)/val
+  goal: minimize
+
+# Parameters
+parameters:
+  ## --- 🔻 Fixed parameters 🔻 --- 
+  arch:
+    value: landscape
+  name:
+    value: "[Sweep] CRISP: landscape from scratch + KoLeo (single_diag) train shuffle ON"
+  epochs:
+    value: 10
+  subset:
+    value: 0.5
+  ## --- 🔻 Tuned parameters 🔻 ---
+  learning_rate:
+    # distribution: uniform
+    # min: 0.0001
+    # max: 0.1
+    values: [0.0001, 0.0005, 0.001, 0.005, 0.01]
+  batch_size:
+    values: [16, 32, 64]
+  dropout:
+    values: [0.1]
+  temperature:
+    values: [0.07, 0.1, 0.5, 1.0, 1.5, 2.0, 2.659]
+  koleo_weight:
+    values: [0.001, 0.01, 0.1, 1.0]
+
+# # 👇 number of runs to launch
+# run_cap: 2

@@ -7,8 +7,10 @@ from types import SimpleNamespace
 from typing import Any, List
 from math import sqrt
 
+import wandb
 import torch
 import torch.backends.cudnn as cudnn
+from omegaconf import OmegaConf
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -93,17 +95,17 @@ def collate_satellite(original_batch):
     sids_batched = torch.cat(sids, dim=0)
     return img_batched, gps_batched, inds_batched, sids_batched
 
-def main(args):
+def main(args, writer):
     assert args.n_views == 2, "Only two view training is supported. Please use --n-views 2."
 
     # check if gpu training is available
     if not args.disable_cuda and torch.cuda.is_available():
-        args.device = torch.device('cuda')
+        args.update({'device': torch.device('cuda')}, allow_val_change=True)
         cudnn.deterministic = True
         cudnn.benchmark = True
     else:
-        args.device = torch.device('cpu')
-        args.gpu_index = -1
+        args.update({'device': torch.device('cpu')}, allow_val_change=True)
+        args.update({'gpu_index': -1}, allow_val_change=True)
 
     # Datasets
     custom_collate = None
@@ -180,7 +182,6 @@ def main(args):
         ema_model.load_state_dict(model.state_dict())
     
     # Optimization
-    args.learning_rate = args.learning_rate * sqrt(args.batch_size)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
     warmup_scheduler = LinearLR(
         optimizer,
@@ -220,16 +221,45 @@ def main(args):
     # Run
     ## It’s a no-op if the 'gpu_index' argument is a negative integer or None.
     with torch.cuda.device(args.gpu_index):
-        simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args)
+        simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args, writer=writer)
         simclr.train(train_loader, val_loader, max_iter=args.max_iter)
+
+def init_wandb(args):
+    args_ns = SimpleNamespace(**args) if isinstance(args, dict) else args
+    name = getattr(args_ns, 'name', 'default-name')
+    writer = wandb.init(
+        entity="tlarcher-phd-jrc",
+        id=getattr(args_ns, 'ckpt_path', '').split('/')[-2].split('-')[2] if (getattr(args_ns, 'ckpt_path', None) and getattr(args_ns, 'resume_wandb_run', False)) else None,
+        project=getattr(args_ns, 'wandb_project', None),
+        name=name['value'] if isinstance(name, dict) else name,  #'Unique surveyId spatial split 0.06min, dropout',
+        notes=f"",
+        config=args_ns,
+        job_type='inference' if getattr(args_ns, 'predict', False) else 'train',
+        mode=getattr(args_ns, 'wandb_mode', 'offline'),
+    )
+    args_ns.writer = writer
+    return args_ns, writer
+
+def init_sweep(args):
+    sweep_cfg = OmegaConf.to_container(OmegaConf.load(f"wandb_sweep_{args['arch']}.yaml"), resolve=True)
+    for k, v in sweep_cfg['parameters'].items():
+        if k in args:
+            args[k] = v
+        else:
+            print(f"Warning: Sweep parameter {k} not found in default args dictionary.")
+    args_ns = SimpleNamespace(**args) if isinstance(args, dict) else args
+    return args_ns
 
 
 if __name__ == "__main__":
+    # import os
+    # os.system('wandb offline')
     args = {
         'arch': 'satellite',  # always paired with gps
         'OAR_job_id': os.getenv("OAR_JOB_ID", "no_jobid"),
         'batch_size': 32,
         'ckpt_path': None, # 'wandb/run-20250604_170638-3sn5y6f2/files/last.pth.tar',
+        'resume_wandb_run': False,
         'device': "cuda",
         'disable_cuda': False,
         'dropout': 0.1,
@@ -237,7 +267,7 @@ if __name__ == "__main__":
         'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
         'ema_update_step': 1,
         'epochs': 40,
-        'shuffle_train': False,
+        'shuffle_train': True,
         'fp16_precision': True,
         'freeze_gps_backbone': False,
         'freeze_modality_backbone': False,
@@ -245,21 +275,31 @@ if __name__ == "__main__":
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.1,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "[TEST] SimCLR: Satellite from scratch, koleo ddiags, cosine_embedding_from_sim",
+        'name': "[Test-watch] CRISP: satellite from scratch + KoLeo (single_diag) train shuffle ON, temp=0.7, koleo_w=0.01",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'out_dim': 512,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
-        'symmetric_loss': False,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
-        'temperature': 0.07,
+        'symmetric_loss': True,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
+        'temperature': 2.659,
         'wandb_project': 'Sandbox', # Takes values in ['Sandbox', 'Contrastive learning pairwise']
         'weight_decay': 1e-3,
-        'workers': os.cpu_count(),
+        'workers': 24,# os.cpu_count(),
         'warmup_epochs': 0,
-        'koleo_weight': 0.1,
+        'koleo_weight': 0.001,
         'koleo_eps': 1e-4,
-        'loss_criterion': 'cosine_mcr',  # Takes values in ['cross_entropy', 'cosine_mcr', 'crisp', 'cosine_embedding', 'cosine_embedding_from_sim', 'cosine_similarity_mean', 'cosine_loss_pytorch_like', 'cosine_embedding_loss']. By Default: cross_entropy
+        'mcr_eps': 0.05,
+        'loss_criterion': 'cross_entropy',  # Takes values in ['cross_entropy', 'cosine_mcr', 'crisp', 'cosine_embedding', 'cosine_embedding_from_sim', 'cosine_similarity_mean', 'cosine_loss_pytorch_like', 'cosine_embedding_loss']. By Default: cross_entropy
+        'wandb_mode': 'disabled',  # 'online' or 'disabled'
     }
-    # import os
-    # os.system('wandb offline')
-    args_ns = SimpleNamespace(**args)
-    main(args_ns)
+    sweep_id = os.getenv("WANDB_SWEEP_ID")
+    if sweep_id:
+        args_ns = init_sweep(args)
+        print('args_ns.name: ', args_ns.name)
+        print(f"🚀 Running under a W&B sweep agent (sweep ID {sweep_id})\n")
+        args_ns, writer = init_wandb(args_ns)
+    else:
+        print("🧑‍💻 Running standalone (manual run)\n")
+        args_ns, writer = init_wandb(args)
+    config_wandb = args_ns.writer.config
+    config_wandb.update({'learning_rate': config_wandb.learning_rate * sqrt(config_wandb.learning_rate)}, allow_val_change=True)
+    main(config_wandb, writer)

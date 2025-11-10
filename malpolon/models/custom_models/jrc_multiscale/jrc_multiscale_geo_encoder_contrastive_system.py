@@ -218,8 +218,8 @@ def wandb_init():
     wandb.define_metric("recall@100_step/train", step_metric="train_steps")
     wandb.define_metric("MultilabelAUROC_micro_step/train", step_metric="train_steps")    
     wandb.define_metric("MultilabelAUROC_macro_step/train", step_metric="train_steps")    
-    wandb.define_metric("MultilabelAveragePrecision_micro_step", step_metric="train_steps")
-    wandb.define_metric("MultilabelAveragePrecision_macro_step", step_metric="train_steps")
+    wandb.define_metric("MultilabelAveragePrecision_micro_step/train", step_metric="train_steps")
+    wandb.define_metric("MultilabelAveragePrecision_macro_step/train", step_metric="train_steps")
 
     # Validation metrics
     wandb.define_metric("Loss_step/val", step_metric="val_steps")
@@ -236,79 +236,78 @@ def wandb_init():
     wandb.define_metric("recall@1_step/val", step_metric="val_steps")
     wandb.define_metric("recall@20_step/val", step_metric="val_steps")
     wandb.define_metric("recall@100_step/val", step_metric="val_steps")
-    wandb.define_metric("MultilabelAUROC_micro_step/train", step_metric="val_steps")
-    wandb.define_metric("MultilabelAUROC_macro_step/train", step_metric="val_steps")
-    wandb.define_metric("MultilabelAveragePrecision_micro_step", step_metric="val_steps")
-    wandb.define_metric("MultilabelAveragePrecision_macro_step", step_metric="val_steps")
-
-def get_criterion(criterion_name, features_img, features_gps, sim_matrix, logits, labels, temperature=0.07):
-    """Retrieves the right criterion with correct inputs.
-    
-    Possible values of criterion_name: 'cross_entropy', 'cosine_embedding', 'cosine_embedding_from_sim',
-    'cosine_similarity_mean', 'cosine_loss_pytorch_like'.
-
-    """
-    if criterion_name == 'cross_entropy':
-        criterion = torch.nn.CrossEntropyLoss().to(features_img.device)
-        loss = criterion(logits, labels)
-    elif criterion_name == 'crisp':
-        loss, sim_matrix, labels = crisp_loss(sim_matrix, temperature=temperature, return_sim_matrix_and_targets=True)
-    elif criterion_name == 'crisp_manual':
-        loss, sim_matrix, labels = crisp_loss_manual(sim_matrix, temperature=temperature, return_sim_matrix_and_targets=True)
-    elif criterion_name == 'cosine_embedding_loss':
-        loss = cosine_embedding_loss(features_img, features_gps, pos_weight=0.8, margin=0.3)
-    elif criterion_name == 'cosine_embedding_from_sim':
-        loss = cosine_embedding_from_sim(sim_matrix, pos_weight=0.8, margin=0.3)
-    elif criterion_name == 'cosine_similarity_mean':
-        loss = cosine_similarity_mean(features_img, features_gps, lambd=0.8, mask='double_diag')
-    elif criterion_name == 'cosine_loss_pytorch_like':
-        loss = cosine_loss_pytorch_like(sim_matrix, lambd=0.8, margin=0.2, mask='double_diag') 
-    elif criterion_name == 'cosine_mcr':
-        loss = cosine_mcr(features_img, features_gps, weight_mcr=0.1, eps_mcr=0.05)
-    else:
-        raise NotImplementedError(f"Loss criterion {criterion_name} not implemented.")
-    return loss, sim_matrix, labels
+    wandb.define_metric("MultilabelAUROC_micro_step/val", step_metric="val_steps")
+    wandb.define_metric("MultilabelAUROC_macro_step/val", step_metric="val_steps")
+    wandb.define_metric("MultilabelAveragePrecision_micro_step/val", step_metric="val_steps")
+    wandb.define_metric("MultilabelAveragePrecision_macro_step/val", step_metric="val_steps")
 
 class SimCLR(object):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, writer=SummaryWriter(), *args, **kwargs):
+        self.writer = writer
         self.args = kwargs['args']
-        self.args.last_epoch = getattr(self.args, 'last_epoch', 0)
         self.model = kwargs['model'].to(self.args.device)
+
         self.koleo_weight = self.args.koleo_weight if hasattr(self.args, 'koleo_weight') else 0.0
         self.koleo_eps = self.args.koleo_eps if hasattr(self.args, 'koleo_eps') else 1e-4
-        
+
         self.ema_model = kwargs['model'] if getattr(self.args, 'use_ema', False) else None
         self.ema_decay = getattr(self.args, 'ema_decay', 0.99)
         self.ema_update_step = getattr(self.args, 'ema_update_step', 1)
+
         self.optimizer = kwargs['optimizer']
         self.scheduler = kwargs['scheduler']
-        self.resume_wandb_run = getattr(self.args, 'resume_wandb_run', False)
-        self.log_images = getattr(self.args, 'log_images', True)
-        self.skip_modalities = getattr(self.args, 'skip_modalities', [])
         self.inference = bool(getattr(self.args, 'predict', False))
-        self.writer = wandb.init(
-            entity="tlarcher-phd-jrc",
-            id=self.args.ckpt_path.split('/')[-2].split('-')[2] if (self.args.ckpt_path and self.resume_wandb_run) else None,
-            project=self.args.wandb_project,
-            name=self.args.name,  #'Unique surveyId spatial split 0.06min, dropout',
-            notes=f"Shuffle train ON, val OFF. Info_nce_loss operating only with the main diagonal (no features concatenation). "\
-                  f"All unique surveyId obs."\
-                  f"Modality backbone: {'frozen' if self.args.freeze_modality_backbone else 'hot'}"\
-                  f"GPS backbone: {'frozen' if self.args.freeze_gps_backbone else 'hot'}"\
-                  f"LR cosine annealing {self.args.learning_rate}. "\
-                  f"Temp {self.args.temperature}. "\
-                  f"Dropout {self.args.dropout}. "\
-                  f"Weight_decay {self.args.weight_decay}. ",
-            group="SimCLR: satellite VS GPS",
-            config=kwargs['args'],
-            job_type='inference' if self.inference else 'train',
-        )
+        self.skip_modalities = getattr(self.args, 'skip_modalities', [])
+        self.log_images = getattr(self.args, 'log_images', True)
+        self.resume_wandb_run = getattr(self.args, 'resume_wandb_run', False)
+        self.args.last_epoch = getattr(self.args, 'last_epoch', 0)
+        self.jobid = getattr(self.args, 'OAR_job_id', 'no_jobid')
+        print(f"[INFO] Job ID: {self.jobid}")
         print(f"[INFO] Wandb ID: {self.writer.id}")
         print(f"[INFO] Wandb output directory: {self.writer.dir}")
         logging.basicConfig(filename=os.path.join(self.writer.dir, 'training.log'), level=logging.DEBUG)
         wandb_init()
         # self.criterion = torch.nn.CrossEntropyLoss().to(self.args.device)
         self.criterion_name = getattr(self.args, 'loss_criterion', 'cross_entropy')
+    
+    def get_criterion(self, criterion_name, features_img, features_gps, sim_matrix, logits, labels, temperature=0.07):
+        """Retrieves the right criterion with correct inputs.
+        
+        Possible values of criterion_name: 'cross_entropy', 'cosine_embedding', 'cosine_embedding_from_sim',
+        'cosine_similarity_mean', 'cosine_loss_pytorch_like'.
+
+        """
+        mask = 'double_diag' if self.args.symmetric_loss else 'main_diag'
+        if criterion_name == 'cross_entropy':
+            criterion = torch.nn.CrossEntropyLoss().to(features_img.device)
+            loss = criterion(logits, labels)
+        elif criterion_name == 'crisp':
+            # print(f'logits.mean(): {(logits*temperature).mean()}, sim_matrix.mean(): {sim_matrix.mean()}')
+            # labels2 = labels
+            loss, sim_matrix, labels = crisp_loss(sim_matrix, temperature=temperature, return_sim_matrix_and_targets=True)
+        ### debug
+            # criterion2 = torch.nn.CrossEntropyLoss().to(features_img.device)
+            # loss2 = criterion2(logits, labels2)
+            # print(f'Loss crips: {loss}, cross-entropy on logits: {loss2}')
+        ### fin debug
+        elif criterion_name == 'crisp_manual':
+            loss, sim_matrix, labels = crisp_loss_manual(sim_matrix, temperature=temperature, return_sim_matrix_and_targets=True)
+        elif criterion_name == 'cosine_embedding_loss':
+            loss2 = cosine_embedding_loss(features_img, features_gps, pos_weight=0.8, margin=0.3)
+            criterion = torch.nn.CrossEntropyLoss().to(features_img.device)
+            loss = criterion(logits, labels)
+            print(f'Cosine embedding loss: {loss2}, cross-entropy loss: {loss}')
+        elif criterion_name == 'cosine_embedding_from_sim':
+            loss = cosine_embedding_from_sim(sim_matrix, pos_weight=0.8, margin=0.3, mask=mask)
+        elif criterion_name == 'cosine_similarity_mean':
+            loss = cosine_similarity_mean(features_img, features_gps, lambd=0.8, mask=mask)
+        elif criterion_name == 'cosine_loss_pytorch_like':
+            loss = cosine_loss_pytorch_like(sim_matrix, lambd=0.8, margin=0.2, mask=mask) 
+        elif criterion_name == 'cosine_mcr':
+            loss = cosine_mcr(features_img, features_gps, weight_mcr=0.1, eps_mcr=self.args.mcr_eps)
+        else:
+            raise NotImplementedError(f"Loss criterion {criterion_name} not implemented.")
+        return loss, sim_matrix, labels
 
     def info_nce_loss(self, features, dataset_type: str = 'species'): # [features_img, features_gps]
         # Flexible bastch_size strategy on hold
@@ -338,14 +337,14 @@ class SimCLR(object):
         labels = labels[~mask].view(labels.shape[0], -1)  # labels is of shape (64, 63). By preventing a feature to be matched with itself using the mask, there is one less possible matching per row
         similarity_matrix = similarity_matrix[~mask].view(similarity_matrix.shape[0], -1)  # similarity_matrix is of shape (64, 63).
 
-        # select and combine multiple positives
-        positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)  # shape (64, 1)
-
-        # select only the negatives
-        negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)  # shape (64, 62)
-
-        logits = torch.cat([positives, negatives], dim=1)  # positives are at index 0, negatives at index 1 to 62
-        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)  # labels at index 0 are the positives
+        # # select and combine multiple positives
+        # positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)  # shape (64, 1)
+        # # select only the negatives
+        # negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)  # shape (64, 62)
+        # logits = torch.cat([positives, negatives], dim=1)  # positives are at index 0, negatives at index 1 to 62
+        # labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)  # labels at index 0 are the positives
+        logits = similarity_matrix
+        labels = torch.where(labels.bool())[1].to(self.args.device)  # each feature at row i should match the feature at column i+n_views or i-n_views
 
         logits = logits / self.args.temperature
         return logits, labels, similarity_matrix
@@ -361,14 +360,14 @@ class SimCLR(object):
 
         similarity_matrix = torch.matmul(features_gps, features_img.T)  # rows are gps, columns are images
 
-        # select and combine multiple positives
-        positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)  # shape (64, 1)
-
-        # select only the negatives
-        negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)  # shape (64, 62)
-
-        logits = torch.cat([positives, negatives], dim=1)  # positives are at index 0, negatives at index 1 to 62
-        labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)  # labels at index 0 are the positives
+        # # select and combine multiple positives
+        # positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)  # shape (32, 1)
+        # # select only the negatives
+        # negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)  # shape (32, 31)
+        # logits = torch.cat([positives, negatives], dim=1)  # positives are at index 0, negatives at index 1 to 31
+        # labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)  # labels at index 0 are the positives
+        logits = similarity_matrix
+        labels = torch.arange(logits.shape[0]).to(self.args.device)  # each gps feature at row i should match image feature at column i
 
         logits = logits / self.args.temperature
         # Logits are just a re-arrangement of the sim_matrix, scaled by a temperature factor. Labels are re-arranged accordingly
@@ -387,6 +386,9 @@ class SimCLR(object):
             val_loader (torch.utils.data.DataLoader): pytorch dataloader for validation data
             max_iter (int, optional): Max iter nb over both train and val dataloaders. Defaults to torch.inf.
         """
+        self.model.train()
+        wandb.watch(self.model.gps_contrastive_head, log="gradients", log_freq=self.args.log_every_n_steps_train)
+        wandb.watch(self.model.modality_contrastive_head, log="gradients", log_freq=self.args.log_every_n_steps_train)
         scaler = GradScaler(enabled=self.args.fp16_precision)
 
         # save config file
@@ -423,7 +425,9 @@ class SimCLR(object):
                     else:
                         logits, labels, sim_matrix = self.info_nce_loss_single_diag(features_img, features_gps, dataset_type=self.args.arch)
                         koleo = KoLeoLoss(mask='main_diag')
-                    criterion, sim_matrix, labels = get_criterion(self.criterion_name, features_img, features_gps, sim_matrix.clone(), logits.clone(), labels.clone(), temperature=self.args.temperature)
+                    criterion, sim_matrix, labels = self.get_criterion(self.criterion_name, features_img, features_gps,
+                                                                       sim_matrix.clone(), logits.clone(), labels.clone(),
+                                                                       temperature=self.args.temperature)
                     koleo_train = koleo(features, eps=self.koleo_eps)
                     loss = criterion + self.koleo_weight * koleo_train
                     running_criterion.append(criterion.item())
@@ -472,13 +476,13 @@ class SimCLR(object):
                     # plt.close()
                     
                     # Log mean of similarity matrices computed over self.args.log_every_n_steps_train steps
-                    sim_matrix_mean = torch.Tensor(np.array(sim_matrices)).mean(dim=0)
-                    plt.figure(figsize=(12, 10))
-                    plt.title("Similarity Matrix")
-                    hm = sns.heatmap(sim_matrix_mean, cmap="viridis", annot=False)
-                    wandb.log({f'SimMatrix_mean-{self.args.log_every_n_steps_train}-steps_train/{epoch_counter:03d}_s_{step:03d}': wandb.Image(hm)})
-                    plt.close()
-                    sim_matrices = []
+                    # sim_matrix_mean = torch.Tensor(np.array(sim_matrices)).mean(dim=0)
+                    # plt.figure(figsize=(12, 10))
+                    # plt.title("Similarity Matrix")
+                    # hm = sns.heatmap(sim_matrix_mean, cmap="viridis", annot=False)
+                    # wandb.log({f'SimMatrix_mean-{self.args.log_every_n_steps_train}-steps_train/{epoch_counter:03d}_s_{step:03d}': wandb.Image(hm)})
+                    # plt.close()
+                    # sim_matrices = []
                     
                     # Log accuracy step wise
                     if logits.shape[0] >= 5:
@@ -554,7 +558,7 @@ class SimCLR(object):
                             vlogits, vlabels, vsim_matrix = self.info_nce_loss(vfeatures, dataset_type=self.args.arch)
                         else:
                             vlogits, vlabels, vsim_matrix = self.info_nce_loss_single_diag(vfeatures_img, vfeatures_gps, dataset_type=self.args.arch)
-                        vcriterion, vsim_matrix, vlabels = get_criterion(self.criterion_name, vfeatures_img, vfeatures_gps, vsim_matrix, vlogits, vlabels, temperature=self.args.temperature)
+                        vcriterion, vsim_matrix, vlabels = self.get_criterion(self.criterion_name, vfeatures_img, vfeatures_gps, vsim_matrix, vlogits, vlabels, temperature=self.args.temperature)
                         vloss = vcriterion
                         running_vloss.append(vloss.item())
                         vsim_matrix = vsim_matrix.detach().to('cpu').numpy()
@@ -571,21 +575,6 @@ class SimCLR(object):
                     else:
                         print("Batch size (val) is too small for accuracy calculation.")
 
-                    # Log recall@K
-                    n_cls = vlogits.shape[1]
-                    vlabels_oh = F.one_hot(vlabels, num_classes=n_cls)
-                    wandb.log({"recall_step/train": retrieval_recall(vlogits, vlabels_oh)})
-                    wandb.log({"recall@1_step/train": retrieval_recall(vlogits, vlabels_oh, top_k=1)})
-                    wandb.log({"recall@20_step/train": retrieval_recall(vlogits, vlabels_oh, top_k=5)})
-                    wandb.log({"recall@100_step/train": retrieval_recall(vlogits, vlabels_oh, top_k=100)})
-
-                    # Log AUROC
-                    wandb.log({"MultilabelAUROC_micro_step/train": multilabel_auroc(vlogits, vlabels_oh, n_cls, average='micro')})
-                    wandb.log({"MultilabelAUROC_macro_step/train": multilabel_auroc(vlogits, vlabels_oh, n_cls, average='macro')})
-
-                    # Log mAP
-                    wandb.log({"MultilabelAveragePrecision_micro_step/train": multilabel_average_precision(vlogits, vlabels_oh, n_cls, average='micro')})
-                    wandb.log({"MultilabelAveragePrecision_macro_step/train": multilabel_average_precision(vlogits, vlabels_oh, n_cls, average='macro')})
 
                     if vstep % self.args.log_every_n_steps_val == 0:
                         # # Log input batch images
@@ -604,6 +593,22 @@ class SimCLR(object):
                         # Log loss and moments step wise
                         wandb.log({"Loss_step/val": vloss})
                     
+                        # Log recall@K
+                        n_cls = vlogits.shape[1]
+                        vlabels_oh = F.one_hot(vlabels, num_classes=n_cls)
+                        wandb.log({"recall_step/val": retrieval_recall(vlogits, vlabels_oh)})
+                        wandb.log({"recall@1_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=1)})
+                        wandb.log({"recall@20_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=5)})
+                        wandb.log({"recall@100_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=100)})
+
+                        # Log AUROC
+                        wandb.log({"MultilabelAUROC_micro_step/val": multilabel_auroc(vlogits, vlabels_oh, n_cls, average='micro')})
+                        wandb.log({"MultilabelAUROC_macro_step/val": multilabel_auroc(vlogits, vlabels_oh, n_cls, average='macro')})
+
+                        # Log mAP
+                        wandb.log({"MultilabelAveragePrecision_micro_step/val": multilabel_average_precision(vlogits, vlabels_oh, n_cls, average='micro')})
+                        wandb.log({"MultilabelAveragePrecision_macro_step/val": multilabel_average_precision(vlogits, vlabels_oh, n_cls, average='macro')})
+
                         # # Log similarity matrix step wise
                         # plt.figure(figsize=(12, 10))
                         # plt.title("Similarity Matrix val")
