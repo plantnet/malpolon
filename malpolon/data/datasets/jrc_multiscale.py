@@ -135,9 +135,10 @@ class DatasetSimple(Dataset):
         super().__init__()
         self.root_path = root_path
         self.metadata = pd.read_csv(f'{Path(fp_metadata)}') if fp_metadata is not None else pd.DataFrame()
+        self.subset = subset
         if subset:
             subset_length = int(len(self.metadata) * subset) if isinstance(subset, float) else subset
-            self.metadata = self.metadata.sample(n=min(subset_length, len(self.metadata)), random_state=42).reset_index(drop=True)
+            self.metadata = self.metadata.sample(n=min(subset_length, len(self.metadata)), random_state=42).reset_index(names='index_no_subset')
         if self.__len__() == 0:
             raise ValueError(f"The dataset metadata is empty after applying the subset: {subset}. Please check the metadata file or increase the subset value.")
         self.transform = lambda x: x if transform is None else transform(x)
@@ -209,56 +210,6 @@ class LandscapeDatasetSimple(DatasetSimple):
         # return {'img': img, 'gps': coords}
         return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([id])
 
-# Version multi-view per row
-# class LandscapeDatasetSimple(DatasetSimple):
-#     def __init__(
-#         self,
-#         root_path: str = None,
-#         fp_metadata: str = None,
-#         transform: Callable = None,
-#         dataset_kwargs: dict = {},
-#         **kwargs,
-#     ) -> None:
-#         super().__init__(root_path, fp_metadata, transform, dataset_kwargs, **kwargs)
-#         self.fp_columns = ['file_path_gisco_north', 'file_path_gisco_south', 'file_path_gisco_east', 'file_path_gisco_west', 'file_path_gisco_point', 'file_path_gisco_cover']
-#         if 'file_path_gisco_cover' not in self.metadata.columns:
-#             self.metadata['file_path_gisco_cover'] = self.metadata['file_path_gisco_north'].copy()
-#             self.metadata[self.fp_columns] = self.metadata[self.fp_columns].fillna('')
-#             self.metadata['file_path_gisco_cover'] = self.metadata['file_path_gisco_cover'].apply(lambda x: str(Path(x).parent / Path(Path(x).stem[:-1] + 'C' + Path(x).suffix)))
-
-#     def _filter_metadata_on_existing_data(self):
-#         fp_to_none = 0
-#         dropped_rows = 0
-#         from tqdm import tqdm
-#         for rowi, row in tqdm(self.metadata.iterrows()):
-#             n_missing_files = 0
-#             for c in self.fp_columns:
-#                 if not os.path.exists(os.path.join(self.root_path, '/'.join(row[c].split('/')[-5:]))):
-#                     n_missing_files += 1
-#                     self.metadata.loc[rowi, c] = None
-#                     fp_to_none += 1
-#             if n_missing_files >= 6:
-#                 self.metadata.drop(rowi, inplace=True)
-#                 dropped_rows += 1
-#         print(f"Filtered {fp_to_none} file paths to None and dropped {dropped_rows} rows from metadata.")
-
-#     def __getitem__(self, index) -> Any:
-#         img, coords = self.img, self.coords
-#         if not self.metadata.empty:
-#             sample = self.metadata.iloc[index]
-#             img = load_LUCAS_img(sample['id'], self.metadata, self.root_path, **self.dataset_kwargs, transform=self.transform)
-#             img = img.to(torch.float32)
-#             # img = self.transform(img)
-#             if torch.equal(img, torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE) -1):
-#                 coords = (1000, 1000)
-#             else:
-#                 coords = tuple(sample[['gps_long', 'gps_lat']].values.flatten())
-#             id = sample['id']
-
-#         # return {'img': img, 'gps': coords}
-#         return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([id])
-    
-
 class SatelliteDatasetSimple(DatasetSimple):
     def __init__(
         self,
@@ -267,7 +218,7 @@ class SatelliteDatasetSimple(DatasetSimple):
         transform: Callable = None,
         kwargs_sat_provider: dict = {'select': ['red','green','blue','nir'],
                                      'size': SATELLITE_INPUT_SIZE},
-        kwargs_sat_dataset: dict = {'item_columns': ['lat', 'lon', 'surveyId'],
+        kwargs_sat_dataset: dict = {'item_columns': ['lat', 'lon', 'surveyId', 'speciesId'],
                                     'labels_name': ['lat', 'lon']},
         query_id: str = 'surveyId',
         **kwargs,
@@ -286,7 +237,10 @@ class SatelliteDatasetSimple(DatasetSimple):
                 providers=[self.sat_provider],
                 **kwargs_sat_dataset,
             )
-        # self.metadata = self.metadata.sample(n=min(10000, len(self.metadata)))
+        if self.subset:
+            self.sat_dataset.items = self.sat_dataset.items.loc[self.metadata.index_no_subset].reset_index(names='index_no_subset')
+            self.sat_dataset.observation_ids = self.sat_dataset.observation_ids[self.metadata.index_no_subset]  # np.array, assuming self.metadata indexing starts from 0 to N
+            self.sat_dataset.targets = self.sat_dataset.targets[self.metadata.index_no_subset]  # np.array, assuming self.metadata indexing starts from 0 to N
 
     def __getitem__(self, index) -> Any:
         img, coords = self.img, self.coords
@@ -296,9 +250,10 @@ class SatelliteDatasetSimple(DatasetSimple):
             img = img.to(torch.float32)
             img = self.transform(img)
             coords = (sat_lon, sat_lat)
+            sat_id = self.sat_dataset.items.iloc[index][self.query_id]
 
         # return {'img': img, 'gps': coords}
-        return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([self.sat_dataset.items.iloc[index][self.query_id]])
+        return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([sat_id])
 
 
 class MultiscaleDatasetSimple(Dataset):
@@ -325,6 +280,7 @@ class MultiscaleDatasetSimple(Dataset):
         self.skip_modalities = skip_modalities
         if 'species' in self.skip_modalities:
             self.species_dataset = None
+            print('[INFO]: species modality skipped, will return dummy labels -1 and images 0')
         else:
             self.species_dataset = SpeciesDatasetSimple(
                 root_path = root_path_species,
@@ -335,6 +291,7 @@ class MultiscaleDatasetSimple(Dataset):
             )
         if 'landscape' in self.skip_modalities:
             self.landscape_dataset = None
+            print('[INFO]: landscape modality skipped, will return dummy labels -1 and images 0')
         else:
             self.landscape_dataset = LandscapeDatasetSimple(
                 root_path = root_path_landscape,
@@ -345,6 +302,7 @@ class MultiscaleDatasetSimple(Dataset):
             )
         if 'satellite' in self.skip_modalities:
             self.satellite_dataset = None
+            print('[INFO]: satellite modality skipped, will return dummy labels -1 and images 0')
         else:
             self.satellite_dataset = SatelliteDatasetSimple(
                 root_path = root_path_satellite,
@@ -365,7 +323,8 @@ class MultiscaleDatasetSimple(Dataset):
     def __getitem__(self, index) -> Any:
         # Species
         if 'species' in self.skip_modalities:
-            species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            # species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
         else:
             if index > len(self.species_dataset) - 1:
                 idx = torch.randint(0, len(self.species_dataset), (1,)).item()
@@ -375,7 +334,8 @@ class MultiscaleDatasetSimple(Dataset):
         
         # Landscape
         if 'landscape' in self.skip_modalities:
-            landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            # landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
         else:
             if index > len(self.landscape_dataset) - 1:
                 idx = torch.randint(0, len(self.landscape_dataset), (1,)).item()
@@ -385,7 +345,8 @@ class MultiscaleDatasetSimple(Dataset):
         
         # Satellite
         if 'satellite' in self.skip_modalities:
-            satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, SATELLITE_INPUT_SIZE, SATELLITE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            # satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, SATELLITE_INPUT_SIZE, SATELLITE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
         else:
             if index > len(self.satellite_dataset) - 1:
                 idx = torch.randint(0, len(self.satellite_dataset), (1,)).item()
@@ -439,19 +400,22 @@ class MultiscaleDatasetJoint(MultiscaleDatasetSimple):
     def __getitem__(self, index) -> Any:
         # Species
         if 'species' in self.skip_modalities:
-            species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            # species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
         else:
             species_img, species_coords, species_idx, species_id = self.species_dataset[index]
 
         # Landscape
         if 'landscape' in self.skip_modalities:
-            landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            # landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
         else:
             landscape_img, landscape_coords, landscape_idx, landscape_id = self.landscape_dataset[index]
 
         # Satellite
         if 'satellite' in self.skip_modalities:
-            satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, SATELLITE_INPUT_SIZE, SATELLITE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            # satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, SATELLITE_INPUT_SIZE, SATELLITE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
         else:
             satellite_img, satellite_coords, satellite_idx, satellite_id = self.satellite_dataset[index]
 
@@ -503,7 +467,8 @@ class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
     def __getitem__(self, index) -> Any:
         # Species
         if 'species' in self.skip_modalities:
-            species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            # species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            species_img, species_coords, species_idx, species_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
             species_label = torch.tensor([-1])
         else:
             species_img, species_coords, species_idx, species_id = self.species_dataset[index]
@@ -514,7 +479,8 @@ class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
 
         # Landscape
         if 'landscape' in self.skip_modalities:
-            landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            # landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            landscape_img, landscape_coords, landscape_idx, landscape_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
             landscape_label = torch.tensor([-1])
         else:
             landscape_img, landscape_coords, landscape_idx, landscape_id = self.landscape_dataset[index]
@@ -525,7 +491,8 @@ class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
 
         # Satellite
         if 'satellite' in self.skip_modalities:
-            satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, SATELLITE_INPUT_SIZE, SATELLITE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            # satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, SATELLITE_INPUT_SIZE, SATELLITE_INPUT_SIZE), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
+            satellite_img, satellite_coords, satellite_idx, satellite_id = torch.zeros(1, 3, 1, 1), torch.tensor([-1000, -1000]), torch.tensor([index]), torch.tensor([-1])
             satellite_label = torch.tensor([-1])
         else:
             satellite_img, satellite_coords, satellite_idx, satellite_id = self.satellite_dataset[index]
@@ -550,5 +517,20 @@ class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
                   species_label,  #13
                   landscape_label,  #14
                   satellite_label)  #15
+        # sample = {'species':
+        #             {'img': species_img,
+        #              'gps': species_coords,
+        #              'index': torch.tensor([index]),
+        #              'id': species_id},
+        #           'landscape':
+        #             {'img': landscape_img,
+        #              'gps': landscape_coords,
+        #              'index': torch.tensor([index]),
+        #              'id': landscape_id},
+        #           'satellite':
+        #             {'img': satellite_img,
+        #              'gps': satellite_coords,
+        #              'index': torch.tensor([index]),
+        #              'id': satellite_id}}
 
         return sample

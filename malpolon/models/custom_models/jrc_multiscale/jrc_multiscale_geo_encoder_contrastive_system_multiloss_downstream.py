@@ -334,7 +334,6 @@ class SimCLRToMultilabelClassification(object):
             for step, train_dict in enumerate(tqdm(train_loader)):
                 batch_inds = train_dict['indices']
                 train_dict.pop('indices', None)
-
                 train_dict_items = train_dict.items()
                 train_dict_items = [(k, v) for k, v in train_dict_items if k in modalities_to_process]
                 wandb.log({"train_steps": train_steps})

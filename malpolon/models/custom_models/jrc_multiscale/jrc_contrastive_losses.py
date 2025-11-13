@@ -229,6 +229,7 @@ def half_logdet(X):
     return torch.linalg.cholesky_ex(X)[0].diagonal().log().sum()
 
 class MCR(torch.nn.Module):
+    """Maximum Coding Rate"""
     def __init__(self, eps=0.05):
         super(MCR, self).__init__()
         self.eps = eps

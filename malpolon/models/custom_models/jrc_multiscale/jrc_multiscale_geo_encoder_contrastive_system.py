@@ -282,14 +282,7 @@ class SimCLR(object):
             criterion = torch.nn.CrossEntropyLoss().to(features_img.device)
             loss = criterion(logits, labels)
         elif criterion_name == 'crisp':
-            # print(f'logits.mean(): {(logits*temperature).mean()}, sim_matrix.mean(): {sim_matrix.mean()}')
-            # labels2 = labels
             loss, sim_matrix, labels = crisp_loss(sim_matrix, temperature=temperature, return_sim_matrix_and_targets=True)
-        ### debug
-            # criterion2 = torch.nn.CrossEntropyLoss().to(features_img.device)
-            # loss2 = criterion2(logits, labels2)
-            # print(f'Loss crips: {loss}, cross-entropy on logits: {loss2}')
-        ### fin debug
         elif criterion_name == 'crisp_manual':
             loss, sim_matrix, labels = crisp_loss_manual(sim_matrix, temperature=temperature, return_sim_matrix_and_targets=True)
         elif criterion_name == 'cosine_embedding_loss':
@@ -308,12 +301,23 @@ class SimCLR(object):
         else:
             raise NotImplementedError(f"Loss criterion {criterion_name} not implemented.")
         return loss, sim_matrix, labels
+    
+    def get_regularizer(self, features, regularizer_name: str):
+        """Retrieves the right regularizer.
+
+        Possible values of regularizer_name: 'koleo', 'mcr'.
+        """
+        if regularizer_name == 'koleo':
+            regularizer = KoLeoLoss(eps=self.koleo_eps)
+            reg_term = regularizer(features, eps=self.koleo_eps)
+        elif regularizer_name == 'mcr':
+            regularizer = MCR(eps=self.mcr_eps)
+            reg_term = regularizer(features)
+        else:
+            raise NotImplementedError(f"Regularizer {regularizer_name} not implemented.")
+        return reg_term
 
     def info_nce_loss(self, features, dataset_type: str = 'species'): # [features_img, features_gps]
-        # Flexible bastch_size strategy on hold
-        # batch_size = self.args.batch_size
-        # if dataset_type == 'landscape':
-        #     batch_size = features.shape[0] // self.args.n_views  # LUCAS image views stacked along the batch dim
         labels = torch.cat([torch.arange(features.shape[0]//self.args.n_views) for i in range(self.args.n_views)], dim=0)
         # Labels is a vector of size 64 with values 0 to 31 concatenated n_views times. E.g. if n_views==2: [0, 1, 2, ..., 31, 0, 1, 2, ..., 31]
         labels = (torch.unsqueeze(labels, 0) == torch.unsqueeze(labels, 1)).float()
@@ -321,14 +325,9 @@ class SimCLR(object):
         # There are 2 diagonals of ones: the 64x64 main diagonal, and a shifted diagonal (of the 2nd [0:31] vector originlly concatenated) which warps at the end of the columns to continue at the start of them on the next rows.
         labels = labels.to(self.args.device)
         
-        # Features are the output of the MLP head. Shape (batch_size, 512)
+        # Features are the output of the MLP head and L2-normalized to unit length. Shape (batch_size, 512)
         features = F.normalize(features, dim=1)
-        # Features are L2-normalized to unit length. Shape (batch_size, 512)
-
         similarity_matrix = torch.matmul(features, features.T)
-        # assert similarity_matrix.shape == (
-        #     self.args.n_views * batch_size, self.args.n_views * batch_size)
-        # assert similarity_matrix.shape == labels.shape
 
         # Discard the main diagonal from both labels and similarities matrix.
         # For the rows 1 to 31, it shifts the ones index by -1 since the main diagonal comes "before" them.
@@ -337,6 +336,7 @@ class SimCLR(object):
         labels = labels[~mask].view(labels.shape[0], -1)  # labels is of shape (64, 63). By preventing a feature to be matched with itself using the mask, there is one less possible matching per row
         similarity_matrix = similarity_matrix[~mask].view(similarity_matrix.shape[0], -1)  # similarity_matrix is of shape (64, 63).
 
+        # Re-arranging the similarity matrix and labels to move positive matches to the 1st column
         # # select and combine multiple positives
         # positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)  # shape (64, 1)
         # # select only the negatives
@@ -353,24 +353,15 @@ class SimCLR(object):
         # Not handling the landscape case with more than 2 views !
         labels = torch.eye(features_img.shape[0]).to(self.args.device)  # mask is of shape (batch_size, batch_size) with main diagonal at 1. Except when batch_size if lower than the nb of samples in val_loader, in which case the mask is of shape (n_samples, n_samples)
 
-        # Features are the output of the MLP head. Shape (batch_size, 512)
+        # Features are the output of the MLP head and L2-normalized to unit length. Shape (batch_size, 512)
         features_img = F.normalize(features_img, dim=1)
         features_gps = F.normalize(features_gps, dim=1)
-        # Features are L2-normalized to unit length. Shape (batch_size, 512)
-
         similarity_matrix = torch.matmul(features_gps, features_img.T)  # rows are gps, columns are images
 
-        # # select and combine multiple positives
-        # positives = similarity_matrix[labels.bool()].view(labels.shape[0], -1)  # shape (32, 1)
-        # # select only the negatives
-        # negatives = similarity_matrix[~labels.bool()].view(similarity_matrix.shape[0], -1)  # shape (32, 31)
-        # logits = torch.cat([positives, negatives], dim=1)  # positives are at index 0, negatives at index 1 to 31
-        # labels = torch.zeros(logits.shape[0], dtype=torch.long).to(self.args.device)  # labels at index 0 are the positives
         logits = similarity_matrix
         labels = torch.arange(logits.shape[0]).to(self.args.device)  # each gps feature at row i should match image feature at column i
 
         logits = logits / self.args.temperature
-        # Logits are just a re-arrangement of the sim_matrix, scaled by a temperature factor. Labels are re-arranged accordingly
         return logits, labels, similarity_matrix
 
     def train(
@@ -389,10 +380,8 @@ class SimCLR(object):
         self.model.train()
         wandb.watch(self.model.gps_contrastive_head, log="gradients", log_freq=self.args.log_every_n_steps_train)
         wandb.watch(self.model.modality_contrastive_head, log="gradients", log_freq=self.args.log_every_n_steps_train)
-        scaler = GradScaler(enabled=self.args.fp16_precision)
-
-        # save config file
         save_config_file(self.writer.dir, self.args)
+        scaler = GradScaler(enabled=self.args.fp16_precision)
 
         logging.info(f"Start SimCLR training for {self.args.epochs} epochs.")
         logging.info(f"Training with gpu: {self.args.disable_cuda}.")

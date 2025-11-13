@@ -167,7 +167,6 @@ def update_ema(model, ema_model, tau):
     for param, ema_param in zip(model.parameters(), ema_model.parameters()):
         ema_param.data.mul_(tau).add_(param.data, alpha=1 - tau)
 
-
 def mean_sim_matrices_over_modalities(sim_matrices: list, n_modalities: int = 3):
     """Reshape similarity matrices to have 3 modalities."""
     sim_matrices = np.array(sim_matrices)
@@ -475,19 +474,19 @@ class SimCLR(object):
                 # satellite_id = train_dict['satellite'][3]
                 # imgs = [species_img, landscape_img, satellite_img]
                 # coords = [species_coords, landscape_coords, satellite_coords]
-                # idxs = [species_idx, landscape_idx, satellite_idx]
-                # ids = [species_id, landscape_id, satellite_id]
+                # all_inds = [species_idx, landscape_idx, satellite_idx]
+                # all_ids = [species_id, landscape_id, satellite_id]
 
                 train_dict_items = train_dict.items()
                 train_dict_items = [(k, v) for k, v in train_dict_items if k in modalities_to_process]
                 wandb.log({"train_steps": train_steps})
 
                 with autocast(device_type=str(self.args.device), enabled=self.args.fp16_precision):
-                    loss, all_logits, all_features_img, all_features_gps, all_images, idxs, ids = 0, [], [], [], [], [], []
+                    loss, all_logits, all_features_img, all_features_gps, all_images, all_inds, all_ids = 0, [], [], [], [], [], []
                     self.optimizer.zero_grad()
                     for i, v in enumerate(train_dict_items):
                         mod_name, (images, gps, inds, survey_ids) = v[0], v[1]
-                    # for i, (images, gps, inds, survey_ids) in enumerate(zip(imgs, coords, idxs, ids)):
+                    # for i, (images, gps, inds, survey_ids) in enumerate(zip(imgs, coords, all_inds, all_ids)):
                     #   if i in skip_modalities:
                     #     continue  # careful about checking if logging functions are compatible with other than 3 modalities
                         images = images.to(self.args.device)
@@ -522,8 +521,8 @@ class SimCLR(object):
                         all_images.append(images)  # Randomly select 1/3 of a batch of images from the current modality to later display everything in a batch_size plt image
                         all_features_img.append(features_img)
                         all_features_gps.append(features_gps)
-                        idxs.append(inds)
-                        ids.append(survey_ids)
+                        all_inds.append(inds)
+                        all_ids.append(survey_ids)
                     
                     print(f"Epoch {epoch_counter} loss: {loss.item():.4f}")
 
@@ -535,7 +534,7 @@ class SimCLR(object):
                 scaler.update()
 
                 if step % self.args.log_every_n_steps_train == 0:       
-                    log_input_imgs_multimodalities(all_images, idxs, ids, step, epoch_counter, n_samples=8, n_modalities=len(modalities_to_process), mode='train', log_images=self.log_images)
+                    log_input_imgs_multimodalities(all_images, all_inds, all_ids, step, epoch_counter, n_samples=8, n_modalities=len(modalities_to_process), mode='train', log_images=self.log_images)
                     
                     # Log loss and moments step wise
                     log_loss_scheduler(loss, self.scheduler)
@@ -594,7 +593,7 @@ class SimCLR(object):
                     val_dict_items = val_dict.items()  # Useless if keeping all modalities
                     val_dict_items = [(k, v) for k, v in val_dict_items]  # Useless if keeping all modalities
                     wandb.log({"val_steps": val_steps})
-                    vloss, vall_logits, vall_features_img, vall_features_gps, vall_images, vidxs, vids  = 0, [], [], [], [], [], []
+                    vloss, vall_logits, vall_features_img, vall_features_gps, vall_images, vall_inds, vall_ids  = 0, [], [], [], [], [], []
                     
                     # for i, (vimages, vgps, vinds, vsurvey_ids) in enumerate(zip([vspecies_img, vlandscape_img, vsatellite_img],
                     #                                                             [vspecies_coords, vlandscape_coords, vsatellite_coords],
@@ -621,8 +620,8 @@ class SimCLR(object):
                         vall_features_gps.append(vfeatures_gps)
                         vall_logits.append(vlogits)
                         vsim_matrices.append(vsim_matrix)
-                        vids.append(vsurvey_ids)
-                        vidxs.append(vinds)
+                        vall_ids.append(vsurvey_ids)
+                        vall_inds.append(vinds)
                     running_vloss.append(vloss.item())
 
                     # Save best checkpoint
@@ -645,7 +644,7 @@ class SimCLR(object):
 
                     if vstep % self.args.log_every_n_steps_val == 0:
                         # Log input batch images
-                        log_input_imgs_multimodalities(vall_images, vidxs, vids, vstep, epoch_counter, n_samples=8, n_modalities=3, mode='val', log_images=self.log_images)
+                        log_input_imgs_multimodalities(vall_images, vall_inds, vall_ids, vstep, epoch_counter, n_samples=8, n_modalities=3, mode='val', log_images=self.log_images)
                         
                         # Log loss and moments step wise
                         log_loss_scheduler(vloss, self.scheduler, mode='val')
@@ -701,7 +700,7 @@ class SimCLR(object):
         print("Running inference...")
         with torch.no_grad():
             for step, test_dict in enumerate(tqdm(test_dataloader)):
-                all_logits, all_features_img, all_features_gps, idxs, ids  = [], [], [], [], []
+                all_logits, all_features_img, all_features_gps, all_inds, all_ids  = [], [], [], [], []
                 batch_inds = test_dict['indices']
                 test_dict.pop('indices', None)
                 for i, (mod_name, (images, gps, inds, survey_ids)) in enumerate(test_dict.items()):
@@ -718,8 +717,8 @@ class SimCLR(object):
                     all_features_gps.append(features_gps)
                     all_logits.append(logits)
                     sim_matrices.append(sim_matrix)
-                    ids.append(survey_ids)
-                    idxs.append(inds)
+                    all_ids.append(survey_ids)
+                    all_inds.append(inds)
                     
                 # Log accuracy step wise
                 for logits, modality_name in zip(all_logits, modalities_name):

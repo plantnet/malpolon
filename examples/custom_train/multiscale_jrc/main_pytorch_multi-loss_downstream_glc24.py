@@ -6,9 +6,10 @@ import os
 from types import SimpleNamespace
 from typing import Any, Callable, List
 from math import sqrt
-
+import wandb
 import torch
 import torch.backends.cudnn as cudnn
+from omegaconf import OmegaConf
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -21,8 +22,8 @@ from malpolon.data.datasets.jrc_multiscale import (
     MultiscaleDatasetSimple,
     MultiscaleDatasetJointWithLabels,
 )
-from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_contrastive_system_multiloss_downstream import (
-    SimCLRToMultilabelClassification,
+from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_contrastive_system_multiloss_downstream_new import (
+    SimCLR_downstream,
 )
 from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_model import (
     ModelSimCLR, MultiLabelClassifier,
@@ -134,17 +135,15 @@ def collate_multiscale(original_batch):
         'satellite': (img_batched_satellite, gps_batched_satellite, inds_batched_satellite, ids_batched_satellite, label_batched_satellite),
     }
 
-def main(args):
-    assert args.n_views == 2, "Only two view training is supported. Please use --n-views 2."
-
+def main(args, writer):
     # check if gpu training is available
     if not args.disable_cuda and torch.cuda.is_available():
-        args.device = torch.device('cuda')
+        args.update({'device': torch.device('cuda')}, allow_val_change=True)
         cudnn.deterministic = True
         cudnn.benchmark = True
     else:
-        args.device = torch.device('cpu')
-        args.gpu_index = -1
+        args.update({'device': torch.device('cpu')}, allow_val_change=True)
+        args.update({'gpu_index': -1}, allow_val_change=True)
 
     # Datasets
     custom_collate = None
@@ -180,9 +179,9 @@ def main(args):
             root_path_landscape = 'dataset/scale_2_landscape/',
             fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min_abaca.csv',
             root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            # fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_train-10.0min.csv',
+            fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_train-10.0min.csv',
             # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
-            fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_train.csv',
+            # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_train.csv',
             transform_species = transforms_species(),
             transform_landscape = transforms_species(),
             transform_satellite = transforms_satellite(),
@@ -191,16 +190,33 @@ def main(args):
             task = 'multilabel_classification',
             num_classes=args.num_labels,
             query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
+            keep_id_duplicates = True,
         )
+        # import pandas as pd
+        # from malpolon.data.datasets.geolifeclef2024_pre_extracted import TrainDataset
+        # custom_collate = None
+        
+        # train_dataset = TrainDataset(pd.read_csv('dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_train-10.0min.csv'),
+        #                              num_classes = args.num_labels,
+        #                              bioclim_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-train-bioclimatic_monthly/",
+        #                              landsat_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-train-landsat_time_series/",
+        #                              sentinel_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/PA_Train_SatellitePatches_RGB/pa_train_patches_rgb/",
+        #                              task = 'classification_multilabel',)
+        # val_dataset = TrainDataset(pd.read_csv('dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_val-10.0min.csv'),
+        #                              num_classes = args.num_labels,
+        #                              bioclim_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-test-bioclimatic_monthly/",
+        #                              landsat_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-test-landsat_time_series/",
+        #                              sentinel_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/PA_test_SatellitePatches_RGB/pa_test_patches_rgb/",
+        #                              task = 'classification_multilabel',)
         val_dataset = MultiscaleDatasetJointWithLabels(
             root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
             fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-0.06min_no_3-duplicates.csv',
             root_path_landscape = 'dataset/scale_2_landscape/',
             fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_abaca.csv',
             root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            # fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_val-10.0min.csv',
+            fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_val-10.0min.csv',
             # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
-            fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_val.csv',
+            # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_val.csv',
             transform_species = transforms_species(),
             transform_landscape = transforms_species(),
             transform_satellite = transforms_satellite(),
@@ -209,6 +225,7 @@ def main(args):
             task = 'multilabel_classification',
             num_classes=args.num_labels,
             query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
+            keep_id_duplicates = True,
         )
         test_dataset = MultiscaleDatasetJointWithLabels(
             root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
@@ -225,14 +242,15 @@ def main(args):
             task = 'multilabel_classification',
             num_classes=args.num_labels,
             query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
+            keep_id_duplicates = True,
         )
 
     # Dataloaders
     train_loader = DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=True,
+        train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
     val_loader = DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=True,
+        train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
     test_loader = DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=False,
@@ -250,23 +268,37 @@ def main(args):
     # model = torch.nn.ModuleList([model_species, model_landscape, model_satellite])
     model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
 
-
     # Transfer learning: linear probing / fine-tuning
     if args.ckpt_path:
         checkpoint = torch.load(args.ckpt_path, map_location='cuda' if not args.disable_cuda else 'cpu')
         model.load_state_dict(checkpoint['state_dict'])
         print(f"Checkpoint loaded from {args.ckpt_path}")
-    
+
     # Evaluation strategy
     if args.eval_type == 'knn':
         raise NotImplementedError("KNN evaluation is not implemented in this script. Please implement it if needed.")
-    classifier = MultiLabelClassifier(model['species'].gps_encoder, model['species'].modality_encoder, model['landscape'].modality_encoder, model['satellite'].modality_encoder,
-                                      classifier_type=args.eval_type, num_labels=args.num_labels, skip_modalities=args.skip_modalities)
-    # classifier = MultiLabelClassifier(model[0].gps_encoder, model[0].modality_encoder, model[1].modality_encoder, model[2].modality_encoder,
-    #                                   classifier_type=args.eval_type, num_labels=args.num_labels, skip_modalities=args.skip_modalities)
+    classifier = MultiLabelClassifier(model['species'].gps_encoder, model['species'].gps_contrastive_head,
+                                      model['species'].modality_encoder, model['species'].modality_contrastive_head,
+                                      model['landscape'].modality_encoder, model['species'].modality_contrastive_head,
+                                      model['satellite'].modality_encoder, model['satellite'].modality_contrastive_head,
+                                      classifier_type=args.eval_type, contrastive_head_out_dim=args.out_dim,
+                                      num_labels=args.num_labels, skip_modalities=args.skip_modalities)
+    classifier = torch.nn.DataParallel(classifier, device_ids=[0])
+    # DEBUG: REPLACING SATELLITE ENCODER WITH THAT OF MME
+    # from torch import nn
+    # from torchvision import models
+    # from mme_model_lukas import MultiModalEnsembleC
+    # MME = MultiModalEnsembleC()
+    # state_dict = torch.load('mme_model_lukas_weights.bin')
+    # MME.from_pretrained(state_dict)
+    
+    
+    # for encoder in [classifier.gps_encoder, classifier.gps_contrastive_head, classifier.species_encoder, classifier.species_contrastive_head, classifier.landscape_encoder, classifier.landscape_contrastive_head, classifier.satellite_encoder, classifier.satellite_contrastive_head]:
+    #     for param in encoder.parameters():
+    #         param.requires_grad = False
+    # END DEBUG
 
     # Optimization
-    args.learning_rate = args.learning_rate * sqrt(args.batch_size)
     optimizer = torch.optim.AdamW(classifier.parameters(),
                                   lr=args.learning_rate, weight_decay=args.weight_decay)
     warmup_scheduler = LinearLR(
@@ -280,23 +312,49 @@ def main(args):
 
     if isinstance(args.log_every_n_steps, float):
         args.log_every_n_steps_train = max(int(args.log_every_n_steps * len(train_loader)), 1)
-        args.log_every_n_steps_test = max(int(args.log_every_n_steps * len(test_loader)), 1)
+        args.log_every_n_steps_val = max(int(args.log_every_n_steps * len(val_loader)), 1)
     else:
         args.log_every_n_steps_train = args.log_every_n_steps
-        args.log_every_n_steps_test = args.log_every_n_steps
+        args.log_every_n_steps_val = args.log_every_n_steps
     args.log_every_n_steps_train = min(args.log_every_n_steps_train, len(train_loader))
-    args.log_every_n_steps_test = min(args.log_every_n_steps_test, len(test_loader))
+    args.log_every_n_steps_val = min(args.log_every_n_steps_val, len(val_loader))
 
     # Run
     ## It’s a no-op if the 'gpu_index' argument is a negative integer or None.
     if args.predict:
         with torch.cuda.device(args.gpu_index):
-            downstream_pipeline = SimCLRToMultilabelClassification(model=classifier, optimizer=optimizer, scheduler=cosine_scheduler, args=args)
+            downstream_pipeline = SimCLR_downstream(model=classifier, optimizer=optimizer, scheduler=scheduler, writer=writer, args=args)
             downstream_pipeline.predict(test_loader)
     else:
         with torch.cuda.device(args.gpu_index):
-            downstream_pipeline = SimCLRToMultilabelClassification(model=classifier, optimizer=optimizer, scheduler=cosine_scheduler, args=args)
-            downstream_pipeline.train(train_loader, val_loader, max_iter=args.max_iter, verbose=args.verbose)
+            downstream_pipeline = SimCLR_downstream(model=classifier, optimizer=optimizer, scheduler=scheduler, writer=writer, args=args)
+            downstream_pipeline.train(train_loader, val_loader, max_iter=args.max_iter)
+
+def init_wandb(args):
+    args_ns = SimpleNamespace(**args) if isinstance(args, dict) else args
+    name = getattr(args_ns, 'name', 'default-name')
+    writer = wandb.init(
+        entity="tlarcher-phd-jrc",
+        id=getattr(args_ns, 'ckpt_path', '').split('/')[-2].split('-')[2] if (getattr(args_ns, 'ckpt_path', None) and getattr(args_ns, 'resume_wandb_run', False)) else None,
+        project=getattr(args_ns, 'wandb_project', None),
+        name=name['value'] if isinstance(name, dict) else name,  #'Unique surveyId spatial split 0.06min, dropout',
+        notes=f"",
+        config=args_ns,
+        job_type='inference' if getattr(args_ns, 'predict', False) else 'train',
+        mode=getattr(args_ns, 'wandb_mode', 'offline'),
+    )
+    args_ns.writer = writer
+    return args_ns, writer
+
+def init_sweep(args):
+    sweep_cfg = OmegaConf.to_container(OmegaConf.load(f"wandb_sweep_{args['arch']}.yaml"), resolve=True)
+    for k, v in sweep_cfg['parameters'].items():
+        if k in args:
+            args[k] = v
+        else:
+            print(f"Warning: Sweep parameter {k} not found in default args dictionary.")
+    args_ns = SimpleNamespace(**args) if isinstance(args, dict) else args
+    return args_ns
 
 
 if __name__ == "__main__":
@@ -309,33 +367,42 @@ if __name__ == "__main__":
         'device': "cuda",
         'disable_cuda': False,
         'dropout': 0.1,
-        'ema_decay': 0.999,  # Exponential moving average decay. Not currently used
         'epochs': 40,
         'fp16_precision': False,
-        'freeze_gps_backbone': True,
-        'freeze_modality_backbone': True,
+        'freeze_gps_backbone': False,
+        'freeze_modality_backbone': False,
         'gpu_index': 0,
-        'learning_rate': 0.00025,
+        'learning_rate': 0.01, # 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "[DEBUG] Downstream task > GLC24 val/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, sat+land (from u6tiioze)",
-        'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
+        'name': "[TEST] Downstream task > GLC24 val/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, sat+land (from u6tiioze)",
         'out_dim': 2048,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
-        'symmetric_loss': False,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
-        'temperature': 0.07,
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
         'weight_decay': 1e-3,
-        'workers': 16,
+        'workers': 24,  # os.cpu_count(),
         'warmup_epochs': 0,
         'log_images': False,  # If True, logs images to wandb
-        'skip_modalities': ['species', 'landscape'],  # Will skip modalities during training
-        'eval_type': 'fine_tuning',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
+        'skip_modalities': ['species', 'landscape'], 
+        'downstream_modalities_to_process': ['satellite_img'],  # Will skip modalities during training
+        'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
+        'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
         'predict': False,
-        'verbose': False,
+        'wandb_mode': 'disabled',
+        'metrics': {'accuracy_type': 'multilabel',
+                    'accuracy_average': 'samples',
+                    'accuracy_topks': (1, 5, 20),},
     }
-    # import os
-    # os.system('wandb offline')
-    args_ns = SimpleNamespace(**args)
-    main(args_ns)
+    sweep_id = os.getenv("WANDB_SWEEP_ID")
+    if sweep_id:
+        args_ns = init_sweep(args)
+        print('args_ns.name: ', args_ns.name)
+        print(f"🚀 Running under a W&B sweep agent (sweep ID {sweep_id})\n")
+        args_ns, writer = init_wandb(args_ns)
+    else:
+        print("🧑‍💻 Running standalone (manual run)\n")
+        args_ns, writer = init_wandb(args)
+    config_wandb = args_ns.writer.config
+    config_wandb.update({'learning_rate': config_wandb.learning_rate * sqrt(config_wandb.learning_rate)}, allow_val_change=True)
+    main(config_wandb, writer)

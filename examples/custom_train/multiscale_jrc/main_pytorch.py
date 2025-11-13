@@ -221,7 +221,7 @@ def main(args, writer):
     # Run
     ## It’s a no-op if the 'gpu_index' argument is a negative integer or None.
     with torch.cuda.device(args.gpu_index):
-        simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, args=args, writer=writer)
+        simclr = SimCLR(model=model, optimizer=optimizer, scheduler=scheduler, writer=writer, args=args)
         simclr.train(train_loader, val_loader, max_iter=args.max_iter)
 
 def init_wandb(args):
@@ -283,7 +283,7 @@ if __name__ == "__main__":
         'temperature': 2.659,
         'wandb_project': 'Sandbox', # Takes values in ['Sandbox', 'Contrastive learning pairwise']
         'weight_decay': 1e-3,
-        'workers': 24,# os.cpu_count(),
+        'workers': 24,  # os.cpu_count(),
         'warmup_epochs': 0,
         'koleo_weight': 0.001,
         'koleo_eps': 1e-4,
