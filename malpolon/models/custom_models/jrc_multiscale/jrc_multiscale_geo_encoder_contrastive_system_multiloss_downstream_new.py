@@ -23,7 +23,7 @@ import torch.nn.functional as F
 from torch.amp import GradScaler, autocast
 from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.functional.retrieval import retrieval_recall
-from torchmetrics.functional.classification import multilabel_auroc, multilabel_average_precision
+from torchmetrics.functional.classification import multilabel_auroc, multilabel_average_precision, multilabel_accuracy
 import torchmetrics.functional as Fmetrics
 from tqdm import tqdm
 from matplotlib import pyplot as plt
@@ -165,21 +165,17 @@ def accuracy(output, target, topk=(1,)):
             res.append(correct_k.mul_(100.0 / batch_size))
         return res
 
-def accuracy_multilabel_topk(scores, labels, topk=(1,), average='samples'):
-    """Compute the multilabel accuracy within the top-k predictions.
+def binary_precision_multilabel_topk(scores, labels, topk=(1,)):
+    """Compute how much of the top-k predicted labels are actually positive labels.
     
-    This function computes the number of true positives within the top-k predicted labels for each
-    sample, averages over k then over samples.
+    This metric is sensitive to variable ground truth label cardinality. If there are less than k 
+    positive labels for a given sample, the maximum achievable precision is lower than 1.0.
     """
     res = []
     for k in topk:
         topk_values, topk_indices = torch.topk(scores, k)
-        label_indices = (labels == 1).nonzero(as_tuple=True)[0]  # Get indices where labels == 1
-        if average == 'samples':
-            count_sample = torch.isin(topk_indices, label_indices).sum(dim=1)
-            acc_topk_mean = (count_sample / k).mean()
-        else:
-            raise NotImplementedError(f"Average method {average} not implemented.")
+        topk_labels = torch.gather(labels, dim=1, index=topk_indices)
+        acc_topk_mean = topk_labels.mean()
         res.append(acc_topk_mean)
     return res
 
@@ -241,10 +237,10 @@ def log_moments(norm_img, norm_gps, std_mean_img, std_mean_gps, std_mean_diff, m
 
 def log_acc_topk_step(logits, labels, modality_name, topk=(1, 5), mode='train', acc_type='multilabel', average='samples'):
     if logits[0].shape[0] >= max(topk):
-        if acc_type == 'multilabel':
-            acc_topks = accuracy_multilabel_topk(logits, labels, topk=topk, average=average)
-        elif acc_type in ['multiclass', '']:
+        if acc_type in ['multiclass', '']:
             acc_topks = accuracy(logits, labels, topk=topk)
+        elif acc_type == 'bpm':
+            acc_topks = binary_precision_multilabel_topk(logits, labels, topk=topk)
         else:
             raise NotImplementedError(f"Accuracy type {acc_type} not implemented.")
         if mode != 'test':
@@ -301,6 +297,8 @@ def wandb_init():
     wandb.define_metric("acc_multilabel_samples_epoch (batch avg)/train/*", step_metric="epoch")
     wandb.define_metric("acc_multilabel_micro_epoch (batch avg)/train/*", step_metric="epoch")
     wandb.define_metric("acc_multilabel_macro_epoch (batch avg)/train/*", step_metric="epoch")
+    wandb.define_metric("acc_bpm_micro_epoch (batch avg)/train/*", step_metric="epoch")
+    wandb.define_metric("acc_bpm_macro_epoch (batch avg)/train/*", step_metric="epoch")
     wandb.define_metric("t-sne/train/*", step_metric='epoch')
     ## By step
     wandb.define_metric("Loss_step/train", step_metric="train_steps")
@@ -311,6 +309,8 @@ def wandb_init():
     wandb.define_metric("acc_multilabel_samples/train/*", step_metric="train_steps")
     wandb.define_metric("acc_multilabel_micro_step/train/", step_metric="train_steps")
     wandb.define_metric("acc_multilabel_macro_step/train/", step_metric="train_steps")
+    wandb.define_metric("acc_bpm_micro_step/train/", step_metric="train_steps")
+    wandb.define_metric("acc_bpm_macro_step/train/", step_metric="train_steps")    
     wandb.define_metric("f1_micro_step/train/", step_metric="train_steps")
     wandb.define_metric("Input_imgs_train/*", step_metric='train_steps')
     wandb.define_metric("SimMatrix_train/*", step_metric='train_steps')
@@ -331,6 +331,9 @@ def wandb_init():
     wandb.define_metric("acc_multilabel_samples_epoch (batch avg)/val/*", step_metric="epoch")
     wandb.define_metric("acc_multilabel_micro_epoch (batch avg)/val/*", step_metric="epoch")
     wandb.define_metric("acc_multilabel_macro_epoch (batch avg)/val/*", step_metric="epoch")
+    wandb.define_metric("acc_bpm_micro_epoch (batch avg)/val/*", step_metric="epoch")
+    wandb.define_metric("acc_bpm_macro_epoch (batch avg)/val/*", step_metric="epoch")
+    wandb.define_metric("acc_bpm_epoch (batch avg)/val/*", step_metric="epoch")
     wandb.define_metric("SimMatrix_mean-epoch_val/*", step_metric="epoch")
     wandb.define_metric("t-sne/val/*", step_metric='epoch')
     ## By step
@@ -339,6 +342,8 @@ def wandb_init():
     wandb.define_metric("acc_multilabel_samples/val/*", step_metric="val_steps")
     wandb.define_metric("acc_multilabel_micro_step/val/", step_metric="val_steps")
     wandb.define_metric("acc_multilabel_macro_step/val/", step_metric="val_steps")
+    wandb.define_metric("acc_bpm_micro_step/val/", step_metric="val_steps")
+    wandb.define_metric("acc_bpm_macro_step/val/", step_metric="val_steps")
     wandb.define_metric("f1_micro_step/val/", step_metric="val_steps")
     wandb.define_metric("Input_imgs_val/*", step_metric='val_steps')
     wandb.define_metric("SimMatrix_val/*", step_metric='val_steps')

@@ -390,9 +390,10 @@ if __name__ == "__main__":
         'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
         'predict': False,
         'wandb_mode': 'disabled',
-        'metrics': {'accuracy_type': 'multilabel',
-                    'accuracy_average': 'samples',
-                    'accuracy_topks': (1, 5, 20),},
+        'metrics': {'accuracy_type': 'bpm',
+                    'accuracy_average': 'micro',
+                    'accuracy_topks': (1, 5, 20),
+                   },
     }
     sweep_id = os.getenv("WANDB_SWEEP_ID")
     if sweep_id:
