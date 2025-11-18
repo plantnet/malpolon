@@ -173,88 +173,91 @@ def main(args, writer):
         )
     elif args.arch == 'multi-loss':
         custom_collate = collate_multiscale
-        train_dataset = MultiscaleDatasetJointWithLabels(
-            root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
-            fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-0.06min_no_3-duplicates.csv',
-            root_path_landscape = 'dataset/scale_2_landscape/',
-            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min_abaca.csv',
-            root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_train-10.0min.csv',
-            # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
-            # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_train.csv',
-            transform_species = transforms_species(),
-            transform_landscape = transforms_species(),
-            transform_satellite = transforms_satellite(),
-            subset = args.subset,
-            skip_modalities = args.skip_modalities,
-            task = 'multilabel_classification',
-            num_classes=args.num_labels,
-            query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
-            keep_id_duplicates = True,
-        )
-        # import pandas as pd
-        # from malpolon.data.datasets.geolifeclef2024_pre_extracted import TrainDataset
-        # custom_collate = None
-        
-        # train_dataset = TrainDataset(pd.read_csv('dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_train-10.0min.csv'),
-        #                              num_classes = args.num_labels,
-        #                              bioclim_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-train-bioclimatic_monthly/",
-        #                              landsat_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-train-landsat_time_series/",
-        #                              sentinel_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/PA_Train_SatellitePatches_RGB/pa_train_patches_rgb/",
-        #                              task = 'classification_multilabel',)
-        # val_dataset = TrainDataset(pd.read_csv('dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_val-10.0min.csv'),
-        #                              num_classes = args.num_labels,
-        #                              bioclim_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-test-bioclimatic_monthly/",
-        #                              landsat_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-test-landsat_time_series/",
-        #                              sentinel_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/PA_test_SatellitePatches_RGB/pa_test_patches_rgb/",
-        #                              task = 'classification_multilabel',)
-        val_dataset = MultiscaleDatasetJointWithLabels(
-            root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
-            fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-0.06min_no_3-duplicates.csv',
-            root_path_landscape = 'dataset/scale_2_landscape/',
-            fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_abaca.csv',
-            root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-            fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_val-10.0min.csv',
-            # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
-            # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_val.csv',
-            transform_species = transforms_species(),
-            transform_landscape = transforms_species(),
-            transform_satellite = transforms_satellite(),
-            subset = args.subset,
-            skip_modalities = args.skip_modalities,
-            task = 'multilabel_classification',
-            num_classes=args.num_labels,
-            query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
-            keep_id_duplicates = True,
-        )
-        test_dataset = MultiscaleDatasetJointWithLabels(
-            root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
-            fp_metadata_species = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged.csv',
-            root_path_landscape = 'dataset/scale_2_landscape/',
-            fp_metadata_landscape = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged.csv',
-            root_path_satellite = 'dataset/scale_3_satellite/PA_Test_SatellitePatches/',
-            fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged.csv',
-            transform_species = transforms_species(),
-            transform_landscape = transforms_species(),
-            transform_satellite = transforms_satellite(),
-            subset = args.subset,
-            skip_modalities = args.skip_modalities,
-            task = 'multilabel_classification',
-            num_classes=args.num_labels,
-            query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
-            keep_id_duplicates = True,
-        )
+        if not args.predict:
+            train_dataset = MultiscaleDatasetJointWithLabels(
+                root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
+                fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_train-0.06min_no_3-duplicates.csv',
+                root_path_landscape = 'dataset/scale_2_landscape/',
+                fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min_abaca.csv',
+                root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
+                fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_train-10.0min.csv',
+                # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_train-0.06min.csv',
+                # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_train.csv',
+                transform_species = transforms_species(),
+                transform_landscape = transforms_species(),
+                transform_satellite = transforms_satellite(),
+                subset = args.subset,
+                skip_modalities = args.skip_modalities,
+                task = 'multilabel_classification',
+                num_classes=args.num_labels,
+                query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
+                keep_id_duplicates = True,
+            )
+            # import pandas as pd
+            # from malpolon.data.datasets.geolifeclef2024_pre_extracted import TrainDataset
+            # custom_collate = None
+            
+            # train_dataset = TrainDataset(pd.read_csv('dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_train-10.0min.csv'),
+            #                              num_classes = args.num_labels,
+            #                              bioclim_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-train-bioclimatic_monthly/",
+            #                              landsat_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-train-landsat_time_series/",
+            #                              sentinel_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/PA_Train_SatellitePatches_RGB/pa_train_patches_rgb/",
+            #                              task = 'classification_multilabel',)
+            # val_dataset = TrainDataset(pd.read_csv('dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_val-10.0min.csv'),
+            #                              num_classes = args.num_labels,
+            #                              bioclim_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-test-bioclimatic_monthly/",
+            #                              landsat_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-test-landsat_time_series/",
+            #                              sentinel_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/PA_test_SatellitePatches_RGB/pa_test_patches_rgb/",
+            #                              task = 'classification_multilabel',)
+            val_dataset = MultiscaleDatasetJointWithLabels(
+                root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
+                fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-0.06min_no_3-duplicates.csv',
+                root_path_landscape = 'dataset/scale_2_landscape/',
+                fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_abaca.csv',
+                root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
+                fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_val-10.0min.csv',
+                # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
+                # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_val.csv',
+                transform_species = transforms_species(),
+                transform_landscape = transforms_species(),
+                transform_satellite = transforms_satellite(),
+                subset = args.subset,
+                skip_modalities = args.skip_modalities,
+                task = 'multilabel_classification',
+                num_classes=args.num_labels,
+                query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
+                keep_id_duplicates = True,
+            )
+        else:
+            test_dataset = MultiscaleDatasetJointWithLabels(
+                root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
+                fp_metadata_species = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species.csv',
+                root_path_landscape = 'dataset/scale_2_landscape/',
+                fp_metadata_landscape = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species.csv',
+                root_path_satellite = 'dataset/scale_3_satellite/PA_Test_SatellitePatches/',
+                fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species.csv',
+                transform_species = transforms_species(),
+                transform_landscape = transforms_species(),
+                transform_satellite = transforms_satellite(),
+                subset = args.subset,
+                skip_modalities = args.skip_modalities,
+                task = 'multilabel_classification',
+                num_classes=args.num_labels,
+                query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
+                keep_id_duplicates = True,
+            )
 
     # Dataloaders
-    train_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
-    val_loader = DataLoader(
-        val_dataset, batch_size=args.batch_size, shuffle=True,
-        num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
+    if not args.predict:
+        train_loader = DataLoader(
+            train_dataset, batch_size=args.batch_size, shuffle=True,
+            num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
+        val_loader = DataLoader(
+            val_dataset, batch_size=args.batch_size, shuffle=True,
+            num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
     test_loader = DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
+        num_workers=args.workers, pin_memory=True, drop_last=False, collate_fn=custom_collate)
     # Model
     model_species = ModelSimCLR(base_model='species', out_dim=args.out_dim, dropout=args.dropout,
                                 freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
@@ -283,7 +286,7 @@ def main(args, writer):
                                       model['satellite'].modality_encoder, model['satellite'].modality_contrastive_head,
                                       classifier_type=args.eval_type, contrastive_head_out_dim=args.out_dim,
                                       num_labels=args.num_labels, skip_modalities=args.skip_modalities)
-    classifier = torch.nn.DataParallel(classifier, device_ids=[0, 1, 2, 3])
+    classifier = torch.nn.DataParallel(classifier, device_ids=[0])
     # DEBUG: REPLACING SATELLITE ENCODER WITH THAT OF MME
     # from torch import nn
     # from torchvision import models
@@ -310,14 +313,15 @@ def main(args, writer):
     cosine_scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
     scheduler = SequentialLR(optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[args.warmup_epochs])
 
-    if isinstance(args.log_every_n_steps, float):
-        args.log_every_n_steps_train = max(int(args.log_every_n_steps * len(train_loader)), 1)
-        args.log_every_n_steps_val = max(int(args.log_every_n_steps * len(val_loader)), 1)
-    else:
-        args.log_every_n_steps_train = args.log_every_n_steps
-        args.log_every_n_steps_val = args.log_every_n_steps
-    args.log_every_n_steps_train = min(args.log_every_n_steps_train, len(train_loader))
-    args.log_every_n_steps_val = min(args.log_every_n_steps_val, len(val_loader))
+    if not args.predict:
+        if isinstance(args.log_every_n_steps, float):
+            args.log_every_n_steps_train = max(int(args.log_every_n_steps * len(train_loader)), 1)
+            args.log_every_n_steps_val = max(int(args.log_every_n_steps * len(val_loader)), 1)
+        else:
+            args.log_every_n_steps_train = args.log_every_n_steps
+            args.log_every_n_steps_val = args.log_every_n_steps
+        args.log_every_n_steps_train = min(args.log_every_n_steps_train, len(train_loader))
+        args.log_every_n_steps_val = min(args.log_every_n_steps_val, len(val_loader))
 
     # Run
     ## It’s a no-op if the 'gpu_index' argument is a negative integer or None.
@@ -383,12 +387,12 @@ if __name__ == "__main__":
         'workers': os.cpu_count(),
         'warmup_epochs': 0,
         'log_images': False,  # If True, logs images to wandb
-        'skip_modalities': ['species', 'landscape'], 
-        'downstream_modalities_to_process': ['satellite_img', 'satellite_gps'],  # Will skip modalities during training
+        'skip_modalities': ['satellite', 'species'], 
+        'downstream_modalities_to_process': ['landscape_img', 'landscape_gps'],  # Will skip modalities during training
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
         'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
-        'predict': False,
+        'predict': True,
         'wandb_mode': 'online',  # 'online', 'offline', 'disabled'
         'metrics': {'accuracy_type': 'bpm',
                     'accuracy_average': 'micro',

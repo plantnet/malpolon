@@ -16,6 +16,7 @@ import yaml
 import wandb
 import seaborn as sns
 import numpy as np
+import pandas as pd
 from sklearn.manifold import TSNE
 
 import torch
@@ -721,142 +722,45 @@ class SimCLR_downstream(object):
         
     def predict(self, test_loader):
         save_config_file(self.writer.dir, self.args)
-        scaler = GradScaler(enabled=self.args.fp16_precision)
 
         logging.info(f"Start SimCLR prediction for {self.args.epochs} epochs.")
         logging.info(f"Predicting with gpu: {self.args.disable_cuda}.")
-        best_train_loss, best_val_loss = torch.inf, torch.inf
-        train_steps, val_steps = 0, 0
+        test_steps = 0
+        all_preds, all_probas, all_inds, all_ids = [], [], [], []
+        print("Predicting...")
 
-        for epoch_counter in range(self.args.last_epoch, self.args.epochs + self.args.last_epoch):
-            print("Predicting...")
-            print(f"> Starting epoch {epoch_counter}...")
-            wandb.log({"epoch": epoch_counter})
-            topks = {f'top{k}': [] for k in self.args.metrics['accuracy_topks']}
-            metrics = {'multilabel_accuracy_micro': [],
-                       'multilabel_accuracy_macro': [],
-                       'multilabel_f1_micro': []}
-            running_loss = []
+        # Prediction
+        with torch.no_grad():
+            for step, test_dict in enumerate(tqdm(test_loader)):
 
-            # Prediction
-            with torch.no_grad():
-                vtopks = {f'top{k}': [] for k in self.args.metrics['accuracy_topks']}
-                vmetrics = {'multilabel_accuracy_micro': [],
-                            'multilabel_accuracy_macro': [],
-                            'multilabel_f1_micro': []}
-                running_vloss = []
+                batch_inds = test_dict.pop('indices', None)
 
-                for vstep, val_dict in enumerate(tqdm(test_loader)):
-                    vbatch_inds = val_dict.pop('indices', None)
-                    wandb.log({"val_steps": val_steps})
+                with autocast(device_type=str(self.args.device), enabled=self.args.fp16_precision):
+                    inputs = []
+                    for downstream_modality in self.downstream_modalities_to_process:
+                        modality = downstream_modality.split('_')[0]
+                        if modality not in self.skip_modalities:
+                            if '_img' in downstream_modality:
+                                inputs.append(test_dict[modality][0].to(self.args.device))
+                            if '_gps' in downstream_modality:
+                                inputs.append(test_dict[modality][1].to(self.args.device))
+                    labels = test_dict[modality][-1].to(self.args.device)
+                    logits = self.model.predict(input, self.downstream_modalities_to_process)
+                    probas = torch.sigmoid(logits)
+                    logits, labels = logits.to('cpu'), labels.to('cpu')
 
-                    with autocast(device_type=str(self.args.device), enabled=self.args.fp16_precision):
-                        vloss, vall_logits, vall_gps, vall_images, vall_inds, vall_ids = 0, [], [], [], [], []
-                        for downstream_modality in self.downstream_modalities_to_process:
-                            modality = downstream_modality.split('_')[0]
-                            if modality not in self.skip_modalities:
-                                if '_img' in downstream_modality:
-                                    input = val_dict[modality][0].to(self.args.device)
-                                if '_gps' in downstream_modality:
-                                    input = val_dict[modality][1].to(self.args.device)
-                                vlabels = val_dict[modality][-1].to(self.args.device)
-                                vlogits = self.model(input, downstream_modality)
-                                vall_images.append(val_dict[modality][0])
-                                vall_gps.append(val_dict[modality][1])
-                                vall_inds.append(val_dict[modality][2])
-                                vall_ids.append(val_dict[modality][3])
-                        vlogits, vlabels = vlogits.to('cpu'), vlabels.to('cpu')
-                        vall_logits.append(vlogits)
-                        running_vloss.append(vloss.item())
-                        best_val_loss = min(best_val_loss, vloss.item())
-                        print(f"Epoch {epoch_counter} vloss: {vloss.item():.4f}")
-                        # print(f"[VAL] N_pos_labels: {vlabels.sum(dim=1)}")
-                        # print(f"[VAL] Positive label at class: {torch.where(vlabels==1)}")
-                        # print(f"[VAL] Argmax logits: {torch.argmax(vlogits, dim=1)}")
+                    all_probas.append(probas)
+                    all_preds.append(torch.argsort(input=probas, descending=True, dim=1))
+                    all_inds.append(test_dict[modality][2])
+                    all_ids.append(test_dict[modality][3])
+                    # print(f"[VAL] N_pos_labels: {vlabels.sum(dim=1)}")
+                    # print(f"[VAL] Positive label at class: {torch.where(vlabels==1)}")
+                    # print(f"[VAL] Argmax logits: {torch.argmax(vlogits, dim=1)}")
 
-                    if round(vstep % self.args.log_every_n_steps_val) == 0:
-                        vlabels_oh = vlabels.int()
+                test_steps += 1
 
-                        log_input_imgs_multimodalities(vall_images, vall_inds, vall_ids, vstep, epoch_counter, n_samples=8, n_modalities=len(self.downstream_modalities_to_process), mode='val', log_images=self.log_images)
-                        
-                        # Log loss and moments step wise
-                        print('Logging scheduler & moments...')
-                        log_loss_scheduler(vloss, mode='val')
-
-                        # Log accuracy step wise
-                        if vlogits.shape[0] >= 5:
-                            # Log accuracy step wise
-                            print('Logging accuracy...')
-                            for vlogits, modality_name in zip(vall_logits, self.downstream_modalities_to_process):
-                                vtopk_all = log_acc_topk_step(vlogits, vlabels, modality_name.split('_')[0], topk=self.args.metrics['accuracy_topks'], mode='val', acc_type=self.args.metrics['accuracy_type'], average=self.args.metrics['accuracy_average'])
-                                # Every step wise top-k is stored in a list where modalities are interleaved. E.g. [topk_modality1, topk_modality2, topk_modality3]
-                                if all(vtopk is not None for vtopk in vtopk_all):
-                                    for k, v in zip(self.args.metrics['accuracy_topks'], vtopk_all):
-                                        vtopks[f'top{k}'].append(v)
-                            vmetrics['multilabel_accuracy_micro'].append(Fmetrics.classification.multilabel_accuracy(vlogits, vlabels, num_labels=self.num_labels, threshold=self.best_f1_thresh, average='micro'))
-                            vmetrics['multilabel_accuracy_macro'].append(Fmetrics.classification.multilabel_accuracy(vlogits, vlabels, num_labels=self.num_labels, threshold=self.best_f1_thresh, average='macro'))
-                            wandb.log({"acc_multilabel_micro_step/val/": vmetrics['multilabel_accuracy_micro'][-1],
-                                       "acc_multilabel_macro_step/val/": vmetrics['multilabel_accuracy_macro'][-1]})
-                        else:
-                            print("Batch size (val) is too small for accuracy calculation.")
-
-                        # Log F1-score step wise
-                        print('Logging f1-score...')
-                        best_thresh, best_f1 = find_best_threshold(vlabels, vlogits, num_labels=self.num_labels)
-                        self.best_f1_thresh = best_thresh
-                        vmetrics['multilabel_f1_micro'].append(Fmetrics.classification.multilabel_f1_score(vlogits, vlabels, num_labels=self.num_labels, threshold=self.best_f1_thresh, average='micro'))
-                        wandb.log({"f1_micro_step/val/": vmetrics['multilabel_f1_micro'][-1]})
-
-                        # Log recall@K
-                        print('Logging recall@K...')
-                        wandb.log({"recall_step/val": retrieval_recall(vlogits, vlabels_oh)})
-                        wandb.log({"recall@1_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=1)})
-                        wandb.log({"recall@20_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=5)})
-                        wandb.log({"recall@100_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=100)})
-
-                        # Log AUROC
-                        # print('Logging AUROC...')
-                        # wandb.log({"MultilabelAUROC_micro_step/val": multilabel_auroc(vlogits, vlabels_oh, self.num_labels, average='micro')})
-                        # wandb.log({"MultilabelAUROC_macro_step/val": multilabel_auroc(vlogits, vlabels_oh, self.num_labels, average='macro')})
-
-                        # Log mAP
-                        # wandb.log({"MultilabelAveragePrecision_micro_step/val": multilabel_average_precision(vlogits, vlabels_oh, n_cls, average='micro')})
-                        # wandb.log({"MultilabelAveragePrecision_macro_step/val": multilabel_average_precision(vlogits, vlabels_oh, n_cls, average='macro')})
-
-                    val_steps += 1
-                    if vstep >= max_iter:
-                        break
-
-                wandb.log({"Loss_epoch (batch avg)/val": np.array(running_vloss).mean()})
-
-                # Log accuracy epoch wise
-                print('Logging top-k accuracy epoch wise...')
-                for k, v in vtopks.items():
-                    wandb.log({f"acc_{self.args.metrics['accuracy_type']}_{self.args.metrics['accuracy_average']}_epoch (batch avg)/val/{k}": np.array(v).mean()})
-                    print(f"acc_{self.args.metrics['accuracy_type']}_{self.args.metrics['accuracy_average']}_epoch (batch avg)/val/{k}: {np.array(v).mean():.4f}")
-
-                wandb.log({"acc_multilabel_micro_epoch (batch_avg)/val/": np.array(vmetrics['multilabel_accuracy_micro']).mean(),
-                           "acc_multilabel_macro_epoch (batch_avg)/val/": np.array(vmetrics['multilabel_accuracy_macro']).mean()})
-                
-                # Log f1-score epoch wise
-                print('Logging f1-score epoch wise...')
-                wandb.log({"f1_micro_epoch (batch_avg)/val/": np.array(vmetrics['multilabel_f1_micro']).mean()})
-                print(f"f1_micro_epoch (batch_avg)/val/: {np.array(vmetrics['multilabel_f1_micro']).mean():.4f}")
-            
-                # Log t-sne projection
-                # for vfeatures_img, vfeatures_gps, modality_name in zip(vall_features_img, vall_features_gps, self.modalities_to_process):
-                #     log_tsne(vfeatures_img, vfeatures_gps, epoch_counter, modality_name, log_images=self.log_images, mode='val')
-
-                # Save best checkpoint
-                if vloss.item() <= best_val_loss:
-                    logging.info(f"Saving new best model at epoch {epoch_counter}, step {vstep} with loss {vloss.item()}.")
-                    save_checkpoint({
-                        'epoch': epoch_counter,
-                        'arch': self.args.arch,
-                        'state_dict': self.model.state_dict(),
-                        'optimizer': self.optimizer.state_dict(),
-                    }, is_best=True, dirpath=self.writer.dir)
-                best_val_loss = min(best_val_loss, vloss.item())
-
-            self.scheduler.step()
-            logging.debug(f"Epoch: {epoch_counter}\tLoss: {loss}")
+            # Log t-sne projection
+            # for vfeatures_img, vfeatures_gps, modality_name in zip(vall_features_img, vall_features_gps, self.modalities_to_process):
+            #     log_tsne(vfeatures_img, vfeatures_gps, epoch_counter, modality_name, log_images=self.log_images, mode='val')
+        df_preds = pd.DataFrame({'predictions': all_preds, 'probas': all_probas, 'surveyId': all_ids}, index=all_inds)
+        df_preds.to_csv(os.path.join(self.writer.dir, 'jrc_downstream_test_predictions.csv'))

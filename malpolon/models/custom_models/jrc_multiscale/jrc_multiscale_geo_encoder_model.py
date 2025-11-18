@@ -359,9 +359,6 @@ class MultiLabelClassifier(nn.Module):
                             self.satellite_encoder, self.satellite_contrastive_head]:
                 for param in encoder.parameters():
                     param.requires_grad = False
-        # Sanity check
-        # for _, module in self.satellite_encoder.named_children():
-        #     module.reset_parameters()
 
     def forward(self, input, input_type):
         # torch.nn.Sequential(model['species'].gps_encoder, model['species'].gps_contrastive_head),
@@ -382,6 +379,27 @@ class MultiLabelClassifier(nn.Module):
 
         classif_head_logits = self.classifier(features_z)
         return classif_head_logits
+
+    def predict(self, inputs: torch.tensor, input_type: list[str]):
+        self.eval()
+        with torch.no_grad():
+            features = []
+            if '_gps' in input_type:
+                features_z = self.gps_encoder(inputs)
+                features.append(self.gps_contrastive_head(features_z))
+            if 'species_img' in input_type and 'species' in self.modalities_to_process:
+                _ = self.species_encoder.forward_features(inputs)  # includes the (norm) layer
+                features_z = self.species_encoder.pool(_)
+                features.append(self.species_contrastive_head(features_z))
+            elif 'landscape_img' in input_type and 'landscape' in self.modalities_to_process:
+                features_z = self.landscape_encoder(inputs)
+                features.append(self.landscape_contrastive_head(features_z))
+            elif 'satellite_img' in input_type and 'satellite' in self.modalities_to_process:
+                features_z = self.satellite_encoder(inputs)
+                features.append(self.satellite_contrastive_head(features_z))
+            features = torch.mean(torch.stack(features, dim=0), dim=0)
+            logits = self.classifier(features)
+        return logits
 
 
 class ImgToGPS(nn.Module):
