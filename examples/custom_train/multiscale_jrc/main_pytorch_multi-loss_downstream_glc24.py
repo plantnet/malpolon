@@ -250,7 +250,7 @@ def main(args, writer):
         train_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
     val_loader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True,
+        val_dataset, batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
     test_loader = DataLoader(
         test_dataset, batch_size=args.batch_size, shuffle=False,
@@ -283,7 +283,7 @@ def main(args, writer):
                                       model['satellite'].modality_encoder, model['satellite'].modality_contrastive_head,
                                       classifier_type=args.eval_type, contrastive_head_out_dim=args.out_dim,
                                       num_labels=args.num_labels, skip_modalities=args.skip_modalities)
-    classifier = torch.nn.DataParallel(classifier, device_ids=[0])
+    classifier = torch.nn.DataParallel(classifier, device_ids=[0, 1, 2, 3])
     # DEBUG: REPLACING SATELLITE ENCODER WITH THAT OF MME
     # from torch import nn
     # from torchvision import models
@@ -299,7 +299,7 @@ def main(args, writer):
     # END DEBUG
 
     # Optimization
-    optimizer = torch.optim.AdamW(classifier.parameters(),
+    optimizer = torch.optim.AdamW(classifier.module.classifier.parameters() if isinstance(classifier, torch.nn.parallel.DataParallel) else classifier.classifier.parameters(),
                                   lr=args.learning_rate, weight_decay=args.weight_decay)
     warmup_scheduler = LinearLR(
         optimizer,
@@ -361,7 +361,7 @@ if __name__ == "__main__":
     args = {
         'arch': 'multi-loss',  # always paired with gps
         'OAR_job_id': os.getenv("OAR_JOB_ID", "no_jobid"),
-        'batch_size': 32,
+        'batch_size': 64,
         'ckpt_path': 'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar',
         'resume_wandb_run': False,
         'device': "cuda",
@@ -369,27 +369,27 @@ if __name__ == "__main__":
         'dropout': 0.1,
         'epochs': 40,
         'fp16_precision': False,
-        'freeze_gps_backbone': False,
-        'freeze_modality_backbone': False,
+        'freeze_gps_backbone': True,
+        'freeze_modality_backbone': True,
         'gpu_index': 0,
         'learning_rate': 0.01, # 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "[TEST] Downstream task > GLC24 val/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, sat+land (from u6tiioze)",
+        'name': "Downstream task > GLC24 train/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, sat+gps (from u6tiioze)",
         'out_dim': 2048,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
         'weight_decay': 1e-3,
-        'workers': 24,  # os.cpu_count(),
+        'workers': os.cpu_count(),
         'warmup_epochs': 0,
         'log_images': False,  # If True, logs images to wandb
         'skip_modalities': ['species', 'landscape'], 
-        'downstream_modalities_to_process': ['satellite_img'],  # Will skip modalities during training
+        'downstream_modalities_to_process': ['satellite_img', 'satellite_gps'],  # Will skip modalities during training
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
         'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
         'predict': False,
-        'wandb_mode': 'disabled',
+        'wandb_mode': 'online',  # 'online', 'offline', 'disabled'
         'metrics': {'accuracy_type': 'bpm',
                     'accuracy_average': 'micro',
                     'accuracy_topks': (1, 5, 20),

@@ -130,6 +130,7 @@ class DatasetSimple(Dataset):
         dataset_kwargs: dict = {},
         subset: Union[int, float] = None,
         query_id: str = 'surveyId',
+        task: str = 'classification_multilabel',
         **kwargs,
     ) -> None:
         super().__init__()
@@ -139,12 +140,13 @@ class DatasetSimple(Dataset):
         if subset:
             subset_length = int(len(self.metadata) * subset) if isinstance(subset, float) else subset
             self.metadata = self.metadata.sample(n=min(subset_length, len(self.metadata)), random_state=42).reset_index(names='index_no_subset')
-        if self.__len__() == 0:
+        if len(self.metadata) == 0:
             raise ValueError(f"The dataset metadata is empty after applying the subset: {subset}. Please check the metadata file or increase the subset value.")
         self.transform = lambda x: x if transform is None else transform(x)
         self.dataset_kwargs = dataset_kwargs
         self.img, self.coords = torch.empty(0), (-np.inf, -np.inf)
         self.query_id = query_id
+        self.task = task
         
     def __len__(self):
         return len(self.metadata)
@@ -224,6 +226,7 @@ class SatelliteDatasetSimple(DatasetSimple):
         **kwargs,
     ) -> None:
         super().__init__(root_path, fp_metadata, transform, query_id=query_id, **kwargs)
+        self.kwargs_sat_dataset = kwargs_sat_dataset
         # Remove the duplicate GPS-img pairs corresponding to the multiple entries of the same surveyId because of multiple occurrences on the same place
         if not getattr(kwargs, 'keep_id_duplicates', True):
             self.metadata = self.metadata.drop_duplicates(subset=[self.query_id], keep='first')
@@ -241,12 +244,18 @@ class SatelliteDatasetSimple(DatasetSimple):
             self.sat_dataset.items = self.sat_dataset.items.loc[self.metadata.index_no_subset].reset_index(names='index_no_subset')
             self.sat_dataset.observation_ids = self.sat_dataset.observation_ids[self.metadata.index_no_subset]  # np.array, assuming self.metadata indexing starts from 0 to N
             self.sat_dataset.targets = self.sat_dataset.targets[self.metadata.index_no_subset]  # np.array, assuming self.metadata indexing starts from 0 to N
+    
+    def __len__(self):
+        return len(self.metadata[self.query_id].unique()) if not self.metadata.empty else 0
 
     def __getitem__(self, index) -> Any:
-        img, coords = self.img, self.coords
+        img, coords = self.img, self.coords            
         if not self.metadata.empty:
-            img, (sat_lat, sat_lon) = self.sat_dataset[index]  # Same as: sat_provider[{'surveyId': 80000}]
-            img = torch.unsqueeze(img, dim=0)  # Adds a batch dimension
+            # img, (sat_lat, sat_lon) = self.sat_dataset[index]  # Same as: sat_provider[{'surveyId': 80000}]
+            item = self.metadata.loc[index]
+            img = self.sat_provider[item]
+            sat_lat, sat_lon = item[self.kwargs_sat_dataset['labels_name']]
+            img = torch.unsqueeze(torch.from_numpy(img) if isinstance(img, np.ndarray) else img, dim=0)  # Adds a batch dimension
             img = img.to(torch.float32)
             img = self.transform(img)
             coords = (sat_lon, sat_lat)
