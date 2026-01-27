@@ -1,4 +1,5 @@
 import os
+import random
 import numpy as np
 import geopandas as gpd
 import pandas as pd
@@ -121,6 +122,19 @@ def load_species_img(
     print(f"WARNING: No matching species image found for id: {id} Returning zero tensor")
     return torch.zeros(3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE) if not return_img_path else (torch.zeros(3, SPECIES_INPUT_SIZE, SPECIES_INPUT_SIZE), [])
 
+def get_unique_values_from_df_column(df, column_name):
+    if pd.api.types.is_string_dtype(df[column_name]):
+        str_series = df[column_name].astype(str)
+        split_lists = str_series.str.split()
+        all_ints = [int(item) for sublist in split_lists for item in sublist]
+        unique_ints = list(set(all_ints))
+    elif pd.api.types.is_numeric_dtype(df[column_name]):
+        unique_ints = df[column_name].unique().tolist()
+    else:
+        unique_ints = []
+        Warning(f"Column {column_name} has unsupported data type for extracting unique values, or is empty. Returning empty list.")
+    return unique_ints
+
 class DatasetSimple(Dataset):
     def __init__(
         self,
@@ -129,23 +143,45 @@ class DatasetSimple(Dataset):
         transform: Callable = None,
         dataset_kwargs: dict = {},
         subset: Union[int, float] = None,
+        subset_cls: Union[int, float] = None,
         query_id: str = 'surveyId',
+        cls_id: str = 'speciesId',
         task: str = 'classification_multilabel',
         **kwargs,
     ) -> None:
         super().__init__()
         self.root_path = root_path
         self.metadata = pd.read_csv(f'{Path(fp_metadata)}') if fp_metadata is not None else pd.DataFrame()
+        self.cls_id = cls_id
+        self.unique_cls = get_unique_values_from_df_column(self.metadata, self.cls_id)
+        ### sklearn LabelEncoder
+        from sklearn.preprocessing import LabelEncoder
+        self.le = LabelEncoder()
+        self.le.fit(self.unique_cls)
+        self.unique_cls = self.le.transform(self.unique_cls).tolist()
+        self.metadata[self.cls_id] = self.le.transform(self.metadata[self.cls_id]).tolist()
+        ###
         self.subset = subset
+        self.subset_cls = subset_cls
         if subset:
             subset_length = int(len(self.metadata) * subset) if isinstance(subset, float) else subset
             self.metadata = self.metadata.sample(n=min(subset_length, len(self.metadata)), random_state=42).reset_index(names='index_no_subset')
+        if self.subset_cls:
+            subset_length = int(len(self.unique_cls) * subset_cls) if isinstance(subset_cls, float) else subset_cls
+            self.unique_cls = random.sample(self.unique_cls, k=min(subset_length, len(self.unique_cls)))
+            self.metadata = self.metadata[self.metadata[self.cls_id].isin(self.unique_cls)].reset_index(names='index_no_subset_cls')
+            ### sklearn LabelEncoder
+            self.le.fit(self.unique_cls)
+            self.unique_cls = self.le.transform(self.unique_cls).tolist()
+            self.metadata[self.cls_id] = self.le.transform(self.metadata[self.cls_id]).tolist()
+            ###
         if len(self.metadata) == 0:
             raise ValueError(f"The dataset metadata is empty after applying the subset: {subset}. Please check the metadata file or increase the subset value.")
         self.transform = lambda x: x if transform is None else transform(x)
+        self.query_id = query_id
+        self.unique_query_ids = self.metadata[self.query_id].unique().tolist() if not self.metadata.empty else []
         self.dataset_kwargs = dataset_kwargs
         self.img, self.coords = torch.empty(0), (-np.inf, -np.inf)
-        self.query_id = query_id
         self.task = task
         
     def __len__(self):
@@ -183,7 +219,6 @@ class SpeciesDatasetSimple(DatasetSimple):
         # return {'img': img, 'gps': coords}
         return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([id])
 
-
 class LandscapeDatasetSimple(DatasetSimple):
     def __init__(
         self,
@@ -196,9 +231,18 @@ class LandscapeDatasetSimple(DatasetSimple):
     ) -> None:
         super().__init__(root_path, fp_metadata, transform, dataset_kwargs, query_id=query_id, **kwargs)
 
+    # # inference
+    # def __len__(self):
+    #     return len(self.query_ids) if not self.metadata.empty else 0
+    # # inference end
     def __getitem__(self, index) -> Any:
         img, coords = self.img, self.coords
         if not self.metadata.empty:
+            # # Inference
+            # ind = self.metadata[self.metadata[self.query_id] == self.query_ids[index]].index[0]
+            # sample = self.metadata.iloc[ind]
+            # img = load_LUCAS_img(ind, self.metadata, self.root_path, **self.dataset_kwargs, transform=self.transform)
+            # # inference end
             sample = self.metadata.iloc[index]
             img = load_LUCAS_img(index, self.metadata, self.root_path, **self.dataset_kwargs, transform=self.transform)
             img = img.to(torch.float32)
@@ -223,13 +267,15 @@ class SatelliteDatasetSimple(DatasetSimple):
         kwargs_sat_dataset: dict = {'item_columns': ['lat', 'lon', 'surveyId', 'speciesId'],
                                     'labels_name': ['lat', 'lon']},
         query_id: str = 'surveyId',
+        keep_id_duplicates: bool = False,
         **kwargs,
     ) -> None:
         super().__init__(root_path, fp_metadata, transform, query_id=query_id, **kwargs)
         self.kwargs_sat_dataset = kwargs_sat_dataset
+        self.keep_id_duplicates = keep_id_duplicates
         # Remove the duplicate GPS-img pairs corresponding to the multiple entries of the same surveyId because of multiple occurrences on the same place
-        if not getattr(kwargs, 'keep_id_duplicates', True):
-            self.metadata = self.metadata.drop_duplicates(subset=[self.query_id], keep='first')
+        if not self.keep_id_duplicates:
+            self.metadata = self.metadata.drop_duplicates(subset=[self.query_id], keep='first', ignore_index=True)
         if not self.metadata.empty:
             self.sat_provider = JpegPatchProvider(
                 self.root_path,  # 'dataset/scale_3_satellite/data_subset/PA_Train_SatellitePatches/',
@@ -244,22 +290,28 @@ class SatelliteDatasetSimple(DatasetSimple):
             self.sat_dataset.items = self.sat_dataset.items.loc[self.metadata.index_no_subset].reset_index(names='index_no_subset')
             self.sat_dataset.observation_ids = self.sat_dataset.observation_ids[self.metadata.index_no_subset]  # np.array, assuming self.metadata indexing starts from 0 to N
             self.sat_dataset.targets = self.sat_dataset.targets[self.metadata.index_no_subset]  # np.array, assuming self.metadata indexing starts from 0 to N
-    
+        if self.subset_cls:
+            self.sat_dataset.items = self.sat_dataset.items.loc[self.metadata.index_no_subset_cls].reset_index(names='index_no_subset_cls')
+            self.sat_dataset.observation_ids = self.sat_dataset.observation_ids[self.metadata.index_no_subset_cls]  # np.array, assuming self.metadata indexing starts from 0 to N
+            self.sat_dataset.targets = self.sat_dataset.targets[self.metadata.index_no_subset_cls]  # np.array, assuming self.metadata indexing starts from 0 to N
+        
     def __len__(self):
-        return len(self.metadata[self.query_id].unique()) if not self.metadata.empty else 0
+        return len(self.unique_query_ids)
 
     def __getitem__(self, index) -> Any:
-        img, coords = self.img, self.coords            
-        if not self.metadata.empty:
-            # img, (sat_lat, sat_lon) = self.sat_dataset[index]  # Same as: sat_provider[{'surveyId': 80000}]
-            item = self.metadata.loc[index]
-            img = self.sat_provider[item]
-            sat_lat, sat_lon = item[self.kwargs_sat_dataset['labels_name']]
-            img = torch.unsqueeze(torch.from_numpy(img) if isinstance(img, np.ndarray) else img, dim=0)  # Adds a batch dimension
-            img = img.to(torch.float32)
-            img = self.transform(img)
-            coords = (sat_lon, sat_lat)
-            sat_id = self.sat_dataset.items.iloc[index][self.query_id]
+        img, coords = self.img, self.coords
+        # Get 1 random sample of the n-th unique query_id. Useful in case of multiple occurrences in self.metadata[self.metadata[self.query_id] == self.unique_query_ids[index]].sample(n=1, random_state=42)[0]f the same query_id in the metadata.
+        row = self.metadata[self.metadata[self.query_id] == self.unique_query_ids[index]].sample(n=1)
+        item = row.iloc[0]
+
+        img = self.sat_provider[item]
+        # img, (sat_lat, sat_lon) = self.sat_dataset[index]  # Same as: sat_provider[{'surveyId': 80000}]
+        sat_lat, sat_lon = item[self.kwargs_sat_dataset['labels_name']]
+        img = torch.unsqueeze(torch.from_numpy(img) if isinstance(img, np.ndarray) else img, dim=0)  # Adds a batch dimension
+        img = img.to(torch.float32)
+        img = self.transform(img)
+        coords = (sat_lon, sat_lat)
+        sat_id = self.sat_dataset.items.iloc[index][self.query_id]
 
         # return {'img': img, 'gps': coords}
         return img, torch.Tensor(coords), torch.tensor([index]), torch.tensor([sat_id])
@@ -507,7 +559,10 @@ class MultiscaleDatasetJointWithLabels(MultiscaleDatasetSimple):
             satellite_img, satellite_coords, satellite_idx, satellite_id = self.satellite_dataset[index]
             satellite_label = self.satellite_dataset.metadata.iloc[index]['speciesId'] if 'speciesId' in self.satellite_dataset.metadata.columns else -1
             if 'multilabel' in self.task:
-                satellite_label = self._find_other_speciesid_from_surveyid(self.satellite_dataset.metadata, satellite_id.item(), col_queryid=self.satellite_dataset.query_id)
+                if isinstance(satellite_label, str):
+                    satellite_label = torch.tensor(np.array(satellite_label.split(' ')).astype(int))
+                else:
+                    satellite_label = self._find_other_speciesid_from_surveyid(self.satellite_dataset.metadata, satellite_id.item(), col_queryid=self.satellite_dataset.query_id)
                 satellite_label = self._labels_to_onehot(satellite_label, self.num_classes)
 
         sample = (species_img,  #0

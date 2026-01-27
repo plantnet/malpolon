@@ -21,4 +21,4 @@ do
 done
 
 # Step 3: Create the GIF
-convert -delay 80 -loop 0 -fuzz 10 padded/*.png -layers OptimizeTransparency output.gif
+convert -delay 300 -loop 0 -fuzz 10 padded/*.png -layers OptimizeTransparency output.gif

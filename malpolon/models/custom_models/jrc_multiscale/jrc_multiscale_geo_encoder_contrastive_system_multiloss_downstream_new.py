@@ -240,7 +240,7 @@ def log_acc_topk_step(logits, labels, modality_name, topk=(1, 5), mode='train', 
     if logits[0].shape[0] >= max(topk):
         if acc_type in ['multiclass', '']:
             acc_topks = accuracy(logits, labels, topk=topk)
-        elif acc_type == 'bpm':
+        elif acc_type in ['bpm', 'precision']:
             acc_topks = binary_precision_multilabel_topk(logits, labels, topk=topk)
         else:
             raise NotImplementedError(f"Accuracy type {acc_type} not implemented.")
@@ -276,11 +276,11 @@ def log_tsne(features_img, features_gps, epoch_counter, modality_name,
 def find_best_threshold(y_true, y_probs, num_labels):
     y_true = torch.from_numpy(y_true).cpu() if isinstance(y_true, np.ndarray) else y_true
     y_probs = torch.from_numpy(y_probs).cpu() if isinstance(y_probs, np.ndarray) else y_probs
-    thresholds = np.linspace(0, 1, 101)  # test thresholds from 0.0 to 1.0
+    thresholds = np.linspace(0, 1, 1001)  # test thresholds from 0.0 to 1.0
     best_thresh, best_f1 = 0.5, 0
     for t in thresholds:
-        y_pred = (y_probs >= t).to(int)
-        f1 = Fmetrics.classification.multilabel_f1_score(y_true, y_pred, num_labels=num_labels, average="macro")  # or "micro"/"weighted"
+        # y_pred = (y_probs >= t).to(int)
+        f1 = Fmetrics.classification.multilabel_f1_score(y_true, y_probs, num_labels=num_labels, average="macro")  # or "micro"/"weighted"
         if f1 > best_f1:
             best_f1, best_thresh = f1, t
     return best_thresh, best_f1
@@ -388,7 +388,7 @@ class SimCLR_downstream(object):
         wandb_init()
 
         self.log_images = getattr(self.args, 'log_images', True)
-        self.best_f1_thresh = 0.3  # Initial value, then updated after each val step
+        self.best_f1_thresh = 0.18  # Initial value, then updated after each val step
         self.num_labels = getattr(self.args, 'num_labels', 1)
     
     def get_criterion(self, criterion_name):
@@ -555,13 +555,15 @@ class SimCLR_downstream(object):
                     print(f'Retrieval recall@K (step) / train: recall@1: {retrieval_recall(logits, labels_oh, top_k=1):.4f}, recall@20: {retrieval_recall(logits, labels_oh, top_k=20):.4f}, recall@100: {retrieval_recall(logits, labels_oh, top_k=100):.4f}')
 
                     # Log AUROC
-                    # print('Logging AUROC...')
-                    # wandb.log({"MultilabelAUROC_micro_step/train": multilabel_auroc(logits, labels_oh, self.num_labels, average='micro')})
-                    # wandb.log({"MultilabelAUROC_macro_step/train": multilabel_auroc(logits, labels_oh, self.num_labels, average='macro')})
+                    print('Logging AUROC...')
+                    wandb.log({"MultilabelAUROC_micro_step/train": multilabel_auroc(logits, labels_oh, self.num_labels, average='micro')})
+                    wandb.log({"MultilabelAUROC_macro_step/train": multilabel_auroc(logits, labels_oh, self.num_labels, average='macro')})
+                    print(f'Multilabel AUROC micro (step) / train: {multilabel_auroc(logits, labels_oh, self.num_labels, average="micro"):.4f}, macro (step): {multilabel_auroc(logits, labels_oh, self.num_labels, average="macro"):.4f}')
 
                     # Log mAP
-                    # wandb.log({"MultilabelAveragePrecision_micro_step/train": multilabel_average_precision(logits, labels_oh, n_cls, average='micro')})
-                    # wandb.log({"MultilabelAveragePrecision_macro_step/train": multilabel_average_precision(logits, labels_oh, n_cls, average='macro')})
+                    wandb.log({"MultilabelAveragePrecision_micro_step/train": multilabel_average_precision(logits, labels_oh, self.num_labels, average='micro')})
+                    wandb.log({"MultilabelAveragePrecision_macro_step/train": multilabel_average_precision(logits, labels_oh, self.num_labels, average='macro')})
+                    print(f'Multilabel Average Precision micro (step) / train: {multilabel_average_precision(logits, labels_oh, self.num_labels, average="micro"):.4f}, macro (step): {multilabel_average_precision(logits, labels_oh, self.num_labels, average="macro"):.4f}')
                 train_steps += 1
                 if step >= max_iter:  # Debug purposes
                     break
@@ -580,7 +582,7 @@ class SimCLR_downstream(object):
             # Log f1-score epoch wise
             print('Logging f1-score epoch wise...')
             wandb.log({"f1_micro_epoch (batch_avg)/train/": np.array(metrics['multilabel_f1_micro']).mean()})
-            print(f"f1_micro_epoch (batch_avg)/train/: {np.array(metrics['multilabel_f1_micro']).mean():.4f}")
+            print(f"f1_micro_epoch (batch_avg)/train: {np.array(metrics['multilabel_f1_micro']).mean():.4f}")
 
             # Log t-sne projection
             # for features_img, features_gps, modality_name in zip(all_features_img, all_features_gps, self.modalities_to_process):
@@ -651,10 +653,12 @@ class SimCLR_downstream(object):
 
                         # Log F1-score step wise
                         print('Logging f1-score...')
-                        best_thresh, best_f1 = find_best_threshold(vlabels, vlogits, num_labels=self.num_labels)
-                        self.best_f1_thresh = best_thresh
+                        vprobs = torch.sigmoid(vlogits)
+                        # best_thresh, best_f1 = find_best_threshold(vlabels, vprobs, num_labels=self.num_labels)
+                        # self.best_f1_thresh = best_thresh
                         vmetrics['multilabel_f1_micro'].append(Fmetrics.classification.multilabel_f1_score(vlogits, vlabels, num_labels=self.num_labels, threshold=self.best_f1_thresh, average='micro'))
                         wandb.log({"f1_micro_step/val/": vmetrics['multilabel_f1_micro'][-1]})
+                        print(f'Multilabel f1-score micro (step) mean / val: {np.mean(vmetrics["multilabel_f1_micro"]):.4f}')
 
                         # Log recall@K
                         print('Logging recall@K...')
@@ -662,15 +666,18 @@ class SimCLR_downstream(object):
                         wandb.log({"recall@1_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=1)})
                         wandb.log({"recall@20_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=5)})
                         wandb.log({"recall@100_step/val": retrieval_recall(vlogits, vlabels_oh, top_k=100)})
+                        print(f'Retrieval recall@K (step) / val: recall@1: {retrieval_recall(vlogits, vlabels_oh, top_k=1):.4f}, recall@20: {retrieval_recall(vlogits, vlabels_oh, top_k=20):.4f}, recall@100: {retrieval_recall(vlogits, vlabels_oh, top_k=100):.4f}')
 
                         # Log AUROC
-                        # print('Logging AUROC...')
-                        # wandb.log({"MultilabelAUROC_micro_step/val": multilabel_auroc(vlogits, vlabels_oh, self.num_labels, average='micro')})
-                        # wandb.log({"MultilabelAUROC_macro_step/val": multilabel_auroc(vlogits, vlabels_oh, self.num_labels, average='macro')})
+                        print('Logging AUROC...')
+                        wandb.log({"MultilabelAUROC_micro_step/val": multilabel_auroc(vlogits, vlabels_oh, self.num_labels, average='micro')})
+                        wandb.log({"MultilabelAUROC_macro_step/val": multilabel_auroc(vlogits, vlabels_oh, self.num_labels, average='macro')})
+                        print(f'Multilabel AUROC micro (step) / val: {multilabel_auroc(vlogits, vlabels_oh, self.num_labels, average="micro"):.4f}, macro (step): {multilabel_auroc(vlogits, vlabels_oh, self.num_labels, average="macro"):.4f}')
 
                         # Log mAP
-                        # wandb.log({"MultilabelAveragePrecision_micro_step/val": multilabel_average_precision(vlogits, vlabels_oh, n_cls, average='micro')})
-                        # wandb.log({"MultilabelAveragePrecision_macro_step/val": multilabel_average_precision(vlogits, vlabels_oh, n_cls, average='macro')})
+                        wandb.log({"MultilabelAveragePrecision_micro_step/val": multilabel_average_precision(vlogits, vlabels_oh, self.num_labels, average='micro')})
+                        wandb.log({"MultilabelAveragePrecision_macro_step/val": multilabel_average_precision(vlogits, vlabels_oh, self.num_labels, average='macro')})
+                        print(f"f1_micro_epoch (batch_avg)/val: {np.array(vmetrics['multilabel_f1_micro']).mean():.4f}")
 
                     val_steps += 1
                     if vstep >= max_iter:
@@ -721,38 +728,54 @@ class SimCLR_downstream(object):
         logging.info("Training has finished.")
         
     def predict(self, test_loader):
+        self.model = self.model.module if hasattr(self.model, "module") else self.model
         save_config_file(self.writer.dir, self.args)
 
         logging.info(f"Start SimCLR prediction for {self.args.epochs} epochs.")
         logging.info(f"Predicting with gpu: {self.args.disable_cuda}.")
         test_steps = 0
-        all_preds, all_probas, all_inds, all_ids = [], [], [], []
+        all_preds, all_probas, all_inds, all_ids, all_targets = [], [], [], [], []
         print("Predicting...")
 
         # Prediction
         with torch.no_grad():
             for step, test_dict in enumerate(tqdm(test_loader)):
-
                 batch_inds = test_dict.pop('indices', None)
 
                 with autocast(device_type=str(self.args.device), enabled=self.args.fp16_precision):
-                    inputs = []
+                    downstream_inputs = {}
                     for downstream_modality in self.downstream_modalities_to_process:
                         modality = downstream_modality.split('_')[0]
                         if modality not in self.skip_modalities:
                             if '_img' in downstream_modality:
-                                inputs.append(test_dict[modality][0].to(self.args.device))
+                                downstream_inputs[downstream_modality] = test_dict[modality][0].to(self.args.device)
+                                # inputs.append(test_dict[modality][0].to(self.args.device))
                             if '_gps' in downstream_modality:
-                                inputs.append(test_dict[modality][1].to(self.args.device))
+                                downstream_inputs[downstream_modality] = test_dict[modality][1].to(self.args.device)
+                                # inputs.append(test_dict[modality][1].to(self.args.device))
+                                
+                    # labels_str = torch.where(labels[0] == 1)[0].to('cpu')
+                    # labels_str = " ".join(str(x.item()) for x in labels_str)
+                    # preds_str = torch.argsort(input=probas, descending=True, dim=1).to('cpu')
+                    # preds_str = " ".join(str(x.item()) for x in preds_str[0])
+                    # probas_str = " ".join(str(x.item()) for x in probas[0].to('cpu'))
+
+                    # all_inds.append(test_dict[modality][2][0].to('cpu').item())
+                    # all_ids.append(test_dict[modality][3][0].to('cpu').item())
+                    # all_probas.append(probas_str)
+                    # all_preds.append(preds_str)
+                    # all_labels.append(labels_str)
+                    
                     labels = test_dict[modality][-1].to(self.args.device)
-                    logits = self.model.predict(input, self.downstream_modalities_to_process)
+                    logits = self.model.predict(downstream_inputs)
                     probas = torch.sigmoid(logits)
                     logits, labels = logits.to('cpu'), labels.to('cpu')
 
-                    all_probas.append(probas)
-                    all_preds.append(torch.argsort(input=probas, descending=True, dim=1))
+                    all_probas.append(probas.cpu())
+                    all_preds.append(torch.argsort(input=probas, descending=True, dim=1).cpu())
                     all_inds.append(test_dict[modality][2])
                     all_ids.append(test_dict[modality][3])
+                    all_targets.extend([' '.join(torch.where(row == 1)[0].numpy().astype(str)) for row in labels])
                     # print(f"[VAL] N_pos_labels: {vlabels.sum(dim=1)}")
                     # print(f"[VAL] Positive label at class: {torch.where(vlabels==1)}")
                     # print(f"[VAL] Argmax logits: {torch.argmax(vlogits, dim=1)}")
@@ -762,5 +785,19 @@ class SimCLR_downstream(object):
             # Log t-sne projection
             # for vfeatures_img, vfeatures_gps, modality_name in zip(vall_features_img, vall_features_gps, self.modalities_to_process):
             #     log_tsne(vfeatures_img, vfeatures_gps, epoch_counter, modality_name, log_images=self.log_images, mode='val')
-        df_preds = pd.DataFrame({'predictions': all_preds, 'probas': all_probas, 'surveyId': all_ids}, index=all_inds)
+        df_preds = pd.DataFrame({'predictions': [" ".join(map(str, row)) for row in torch.cat(all_preds, dim=0).numpy().astype(str)],
+                                 'probas': [" ".join(map(str, row)) for row in torch.cat(all_probas, dim=0).numpy().astype(str)],
+                                 'surveyId': [" ".join(map(str, row)) for row in torch.cat(all_ids, dim=0).numpy().astype(str)],
+                                 'target_species_ids': all_targets,
+                                 },
+                                 index=torch.cat(all_inds, dim=0).squeeze().numpy())
+        # Include reverse sklearn label encoder inverse_transform
+        le = getattr(test_loader.dataset, f"{modality}_dataset").le
+        new_targets = [
+            " ".join(
+                le.inverse_transform(list(map(int, ids.split()))).astype(int).astype(str)
+            )
+            for ids in all_targets
+        ]
+        df_preds['target_species_ids'] = new_targets
         df_preds.to_csv(os.path.join(self.writer.dir, 'jrc_downstream_test_predictions.csv'))

@@ -3,7 +3,7 @@ hydra:
     dir: outputs/${hydra.job.name}/${now:%Y-%m-%d_%H-%M-%S}
 
 run:
-  predict: true
+  predict: False
   checkpoint_path: "outputs/glc24_cnn_multimodal_ensemble/pretrained.ckpt"
 
 data:

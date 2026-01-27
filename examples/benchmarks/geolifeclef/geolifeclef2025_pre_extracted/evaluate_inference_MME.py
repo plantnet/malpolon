@@ -17,7 +17,7 @@ from tqdm import tqdm
 
 # 0. Load data
 df_gt = pd.read_csv('predictions_and_evaluation/GLC24_SOLUTION_FILE.csv')
-df_preds = pd.read_csv('predictions_and_evaluation/predictions_GLC24_SOLUTION_FILE.csv', sep=';')
+df_preds = pd.read_csv('glc25_submission_alphaearth_mlp.csv', sep=';')
 for rowi, row in deepcopy(df_gt).iterrows():
     tsi = np.array(row['target_species_ids'].split()).astype(int)  # Split the predictions string by space and convert to int
     inds = np.where(tsi > 11254)[0]

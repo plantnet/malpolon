@@ -19,6 +19,34 @@ from matplotlib import pyplot as plt  # pylint: disable=W0611 # noqa: F401
 from PIL import Image  # pylint: disable=W0611 # noqa: F401
 from torchvision import transforms
 from tqdm import tqdm
+from torchvision.transforms import CenterCrop, Resize
+
+
+# To address inconsistent image sizes, two options:
+# 1. Define transforms to resize images to a fixed size
+def transforms_species():
+    def CenterCropToMaxDim(img):
+        max_dim = max(img.shape[-2:])
+        return CenterCrop((max_dim, max_dim))(img)
+
+    ts = [lambda x: CenterCropToMaxDim(x),
+          Resize((518, 518))]  # bilinear by default
+
+    return transforms.Compose(ts)
+
+def transforms_satellite():
+    def CenterCropToMaxDim(img):
+        max_dim = max(img.shape[-2:])
+        return CenterCrop((max_dim, max_dim))(img)
+
+    ts = [
+        # QuantileNormalizeFromPreComputedDatasetPercentiles(),
+        # MinMaxNormalize(),
+        # torch.Tensor,
+        # transforms.Normalize(mean=(0.5,) * 4, std=(0.5,) * 4)
+    ]
+
+    return transforms.Compose(ts)
 
 
 class ExpandEmptyTensor:
@@ -38,6 +66,7 @@ class ExpandEmptyTensor:
         if sum(img.shape) <= 6:
             return np.zeros((img.shape[0], 518, 518))
         return img
+
 
 class SafeRescaleTo255:
     """Rescale an image band to [0, 255] and clip values."""

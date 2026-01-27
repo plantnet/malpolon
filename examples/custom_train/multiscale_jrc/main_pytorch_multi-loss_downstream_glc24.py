@@ -3,8 +3,8 @@
 Author: Theo Larcher <theo.larcher@inria.fr>
 """
 import os
+import json
 from types import SimpleNamespace
-from typing import Any, Callable, List
 from math import sqrt
 import wandb
 import torch
@@ -12,14 +12,12 @@ import torch.backends.cudnn as cudnn
 from omegaconf import OmegaConf
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from torch.utils.data import DataLoader
-from torchvision import transforms
-from torchvision.transforms import CenterCrop, Resize
 
 from malpolon.data.datasets.jrc_multiscale import (
     LandscapeDatasetSimple,
     SatelliteDatasetSimple,
     SpeciesDatasetSimple,
-    MultiscaleDatasetSimple,
+
     MultiscaleDatasetJointWithLabels,
 )
 from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_contrastive_system_multiloss_downstream_new import (
@@ -28,112 +26,11 @@ from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_con
 from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_model import (
     ModelSimCLR, MultiLabelClassifier,
 )
-from malpolon.data.datasets.geolifeclef2024_pre_extracted import \
-    GLC24Datamodule
-from malpolon.logging import Summary
-from malpolon.models.custom_models.glc2024_pre_extracted_prediction_system import \
-    ClassificationSystemGLC24
-from transforms import (MinMaxNormalize, QuantileNormalizeFromPreComputedDatasetPercentiles)
+from transforms import (transforms_species, transforms_satellite)
+from custom_dataloader_utils import (collate_species, collate_landscape, collate_satellite,
+                                     collate_multiscale, DataFrameMultiIdSampler)
 
-# To address inconsistent image sizes, two options:
-# 1. Define transforms to resize images to a fixed size
-def transforms_species():
-    def CenterCropToMaxDim(img):
-        max_dim = max(img.shape[-2:])
-        return CenterCrop((max_dim, max_dim))(img)
 
-    ts = [lambda x: CenterCropToMaxDim(x),
-          Resize((518, 518))]  # bilinear by default
-
-    return transforms.Compose(ts)
-
-def transforms_satellite():
-    def CenterCropToMaxDim(img):
-        max_dim = max(img.shape[-2:])
-        return CenterCrop((max_dim, max_dim))(img)
-
-    ts = [
-        # QuantileNormalizeFromPreComputedDatasetPercentiles(),
-        # MinMaxNormalize(),
-        # torch.Tensor,
-        # transforms.Normalize(mean=(0.5,) * 4, std=(0.5,) * 4)
-    ]
-
-    return transforms.Compose(ts)
-
-# 2. Custom collate function returning directly a list of dictionaries with {'img': img_tensor, 'gps': gps_tuple}. But this implies adding a loop over the multi-dimensional tensors which defeats the purpose of batching.
-def collate_species(original_batch):
-    imgs, gpss, inds, ids = zip(*original_batch)
-    img_batched = torch.cat(list(imgs), dim=0)
-    gps_batched = torch.stack(list(gpss), dim=0)
-    inds_batched = torch.stack(list(inds), dim=0)
-    ids_batched = torch.cat(ids, dim=0)
-    return img_batched, gps_batched, inds_batched, ids_batched
-
-def collate_landscape(original_batch):
-    imgs, gpss, inds, ids = zip(*original_batch)
-    img_batched = torch.cat(list(imgs), dim=0)
-    gps_batched = torch.stack(list(gpss), dim=0)
-    inds_batched = torch.stack(list(inds), dim=0)
-    ids_batched = torch.cat(ids, dim=0)
-    return img_batched, gps_batched, inds_batched, ids_batched
-
-# Version multi-view per row
-# def collate_landscape(original_batch):
-#     imgs, gpss = zip(*original_batch)
-#     img_batched = torch.cat(list(imgs), dim=0)  # Reshape to stack the views along the batch dim. Output is: [imgA_view1, imgA_view2, ..., imgB_view1, imgB_view2...]
-#     gps_batched = torch.stack(list(gpss), dim=0)
-#     # In order to address the inconsistent number of views of LUCAS images, we must choose a strategy between the 2 following:
-    
-#     # a) Reshaping imgs to stack the views on the channel dim. This requires to adapt the model to accept k channels with k>3 probably.
-#     # img_batched = img_batched.reshape(1, -1, img_batched.shape[2], img_batched.shape[3])[0] 
-    
-#     # b) Repeating the gps embeddings to match the new expanded batch dim because of LUCAS views. This requires to add an if case in the contrastive loss computation as the shapes of the similarity matrix are based on the batch_size which is artificially expanded.
-#     repeats = torch.tensor([x.shape[0] for x in imgs])
-#     gps_batched = torch.repeat_interleave(gps_batched, repeats, dim=0)  # Output is: [gps_imgA, gps_imgA,..., gps_imgB, gps_imgB...]
-#     return img_batched, gps_batched
-
-def collate_satellite(original_batch):
-    imgs, gpss, inds, sids = zip(*original_batch)
-    img_batched = torch.cat(list(imgs), dim=0)
-    gps_batched = torch.stack(list(gpss), dim=0)
-    inds_batched = torch.stack(list(inds), dim=0)
-    sids_batched = torch.cat(sids, dim=0)
-    return img_batched, gps_batched, inds_batched, sids_batched
-
-def collate_multiscale(original_batch):
-    (imgs_species, imgs_landscape, imgs_satellite, 
-     gpss_species, gpss_landscape, gpss_satellite,
-     inds, inds_species, inds_landscape, inds_satellite,
-     ids_species, ids_landscape, ids_satellite,
-     labels_species, labels_landscape, labels_satellite) = zip(*original_batch)
-
-    inds = torch.stack(list(inds), dim=0)
-
-    img_batched_species = torch.cat(list(imgs_species), dim=0)
-    label_batches_species = torch.stack(list(labels_species), dim=0)
-    gps_batched_species = torch.stack(list(gpss_species), dim=0)
-    inds_batched_species = torch.stack(list(inds_species), dim=0)
-    ids_batched_species = torch.cat(ids_species, dim=0)
-
-    img_batched_landscape = torch.cat(list(imgs_landscape), dim=0)
-    label_batches_landscape = torch.stack(list(labels_landscape), dim=0)
-    gps_batched_landscape = torch.stack(list(gpss_landscape), dim=0)
-    inds_batched_landscape = torch.stack(list(inds_landscape), dim=0)
-    ids_batched_landscape = torch.cat(ids_landscape, dim=0)
-
-    img_batched_satellite = torch.cat(list(imgs_satellite), dim=0)
-    label_batched_satellite = torch.stack(list(labels_satellite), dim=0)
-    gps_batched_satellite = torch.stack(list(gpss_satellite), dim=0)
-    inds_batched_satellite = torch.stack(list(inds_satellite), dim=0)
-    ids_batched_satellite = torch.cat(ids_satellite, dim=0)
-
-    return {
-        'indices': inds,
-        'species': (img_batched_species, gps_batched_species, inds_batched_species, ids_batched_species, label_batches_species),
-        'landscape': (img_batched_landscape, gps_batched_landscape, inds_batched_landscape, ids_batched_landscape, label_batches_landscape),
-        'satellite': (img_batched_satellite, gps_batched_satellite, inds_batched_satellite, ids_batched_satellite, label_batched_satellite),
-    }
 
 def main(args, writer):
     # check if gpu training is available
@@ -154,6 +51,7 @@ def main(args, writer):
             fp_metadata = 'dataset/scale_1_species/glc24_pa_test_private_CBN-med_matching-LUCAS-500m.csv',
             transform = transforms_species(),
             subset = args.subset,
+            subset_cls = args.subset_cls,
         )
     elif args.arch == 'landscape':
         custom_collate = collate_landscape
@@ -162,6 +60,7 @@ def main(args, writer):
             fp_metadata = 'dataset/scale_2_landscape/glc24_pa_test_private_CBN-med_matching-LUCAS-500m.csv',
             transform = transforms_species(),
             subset = args.subset,
+            subset_cls = args.subset_cls,
         )
     elif args.arch == 'satellite':
         custom_collate = collate_satellite
@@ -170,6 +69,7 @@ def main(args, writer):
             fp_metadata = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m.csv',
             transform = transforms_satellite(),
             subset = args.subset,
+            subset_cls = args.subset_cls,
         )
     elif args.arch == 'multi-loss':
         custom_collate = collate_multiscale
@@ -187,6 +87,46 @@ def main(args, writer):
                 transform_landscape = transforms_species(),
                 transform_satellite = transforms_satellite(),
                 subset = args.subset,
+                subset_cls = args.subset_cls,
+                skip_modalities = args.skip_modalities,
+                task = 'multilabel_classification',
+                num_classes=args.num_labels,
+                query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
+                keep_id_duplicates = True,
+            )
+            val_dataset = MultiscaleDatasetJointWithLabels(
+                root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
+                fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-0.06min_no_3-duplicates.csv',
+                root_path_landscape = 'dataset/scale_2_landscape/',
+                fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_abaca.csv',
+                root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
+                fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_val-10.0min.csv',
+                # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
+                # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_val.csv',
+                transform_species = transforms_species(),
+                transform_landscape = transforms_species(),
+                transform_satellite = transforms_satellite(),
+                subset = args.subset,
+                subset_cls = args.subset_cls,
+                skip_modalities = args.skip_modalities,
+                task = 'multilabel_classification',
+                num_classes=args.num_labels,
+                query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
+                keep_id_duplicates = True,
+            )
+        else:
+            test_dataset = MultiscaleDatasetJointWithLabels(
+                root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
+                fp_metadata_species = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species_grouped.csv',
+                root_path_landscape = 'dataset/scale_2_landscape/',
+                fp_metadata_landscape = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species_grouped.csv',
+                root_path_satellite = 'dataset/scale_3_satellite/PA_Test_SatellitePatches/',
+                fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species_SAT_ONLY.csv',
+                transform_species = transforms_species(),
+                transform_landscape = transforms_species(),
+                transform_satellite = transforms_satellite(),
+                subset = args.subset,
+                subset_cls = args.subset_cls,
                 skip_modalities = args.skip_modalities,
                 task = 'multilabel_classification',
                 num_classes=args.num_labels,
@@ -209,55 +149,20 @@ def main(args, writer):
             #                              landsat_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/TimeSeries-Cubes/TimeSeries-Cubes/GLC24-PA-test-landsat_time_series/",
             #                              sentinel_data_dir = "dataset/scale_3_satellite/geolifeclef-2024/PA_test_SatellitePatches_RGB/pa_test_patches_rgb/",
             #                              task = 'classification_multilabel',)
-            val_dataset = MultiscaleDatasetJointWithLabels(
-                root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
-                fp_metadata_species = 'dataset/scale_1_species/PN_gbif_France_2005-2025_illustrated_CBN-med_val-0.06min_no_3-duplicates.csv',
-                root_path_landscape = 'dataset/scale_2_landscape/',
-                fp_metadata_landscape = 'dataset/scale_2_landscape/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_abaca.csv',
-                root_path_satellite = 'dataset/scale_3_satellite/PA_Train_SatellitePatches/',
-                fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_train_val-10.0min.csv',
-                # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_unique_surveyId_val-0.06min.csv',
-                # fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_train_CBN-med_surveyId_split-10.0%_val.csv',
-                transform_species = transforms_species(),
-                transform_landscape = transforms_species(),
-                transform_satellite = transforms_satellite(),
-                subset = args.subset,
-                skip_modalities = args.skip_modalities,
-                task = 'multilabel_classification',
-                num_classes=args.num_labels,
-                query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
-                keep_id_duplicates = True,
-            )
-        else:
-            test_dataset = MultiscaleDatasetJointWithLabels(
-                root_path_species = 'dataset/scale_1_species/Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500',
-                fp_metadata_species = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species.csv',
-                root_path_landscape = 'dataset/scale_2_landscape/',
-                fp_metadata_landscape = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species.csv',
-                root_path_satellite = 'dataset/scale_3_satellite/PA_Test_SatellitePatches/',
-                fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species.csv',
-                transform_species = transforms_species(),
-                transform_landscape = transforms_species(),
-                transform_satellite = transforms_satellite(),
-                subset = args.subset,
-                skip_modalities = args.skip_modalities,
-                task = 'multilabel_classification',
-                num_classes=args.num_labels,
-                query_ids = {'species': 'gbifID', 'landscape': 'id', 'satellite': 'surveyId'},
-                keep_id_duplicates = True,
-            )
+            
 
     # Dataloaders
-    if not args.predict:
+    if args.predict:
+        test_loader = DataLoader(
+        test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True, drop_last=False,
+        sampler=None, collate_fn=custom_collate)
+    else:
         train_loader = DataLoader(
-            train_dataset, batch_size=args.batch_size, shuffle=True,
-            num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
+            train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True, drop_last=True,
+            sampler=None, collate_fn=custom_collate)
         val_loader = DataLoader(
-            val_dataset, batch_size=args.batch_size, shuffle=True,
-            num_workers=args.workers, pin_memory=True, drop_last=True, collate_fn=custom_collate)
-    test_loader = DataLoader(
-        test_dataset, batch_size=args.batch_size, shuffle=False,
-        num_workers=args.workers, pin_memory=True, drop_last=False, collate_fn=custom_collate)
+            val_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True, drop_last=True,
+            sampler=None, collate_fn=custom_collate)
     # Model
     model_species = ModelSimCLR(base_model='species', out_dim=args.out_dim, dropout=args.dropout,
                                 freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
@@ -272,7 +177,7 @@ def main(args, writer):
     model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
 
     # Transfer learning: linear probing / fine-tuning
-    if args.ckpt_path:
+    if args.ckpt_path and args.predict == "False":
         checkpoint = torch.load(args.ckpt_path, map_location='cuda' if not args.disable_cuda else 'cpu')
         model.load_state_dict(checkpoint['state_dict'])
         print(f"Checkpoint loaded from {args.ckpt_path}")
@@ -287,6 +192,13 @@ def main(args, writer):
                                       classifier_type=args.eval_type, contrastive_head_out_dim=args.out_dim,
                                       num_labels=args.num_labels, skip_modalities=args.skip_modalities)
     classifier = torch.nn.DataParallel(classifier, device_ids=[0])
+
+    # Inference
+    if args.ckpt_path and args.predict == "True":
+        checkpoint = torch.load(args.ckpt_path, map_location='cuda' if not args.disable_cuda else 'cpu')
+        classifier.load_state_dict(checkpoint['state_dict'])
+        print(f"Checkpoint loaded from {args.ckpt_path}")
+
     # DEBUG: REPLACING SATELLITE ENCODER WITH THAT OF MME
     # from torch import nn
     # from torchvision import models
@@ -347,6 +259,12 @@ def init_wandb(args):
         job_type='inference' if getattr(args_ns, 'predict', False) else 'train',
         mode=getattr(args_ns, 'wandb_mode', 'offline'),
     )
+    file_path = os.path.join(writer.dir, "run_args.yaml")
+    with open(file_path, "w") as f:
+        try:
+            f.write(json.dumps(args, indent=2))
+        except TypeError:
+            f.write(str(args))
     args_ns.writer = writer
     return args_ns, writer
 
@@ -366,7 +284,7 @@ if __name__ == "__main__":
         'arch': 'multi-loss',  # always paired with gps
         'OAR_job_id': os.getenv("OAR_JOB_ID", "no_jobid"),
         'batch_size': 64,
-        'ckpt_path': 'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar',
+        'ckpt_path':  'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar', # 'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar',
         'resume_wandb_run': False,
         'device': "cuda",
         'disable_cuda': False,
@@ -379,9 +297,10 @@ if __name__ == "__main__":
         'learning_rate': 0.01, # 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "Downstream task > GLC24 train/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, sat+gps (from u6tiioze)",
+        'name': "[Downstream] GLC24 train/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, landscape+gps -> landscape+gps (from u6tiioze)",
         'out_dim': 2048,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'subset_cls': None,  # nb of random samples per class for train & val. Either int or float (percentage of the dataset size).
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
         'weight_decay': 1e-3,
         'workers': os.cpu_count(),
@@ -392,13 +311,17 @@ if __name__ == "__main__":
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
         'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
-        'predict': True,
-        'wandb_mode': 'online',  # 'online', 'offline', 'disabled'
-        'metrics': {'accuracy_type': 'bpm',
+        'predict': False,
+        'wandb_mode': 'disabled',  # 'online', 'offline', 'disabled'
+        'metrics': {'accuracy_type': 'precision',
                     'accuracy_average': 'micro',
                     'accuracy_topks': (1, 5, 20),
                    },
     }
+    ### sklearn LabelEncoder
+    if args.get('subset_cls', False):
+        args['num_labels'] = int(args['num_labels'] * args['subset_cls']) if isinstance(args['subset_cls'], float) else args['subset_cls']
+    ###
     sweep_id = os.getenv("WANDB_SWEEP_ID")
     if sweep_id:
         args_ns = init_sweep(args)
