@@ -16,8 +16,8 @@ from sklearn.metrics import precision_recall_fscore_support, roc_auc_score
 from tqdm import tqdm
 
 # 0. Load data
-df_gt = pd.read_csv('~/jrc_downstream_test_predictions.csv')
-df_preds = pd.read_csv('~/jrc_downstream_test_predictions.csv')
+df_gt = pd.read_csv('outputs/inference/Downstream satellite img+gps GLC24 | subset_cls=0.01/predictions_all.csv')  # dataset/scale_3_satellite/geolifeclef-2024/GLC24_SOLUTION_FILE.csv')
+df_preds = pd.read_csv('outputs/inference/Downstream satellite img+gps GLC24 | subset_cls=0.01/predictions_all.csv')
 for rowi, row in deepcopy(df_gt).iterrows():
     tsi = np.array(row['target_species_ids'].split()).astype(int)  # Split the predictions string by space and convert to int
     inds = np.where(tsi > 11254)[0]

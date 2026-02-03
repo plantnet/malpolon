@@ -121,7 +121,7 @@ def main(args, writer):
                 root_path_landscape = 'dataset/scale_2_landscape/',
                 fp_metadata_landscape = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species_grouped.csv',
                 root_path_satellite = 'dataset/scale_3_satellite/PA_Test_SatellitePatches/',
-                fp_metadata_satellite = 'dataset/scale_3_satellite/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species_SAT_ONLY.csv',
+                fp_metadata_satellite = 'dataset/scale_3_satellite/geolifeclef-2024/GLC24_PA_metadata_test.csv',  # glc24_pa_test_private_CBN-med_matching-LUCAS-500m_exploded_merged_with_species_SAT_ONLY.csv',
                 transform_species = transforms_species(),
                 transform_landscape = transforms_species(),
                 transform_satellite = transforms_satellite(),
@@ -297,22 +297,22 @@ if __name__ == "__main__":
         'learning_rate': 0.01, # 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "[Downstream] GLC24 train/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, landscape+gps -> landscape+gps (from u6tiioze)",
+        'name': "TEST TO DELETE INFERENCE [Downstream] GLC24 train/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, landscape+gps -> landscape+gps (from u6tiioze)",
         'out_dim': 2048,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
-        'subset_cls': None,  # nb of random samples per class for train & val. Either int or float (percentage of the dataset size).
+        'subset_cls': 0.1,  # nb of random samples per class for train & val. Either int or float (percentage of the dataset size).
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
         'weight_decay': 1e-3,
         'workers': os.cpu_count(),
         'warmup_epochs': 0,
-        'log_images': False,  # If True, logs images to wandb
-        'skip_modalities': ['satellite', 'species'], 
-        'downstream_modalities_to_process': ['landscape_img', 'landscape_gps'],  # Will skip modalities during training
+        'log_images': True,  # If True, logs images to wandb
+        'skip_modalities': ['landscape', 'species'], 
+        'downstream_modalities_to_process': ['satellite_img', 'satellite_gps'],  # Will skip modalities during training
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
         'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
         'predict': False,
-        'wandb_mode': 'disabled',  # 'online', 'offline', 'disabled'
+        'wandb_mode': 'online',  # 'online', 'offline', 'disabled'
         'metrics': {'accuracy_type': 'precision',
                     'accuracy_average': 'micro',
                     'accuracy_topks': (1, 5, 20),

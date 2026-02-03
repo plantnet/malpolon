@@ -159,7 +159,13 @@ class DatasetSimple(Dataset):
         self.le = LabelEncoder()
         self.le.fit(self.unique_cls)
         self.unique_cls = self.le.transform(self.unique_cls).tolist()
-        self.metadata[self.cls_id] = self.le.transform(self.metadata[self.cls_id]).tolist()
+        if 'test' in fp_metadata:  # Extremely janky
+            for rowi, row in deepcopy(self.metadata).iterrows():
+                speciesIds = np.array(row[self.cls_id].split()).astype(int)
+                speciesIds_le = self.le.transform(speciesIds).astype(str)
+                self.metadata.loc[rowi, self.cls_id] = ' '.join(speciesIds_le)
+        else:
+            self.metadata[self.cls_id] = self.le.transform(self.metadata[self.cls_id]).tolist()
         ###
         self.subset = subset
         self.subset_cls = subset_cls
