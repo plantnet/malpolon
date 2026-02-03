@@ -18,11 +18,13 @@ from sklearn.metrics import (
 )
 
 from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_model import (
-    ModelSimCLR, MultiLabelClassifier,
+    ModelSimCLR, MultiLabelClassifier, get_model_satellite, get_model_landscape, get_model_species,
 )
 from malpolon.models.custom_models.jrc_multiscale.jrc_contrastive_losses import (
     KoLeoLoss, MCR
 )
+from malpolon.models.custom_models.glc2024_multimodal_ensemble_model import MultimodalEnsemble
+
 from transforms import (transforms_species, transforms_satellite)
 from torchvision import transforms
 from torchvision.io import read_image
@@ -101,7 +103,7 @@ args = {
         'warmup_epochs': 0,
         'log_images': True,  # If True, logs images to wandb
         'skip_modalities': ['landscape', 'species'], 
-        'downstream_modalities_to_process': ['satellite_img', 'satellite_gps'],  # Will skip modalities during training
+        'downstream_modalities_to_process': ['satellite_img'],  # Will skip modalities during training
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
         'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
@@ -115,9 +117,8 @@ args = {
 args = SimpleNamespace(**args) if isinstance(args, dict) else args
 
 # %% [markdown]
-# ## Datasets
-
-# %%
+# ## Datasets & Dataloaders
+# ### Definition
 
 def construct_patch_path(data_path, survey_id):
     """Construct the patch file path.
@@ -141,7 +142,6 @@ def construct_patch_path(data_path, survey_id):
         path = os.path.join(path, pid)
     path = os.path.join(path, f"{survey_id}.jpeg")
     return path
-
 
 def load_landsat(path, transform=None):
     """Load Landsat pre-extracted time series data.
@@ -169,7 +169,6 @@ def load_landsat(path, transform=None):
         landsat_sample = transform(landsat_sample)
     return landsat_sample
 
-
 def load_bioclim(path, transform=None):
     """Load Bioclim pre-extracted time series data.
 
@@ -195,7 +194,6 @@ def load_bioclim(path, transform=None):
     if transform:
         bioclim_sample = transform(bioclim_sample)
     return bioclim_sample
-
 
 def load_sentinel(path, survey_id, transform=None):
     """Load Sentinel-2A pre-extracted patch data.
@@ -225,7 +223,6 @@ def load_sentinel(path, survey_id, transform=None):
         # sentinel_sample = transform(torch.tensor(sentinel_sample.astype(np.float32)))
         sentinel_sample = transform(sentinel_sample)
     return sentinel_sample
-
 
 class TrainDataset(Dataset):
     """Train dataset with training transform functions.
@@ -333,7 +330,6 @@ class TrainDataset(Dataset):
                 'gps': torch.tensor([lon, lat], dtype=torch.float32),
                 'survey_id': survey_id}
 
-
 class TestDataset(TrainDataset):
     """Test dataset with test transform functions.
 
@@ -409,10 +405,6 @@ class TestDataset(TrainDataset):
                 'gps': torch.tensor([lon, lat], dtype=torch.float32),
                 'survey_id': survey_id}
 
-# %% [markdown]
-# ## Dataloaders
-
-# %%
 class GLC24DataModuleBasic():
     def __init__(
         self,
@@ -512,7 +504,8 @@ class GLC24DataModuleBasic():
                 'bioclim': transforms.Compose(all_transforms + bioclim_transforms),
                 'sentinel': transforms.Compose(all_transforms + sentinel_transforms)}
 
-# %%
+
+# ### Instantiation
 glc24datamodule = GLC24DataModuleBasic(DATA_PATHS, METADATA_PATHS, task='classification_multilabel', subset_cls=args.subset_cls)
 dataset_train = glc24datamodule.get_dataset(split='train')
 dataset_val = glc24datamodule.get_dataset(split='val',)
@@ -530,35 +523,44 @@ test_loader = DataLoader(
 
 # %% [markdown]
 # ## Models
+# ### Definition
+class MMESatelliteOnly(MultimodalEnsemble):
+    def __init__(self,
+                 num_classes: int = 11255,
+                 pretrained: bool = False,
+                 **kwargs):
+        super().__init__(num_classes=num_classes, pretrained=pretrained, **kwargs)
+        self.fc1 = torch.nn.Linear(768, 4096)
+        self.fc2 = torch.nn.Linear(4096, num_classes)
 
-# %%
-model_species = ModelSimCLR(base_model='species', out_dim=args.out_dim, dropout=args.dropout,
-                            freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
-model_landscape = ModelSimCLR(base_model='landscape', out_dim=args.out_dim, dropout=args.dropout,
-                                gps_encoder=model_species.gps_encoder, gps_head=model_species.gps_contrastive_head,
-                                freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
-model_satellite = ModelSimCLR(base_model='satellite', out_dim=args.out_dim, dropout=args.dropout,
-                                gps_encoder=model_species.gps_encoder, gps_head=model_species.gps_contrastive_head,
-                                freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
-model = torch.nn.ModuleDict({'species': model_species, 'landscape': model_landscape, 'satellite': model_satellite})
-# model = torch.nn.ModuleList([model_species, model_landscape, model_satellite])
-model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
+    def forward(self, x, input_type):  # noqa: D102 pylint: disable=C0116
+        # x: satellite_img
+        _ = input_type
+        x = self.sentinel_model(x)
 
-# Transfer learning: linear probing / fine-tuning
-if args.ckpt_path and args.predict == "False":
-    checkpoint = torch.load(args.ckpt_path, map_location='cuda' if not args.disable_cuda else 'cpu')
-    model.load_state_dict(checkpoint['state_dict'])
-    print(f"Checkpoint loaded from {args.ckpt_path}")
+        x = self.fc1(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        return x
 
-# Evaluation strategy
-if args.eval_type == 'knn':
-    raise NotImplementedError("KNN evaluation is not implemented in this script. Please implement it if needed.")
-classifier = MultiLabelClassifier(model['species'].gps_encoder, model['species'].gps_contrastive_head,
-                                    model['species'].modality_encoder, model['species'].modality_contrastive_head,
-                                    model['landscape'].modality_encoder, model['species'].modality_contrastive_head,
-                                    model['satellite'].modality_encoder, model['satellite'].modality_contrastive_head,
-                                    classifier_type=args.eval_type, contrastive_head_out_dim=args.out_dim,
-                                    num_labels=args.num_labels, skip_modalities=args.skip_modalities)
+def setup_optimization(classifier, args):
+    optimizer = torch.optim.AdamW(classifier.module.parameters() if isinstance(classifier, torch.nn.parallel.DataParallel) else classifier.module.parameters(),
+                                  lr=args.learning_rate, weight_decay=args.weight_decay)
+    warmup_scheduler = LinearLR(
+        optimizer,
+        start_factor=0.05,  # Starts from 10 * lr
+        end_factor=1.0,     # Ends at 1.0 * lr = 1e-3
+        total_iters=args.warmup_epochs,
+    )
+    cosine_scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
+    scheduler = SequentialLR(optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[args.warmup_epochs])
+
+    return optimizer, scheduler
+
+# ### Instantiation
+device = torch.device("cuda" if torch.cuda.is_available() and not args.disable_cuda else "cpu")
+classifier = MMESatelliteOnly(num_classes=args.num_labels, pretrained=False)
+classifier = classifier.to(device) 
 classifier = torch.nn.DataParallel(classifier, device_ids=[0])
 
 # Inference
@@ -567,24 +569,10 @@ if args.ckpt_path and args.predict == "True":
     classifier.load_state_dict(checkpoint['state_dict'])
     print(f"Checkpoint loaded from {args.ckpt_path}")
 
-# %%
-optimizer = torch.optim.AdamW(classifier.module.classifier.parameters() if isinstance(classifier, torch.nn.parallel.DataParallel) else classifier.classifier.parameters(),
-                                lr=args.learning_rate, weight_decay=args.weight_decay)
-warmup_scheduler = LinearLR(
-    optimizer,
-    start_factor=0.05,  # Starts from 10 * lr
-    end_factor=1.0,     # Ends at 1.0 * lr = 1e-3
-    total_iters=args.warmup_epochs,
-)
-cosine_scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
-scheduler = SequentialLR(optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[args.warmup_epochs])
-
-device = torch.device("cuda" if torch.cuda.is_available() and not args.disable_cuda else "cpu")
+optimizer, scheduler = setup_optimization(classifier, args)
 
 # %% [markdown]
 # ## Pipeline
-
-# %%
 def inspect_first_batch(images, labels, epoch, phase, save_dir="first_batch_images", max_images=3):
     """
     images: Tensor [B, C, H, W]
@@ -940,25 +928,25 @@ def run_inference(
 # ## Train !
 
 # %%
-# train_validate(
-#     classifier,
-#     train_loader,
-#     val_loader,
-#     optimizer,
-#     device,
-#     args.epochs,
-#     args.num_labels,
-#     output_dir='outputs',
-#     f1_threshold=0.3,
-# )
-
-
-run_inference(
+train_validate(
     classifier,
-    'outputs/Downstream satellite img+gps GLC24 | subset_cls=0.01/best.pt',
-    test_loader,
-    device=device,
-    num_classes = args.num_labels,
-    output_dir = 'outputs/inference/Downstream satellite img+gps GLC24 | subset_cls=0.01/',
-    threshold=0.3
+    train_loader,
+    val_loader,
+    optimizer,
+    device,
+    args.epochs,
+    args.num_labels,
+    output_dir='outputs',
+    f1_threshold=0.3,
 )
+
+
+# run_inference(
+#     classifier,
+#     'outputs/Downstream satellite img+gps GLC24 | subset_cls=0.01/best.pt',
+#     test_loader,
+#     device=device,
+#     num_classes = args.num_labels,
+#     output_dir = 'outputs/inference/Downstream satellite img+gps GLC24 | subset_cls=0.01/',
+#     threshold=0.3
+# )
