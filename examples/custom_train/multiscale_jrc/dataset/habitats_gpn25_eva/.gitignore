@@ -8,3 +8,5 @@ FloraVeg/Wandb
 
 *.csv
 habitats.xlsx
+
+*.svg
