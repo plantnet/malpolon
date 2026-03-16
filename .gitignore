@@ -36,6 +36,9 @@ examples/benchmarks/cifar-10/outputs/*
 
 examples/custom_train/multiscale_jrc/dataset/scale_2_landscape/LUCAS_subset/**/*[NSEWP].jpg
 
+examples/custom_train/multiscale_jrc/dataset/habitats_gpn25_eva/LUCAS_habitats/data
+examples/custom_train/multiscale_jrc/dataset/habitats_gpn25_eva/LUCAS_habitats/code
+
 # Packaging
 dist/
 build/

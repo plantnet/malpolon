@@ -4,3 +4,7 @@ LUCAS_habitats/code
 FloraVeg/Images
 FloraVeg/baselines
 FloraVeg/*.csv
+FloraVeg/Wandb
+
+*.csv
+habitats.xlsx
