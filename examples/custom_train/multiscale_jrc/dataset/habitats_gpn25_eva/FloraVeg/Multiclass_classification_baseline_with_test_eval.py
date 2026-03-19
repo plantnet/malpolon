@@ -30,25 +30,30 @@ from sklearn.metrics import (
 # ----------------------------
 # Config
 # ----------------------------
-INFERENCE = True
+INFERENCE = False
 INFERENCE_SUFFIX = '_1-to-1'
-MULTILABEL_CORRESPONDANCE_STRATEGY = 'soft_ml'  # One of ['naive', 'random sampling', 'soft_ml]
+TRAIN_SUFFIX = ''
+MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['naive', 'random sampling', 'soft_ml', 'ml']
 LOSS_FUNCTION = 'CE_soft_ml'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
 LABEL_SMOOTHING = 0.0  # Float in [0, 1]
 
-CSV_FILE_TRAIN_FREQ_SPLIT = "metadata_labels_merged_freq_split-10.33%_train.csv"
+CSV_S1_TRAIN = "metadata_labels_merged_S1_stratified_split-10.33%_train.csv"
 CSV_FILE_TRAIN_SPATIAL_SPLIT = "metadata_labels_merged_gps_only_S2_train-0.54min.csv"
-CSV_FILE_TEST_FREQ_SPLIT = "metadata_labels_merged_freq_split-10.33%_test_1-to-5.csv"
+CSV_S1_TEST = "metadata_labels_merged_S1_stratified_split-10.33%_test.csv"
 CSV_FILE_TEST_SPATIAL_SPLIT = "metadata_labels_merged_gps_only_S2_test-0.54min.csv"
-CSV_S1BIS_TRAIN = "metadata_labels_merged_S1bis-10%_train.csv"
+CSV_S1BIS_TRAIN = f'metadata_labels_merged_S1bis-10%_train{TRAIN_SUFFIX}.csv'
 CSV_S1BIS_TEST = f'metadata_labels_merged_S1bis-10%_test{INFERENCE_SUFFIX}.csv'  # "metadata_labels_merged_S1bis-10%_test.csv"
+CSV_S0BIS_TRAIN = f'metadata_labels_merged_S0bis-10%_train{TRAIN_SUFFIX}.csv'
+CSV_S0BIS_TEST = f'metadata_labels_merged_S0bis-10%_test{INFERENCE_SUFFIX}.csv'
 
-CSV_FILE = CSV_S1BIS_TRAIN
-CSV_FILE_TEST = CSV_S1BIS_TEST
+CSV_FILE = CSV_S0BIS_TRAIN
+CSV_FILE_TEST = CSV_S0BIS_TEST # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
 IMAGE_DIR = "Images"
-OUTPUT_DIR = "baselines/B2_S1bis/"
+OUTPUT_DIR = "baselines/B2_S0bis_1-to-1_ResNet18/"
+SAVE_DIR = OUTPUT_DIR
 
 MODEL = "resnet18"  # One of ['resnet18', 'dinov2_vits14']
+NUM_UNIQUE_CLASSES = 215  # If None, inferred from the dataset
 BATCH_SIZE = 32
 EPOCHS = 20
 LR = 1e-4
@@ -63,15 +68,15 @@ VAL_METRICS = os.path.join(OUTPUT_DIR, "val_metrics.csv")
 TEST_METRICS = os.path.join(OUTPUT_DIR, f"inference/test_metrics{INFERENCE_SUFFIX}.csv")
 PREDICTIONS_PATH = os.path.join(OUTPUT_DIR, f"inference/test_predictions{INFERENCE_SUFFIX}.csv")
 
-BEST_MODEL_PATH = os.path.join(OUTPUT_DIR, "best_model.pth")
-LAST_MODEL_PATH = os.path.join(OUTPUT_DIR, "last_model.pth")
+BEST_MODEL_PATH = os.path.join(SAVE_DIR, "best_model.pth")
+LAST_MODEL_PATH = os.path.join(SAVE_DIR, "last_model.pth")
 
 TIME_STAMP_START = time()
 
 writer = wandb.init(
     entity="tlarcher-phd-jrc",
     project='habitats_floraveg',
-    name='[INFERENCE] B2_S2bis: ResNet18 (1-to-1)',  #'Unique surveyId spatial split 0.06min, dropout',
+    name='B2_S0bis_new: resnet18 (1-to-k)',  #'Unique surveyId spatial split 0.06min, dropout',
     notes="B2: Custom loss & metrics adapted for soft multilabelling.\n"
           "S1bis: Split over unique FLoraveg IDs (no leakeage) Stratified 1-to-k soft multilabels.",
     config={'MULTILABEL_CORRESPONDANCE_STRATEGY': MULTILABEL_CORRESPONDANCE_STRATEGY,
@@ -85,7 +90,7 @@ writer = wandb.init(
             'TRAIN_CSV': CSV_FILE,
             'TEST_CSV': CSV_FILE_TEST,
             'OUTPUT_DIR': OUTPUT_DIR,},
-    job_type='inference' if INFERENCE else 'train',
+    job_type='train' if INFERENCE else 'train',
     mode='disabled',  # any of "online", "offline", "disabled"
 )
 # ----------------------------
@@ -93,10 +98,13 @@ writer = wandb.init(
 # ----------------------------
 
 class TestHabitatDataset(Dataset):
-    def __init__(self, dataframe, image_dir, transform=None):
+    def __init__(self, dataframe, image_dir, n_u_classes=None, transform=None):
         self.df = dataframe.reset_index(drop=True)
         self.image_dir = image_dir
         self.transform = transform
+        self.max_unique_classes = n_u_classes
+        self.labels = self.df['label']
+        self.n_classes = dataframe['label'].nunique()
 
     def __len__(self):
         return len(self.df)
@@ -120,14 +128,15 @@ class TestHabitatDataset(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, label_enc, None, label, floraveg_id
+        return image, label_enc, [-1], label, floraveg_id
 
 class HabitatDataset(Dataset):
-    def __init__(self, dataframe, image_dir, transform=None):
+    def __init__(self, dataframe, image_dir, n_u_classes=None,transform=None):
         self.df = dataframe.reset_index(drop=True)
         self.image_dir = image_dir
         self.transform = transform
         self.labels = self.df['label']
+        self.max_unique_classes = n_u_classes
         self.n_classes = dataframe['label'].nunique()
 
     def __len__(self):
@@ -153,13 +162,15 @@ class HabitatDataset(Dataset):
         return image, label_enc, None, label, floraveg_id
 
 class HabitatDatasetRandomlySampleDuplicateLabelsMatching(Dataset):
-    def __init__(self, dataframe, image_dir, transform=None):
+    def __init__(self, dataframe, image_dir, n_u_classes=None, transform=None):
         self.df = dataframe.reset_index(drop=True)
         self.floraveg_ids = dataframe['id_floraveg'].value_counts()
         self.labels = self.df['label']
         self.image_dir = image_dir
         self.transform = transform
+        self.max_unique_classes = n_u_classes
         self.n_classes = dataframe['label'].nunique()
+        self.label_encoding_table = dict(zip(self.df["habitats_code_ID"], self.df["habitats_code"]))
 
     def __len__(self):
         return len(self.floraveg_ids)
@@ -182,17 +193,18 @@ class HabitatDatasetRandomlySampleDuplicateLabelsMatching(Dataset):
         if self.transform:
             image = self.transform(image)
 
-        return image, label_enc, None, label, floraveg_id
+        return image, label_enc, [-1], label, floraveg_id
     
 class HabitatDatasetSoftMultilabels(Dataset):
-    def __init__(self, dataframe, image_dir, transform=None):
+    def __init__(self, dataframe, image_dir, n_u_classes=None, transform=None):
         self.df = dataframe.reset_index(drop=True)
         self.df['label'] = self.df['habitats_code_ID'].copy()
         self.floraveg_ids = dataframe['id_floraveg'].value_counts()
         self.labels = self.df['label']
         self.image_dir = image_dir
         self.transform = transform
-        self.n_classes = dataframe['label'].max()+1
+        self.max_unique_classes = n_u_classes
+        self.n_classes = dataframe['label'].nunique()
         self.label_encoding_table = dict(zip(self.df["habitats_code_ID"], self.df["habitats_code"]))
 
     def __len__(self):
@@ -211,7 +223,7 @@ class HabitatDatasetSoftMultilabels(Dataset):
         image = Image.open(img_path).convert("RGB")
 
         labels_enc = df_slice["label"].values.tolist()
-        labels_oh = sample_onehot_encode(labels_enc, self.n_classes)
+        labels_oh = sample_onehot_encode(labels_enc, self.max_unique_classes)  # !!!!!!!! TO DELETE, THIS IS OVERWRITTING PRE-DEFINED LABEL ENCODING
         labels_enc = ' '.join(str(i) for i in labels_enc)
         labels = ' '.join(str(i) for i in df_slice["habitats_code"].values.tolist())
 
@@ -219,6 +231,53 @@ class HabitatDatasetSoftMultilabels(Dataset):
             image = self.transform(image)
 
         return image, labels_oh, labels_enc, labels, floraveg_id
+
+
+class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
+    """Same as HabitatDatasetSoftMultilabels but assumes data is pre-formated for multi-labelling.
+
+    The CSV occurrences files are expected to contain 1 row per site (i.e. per unique id_floraveg).
+    The labels columns are to contain strings of labels separated by a semi-colon (e.g. "N1H;N1J;Q51").
+    Other columns are to be formated in the same way.
+    
+    The __getitem__ function returns a one-hot tensor based on the encoded labels (also expected to
+    be in the same format as regular labels).
+    """
+    def __init__(self, dataframe, image_dir, n_u_classes=None, transform=None):
+        super().__init__(dataframe, image_dir, n_u_classes, transform)
+        self.df['habitats_code_ID'] = self.df['habitats_code_ID'].astype(str)
+        self.df['habitats_code'] = self.df['habitats_code'].astype(str)
+        self.label_encoding_table = {}
+        for hc, hcid in zip(self.df["habitats_code"], self.df["habitats_code_ID"]):
+            labels = [str(i) for i in hc.split(';')]
+            labels_enc = [int(i) for i in hcid.split(';')]
+            self.label_encoding_table.update(dict(zip(labels_enc, labels)))
+
+    def __getitem__(self, idx):
+        row = self.df.iloc[idx]
+        floraveg_id = row['id_floraveg']
+
+        img_path = os.path.join(
+            self.image_dir,
+            row["filename_photos"].strip()
+        )
+
+        image = Image.open(img_path).convert("RGB")
+
+        labels_enc = [int(i) for i in row["habitats_code_ID"].split(';')]
+        labels_oh = sample_onehot_encode(labels_enc, self.max_unique_classes)
+        labels_enc_str = ' '.join(str(i) for i in labels_enc)
+        labels = row['habitats_code']
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, labels_oh, labels_enc_str, labels, floraveg_id
+    
+    def labels_value_counts(self, label_id):
+        """This method computes the number of samples per unique label in a multilabel dataframe"""
+        return self.label_value_counts[label_id]
+            
 
 
 # ----------------------------
@@ -239,22 +298,38 @@ def batch_onehot_encode(labels, n_classes):
 
 df = pd.read_csv(CSV_FILE)
 df_test = pd.read_csv(CSV_FILE_TEST)
+df['label'] = df['habitats_code_ID']
+df_test['label'] = df['habitats_code_ID']
 
-le = LabelEncoder()
-le.fit(pd.concat([df, df_test])["habitats_code"])
-df["label"] = le.transform(df["habitats_code"])
+if not NUM_UNIQUE_CLASSES:  # Only set based on data if not manually set at the begining of the config section
+    if MULTILABEL_CORRESPONDANCE_STRATEGY == 'soft_ml':
+        NUM_UNIQUE_CLASSES = pd.concat([df, df_test])['habitats_code'].nunique()
+    elif MULTILABEL_CORRESPONDANCE_STRATEGY == 'ml':
+        NUM_UNIQUE_CLASSES = pd.concat([df, df_test])['habitats_code'].dropna().str.split(';').explode().nunique()
+    else:
+        le = LabelEncoder()
+        le.fit(pd.concat([df, df_test])["habitats_code"])
+        df["label"] = le.transform(df["habitats_code"])
+        df_test = df_test[df_test["habitats_code"].isin(le.classes_)].copy()  # Should not change anything
+        df_test["label"] = le.transform(df_test["habitats_code"])
+        NUM_UNIQUE_CLASSES = len(le.classes_)
+print("[INFO] Total number of unique classes:", NUM_UNIQUE_CLASSES)
 
-df_test = df_test[df_test["habitats_code"].isin(le.classes_)].copy()  # Should not change anything
-df_test["label"] = le.transform(df_test["habitats_code"])
+if MULTILABEL_CORRESPONDANCE_STRATEGY in ['ml']:
+    label_value_counts = {}
+    for fid, hc, hcid in zip(df["id_floraveg"], df["habitats_code"], df["habitats_code_ID"]):
+        labels = [str(i) for i in hc.split(';')]
+        for label in labels:
+            label_value_counts[label] = label_value_counts[label] + 1 if label in label_value_counts.keys() else 1
+    df_labels_value_count = pd.DataFrame({'habitats_code_ID': list(label_value_counts.keys()), 'count': list(label_value_counts.values())})
+    habitats_single_occurrence = df_labels_value_count[df_labels_value_count['count']<=1]
 
-if MULTILABEL_CORRESPONDANCE_STRATEGY == 'soft_ml':
-    NUM_CLASSES = pd.concat([df, df_test])['habitats_code'].nunique()
+    habitats_counts = df['label'].value_counts()
+    habitats_single_occurrence = habitats_counts[habitats_counts == 1]
 else:
-    NUM_CLASSES = len(le.classes_)
-print("[INFO] Total number of classes:", NUM_CLASSES)
+    habitats_counts = df['label'].value_counts()
+    habitats_single_occurrence = habitats_counts[habitats_counts == 1]
 
-habitats_counts = df['label'].value_counts()
-habitats_single_occurrence = habitats_counts[habitats_counts == 1]
 if len(habitats_single_occurrence) > 1:
     df_habitats_single_occurrence = df[df['label'].isin(habitats_single_occurrence.index)]
     df = df[~df['label'].isin(habitats_single_occurrence.index)]
@@ -277,10 +352,15 @@ train_df = pd.concat([train_df, df_habitats_single_occurrence])
 # ----------------------------
 # Transforms
 # ----------------------------
+if MODEL == 'resnet18':
+    resize_transform = transforms.Resize((224,224))
+elif MODEL == 'dinov2_vits14':
+    resize_transform = transforms.Resize((518,518))
+else:
+    print(f'[ERROR] Unknown MODEL: {MODEL}, no resize transform applied !')
 
 train_tf = transforms.Compose([
-    # transforms.Resize((224,224)),  # Resnet18
-    transforms.Resize((518,518)),  # DinoV2
+    resize_transform,
     transforms.RandomHorizontalFlip(),
     transforms.RandomRotation(10),
     transforms.ToTensor(),
@@ -291,8 +371,7 @@ train_tf = transforms.Compose([
 ])
 
 val_tf = transforms.Compose([
-    # transforms.Resize((224,224)),  # Resnet18
-    transforms.Resize((518,518)),  # DinoV2
+    resize_transform,
     transforms.ToTensor(),
     transforms.Normalize(
         mean=[0.485,0.456,0.406],
@@ -314,10 +393,18 @@ match MULTILABEL_CORRESPONDANCE_STRATEGY:
     case 'soft_ml':
         dataset = HabitatDatasetSoftMultilabels
         test_dataset = HabitatDatasetSoftMultilabels
+    case 'ml':
+        dataset = HabitatDatasetMultilabels
+        test_dataset = HabitatDatasetMultilabels
+    case _:
+        print(f'[ERROR] Unknown MULTILABEL_CORRESPONDANCE_STRATEGY: {MULTILABEL_CORRESPONDANCE_STRATEGY}')
 
-train_dataset = dataset(train_df, IMAGE_DIR, train_tf)
-val_dataset = dataset(val_df, IMAGE_DIR, val_tf)
-test_dataset = test_dataset(df_test, IMAGE_DIR, val_tf)
+train_dataset = dataset(train_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=train_tf)
+val_dataset = dataset(val_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
+test_dataset = test_dataset(df_test, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
+# train_dataset = HabitatDatasetRandomlySampleDuplicateLabelsMatching(train_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=train_tf)
+# val_dataset = HabitatDatasetRandomlySampleDuplicateLabelsMatching(val_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
+# test_dataset = HabitatDatasetSoftMultilabels(df_test, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
 
 train_loader = DataLoader(
     train_dataset,
@@ -339,12 +426,12 @@ test_loader = DataLoader(
     shuffle=False,
     num_workers=NUM_WORKERS
 )
-
-print("[INFO] Train size:", len(train_loader))
+print("[INFO] Train size:", len(train_loader.dataset))
 print("[INFO] Number of classes in the training set:", train_loader.dataset.n_classes)
-print("[INFO] Val size:", len(val_loader))
-print(f"[INFO] Number of classes in the validation set: {val_loader.dataset.n_classes} ({len(set(val_loader.dataset.labels) & set(train_loader.dataset.labels)) / val_loader.dataset.n_classes * 100:.2f}% overlap with train)")
-print("[INFO] Test size:", len(test_loader))
+print("[INFO] Val size:", len(val_loader.dataset))
+print(f"[INFO] Number of classes in the validation set: {val_loader.dataset.n_classes} ({len(set(val_loader.dataset.labels) & set(train_loader.dataset.labels)) / train_loader.dataset.n_classes * 100:.2f}% overlap with train)")
+print("[INFO] Test size:", len(test_loader.dataset))
+print(f"[INFO] Number of classes in the test set: {test_loader.dataset.n_classes} ({len(set(test_loader.dataset.labels) & set(train_loader.dataset.labels)) / train_loader.dataset.n_classes * 100:.2f}% overlap with train)")
 
 # ----------------------------
 # Model
@@ -356,13 +443,13 @@ match MODEL:
         model = models.resnet18(weights="IMAGENET1K_V1")
         model.fc = nn.Linear(
             model.fc.in_features,
-            NUM_CLASSES,
+            NUM_UNIQUE_CLASSES,
         )
     case 'dinov2_vits14':
         print("[INFO] Using DINOv2 ViT-S/14")
         model = timm.create_model('timm/vit_small_patch14_dinov2.lvd142m',
                                   pretrained=True,
-                                  num_classes=NUM_CLASSES)
+                                  num_classes=NUM_UNIQUE_CLASSES)
 
 model = model.to(DEVICE)
 
@@ -380,6 +467,8 @@ def get_criterion(logits, labels):
             criterion = nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
             ones_per_row = labels.sum(dim=1, keepdim=True)
             labels = labels / ones_per_row.clamp(min=1)
+            for row in labels:
+                non_zero_values = row[row != 0]
             loss = criterion(logits, labels)
         case 'KL_divergence':
             criterion = F.kl_div(
@@ -397,10 +486,14 @@ def top1_soft_multilabels_accuracy(y_true, y_pred):
     top_indices = np.argmax(y_pred, axis=1)
     result = (y_true[np.arange(y_true.shape[0]), top_indices] == 1).astype(int)
     return result.mean()
-    
+
+def topk_soft_multilabels_accuracy(y_true, y_pred, k):
+    top_indices = np.argsort(y_pred, axis=1)[:, -k:]
+    # result = (y_true[np.arange(y_true.shape[0]), top_indices] == 1).astype(int)
+    return result.mean()
     
 def compute_metrics(y_true, y_pred, y_prob):
-    if MULTILABEL_CORRESPONDANCE_STRATEGY == 'soft_ml':
+    if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
         acc_top1_softml = top1_soft_multilabels_accuracy(y_true, y_prob)
         return [acc_top1_softml]
     else:
@@ -445,7 +538,7 @@ def compute_metrics(y_true, y_pred, y_prob):
 # Epoch runner
 # ----------------------------
 
-def run_epoch(loader, split, training=True):
+def run_epoch(loader, split, epoch_nb, training=True):
 
     if training:
         model.train()
@@ -499,11 +592,11 @@ def run_epoch(loader, split, training=True):
     
     wandb.log({
         f"loss (epoch)/{split}": loss,
-    }, step=epoch)
-    if MULTILABEL_CORRESPONDANCE_STRATEGY == 'soft_ml':
+    }, step=epoch_nb)
+    if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
         wandb.log({
             f"acc_top1_softml (epoch)/{split}": metrics[0],
-        }, step=epoch)
+        }, step=epoch_nb)
 
     return loss, metrics
 
@@ -531,18 +624,20 @@ if not INFERENCE:
         train_loss, train_metrics = run_epoch(
             train_loader,
             'train',
+            epoch,
             training=True
         )
 
         val_loss, val_metrics = run_epoch(
             val_loader,
             'val',
+            epoch,
             training=False
         )
 
         print("\nTRAIN")
         print("Loss:",train_loss)
-        if MULTILABEL_CORRESPONDANCE_STRATEGY == 'soft_ml':
+        if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
             print("Acc_top1_soft_multilabels:", train_metrics[0])
         else:
             print("Acc:",train_metrics[0])
@@ -553,7 +648,7 @@ if not INFERENCE:
 
         print("\nVAL")
         print("Loss:",val_loss)
-        if MULTILABEL_CORRESPONDANCE_STRATEGY == 'soft_ml':
+        if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
             print("Acc_top1_soft_multilabel", val_metrics[0])
             # Save logs
             with open(TRAIN_METRICS,"a") as f:
@@ -594,7 +689,7 @@ if not INFERENCE:
 
         # Save last model
         torch.save({
-            "epoch": EPOCHS,
+            "epoch": epoch,
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
         }, LAST_MODEL_PATH)
@@ -618,12 +713,13 @@ model.load_state_dict(checkpoint["model_state_dict"])
 test_loss, test_metrics = run_epoch(
     test_loader,
     'test',
+    0,
     training=False
 )
 
 print("\nTEST")
 print("Loss:",test_loss)
-if MULTILABEL_CORRESPONDANCE_STRATEGY == 'soft_ml':
+if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
     print("Acc_top1_soft_multilabel", test_metrics[0])
     
     # Save logs
@@ -693,7 +789,21 @@ with torch.no_grad():
 
 # Decode labels
 pred_df = df_test.reset_index(drop=True).copy()
-if MULTILABEL_CORRESPONDANCE_STRATEGY == 'soft_ml':
+if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml']:
+    # Length of dataset = n_unique id_floraveg
+    pred_df = pred_df.drop_duplicates(subset=['id_floraveg']).reset_index(drop=True)
+    dataset_labels_table = {**train_loader.dataset.label_encoding_table, **test_loader.dataset.label_encoding_table}
+    for i in range(len(pred_df)):
+        floraveg_id = pred_df.loc[i, 'id_floraveg']
+        pred_df.loc[i, 'pred_label'] = dataset_labels_table[res[floraveg_id]['all_preds']]
+        pred_df.loc[i, 'pred_label_encoded'] = res[floraveg_id]['all_preds']
+        pred_df.loc[i, 'pred_confidence'] = res[floraveg_id]['all_preds_confidence']
+        pred_df.loc[i, 'habitats_code'] = res[floraveg_id]['all_labels']
+        pred_df.loc[i, 'habitats_code_ID'] = res[floraveg_id]['all_labels_enc_softml_str']
+        pred_df.loc[i, 'valid_prediction'] = str(int(pred_df.loc[i, 'pred_label_encoded'])) in pred_df.loc[i, 'habitats_code_ID']
+    pred_df['pred_label_encoded'] = pred_df['pred_label_encoded'].astype(int)
+    pred_df['label'] = pred_df['habitats_code_ID']
+elif MULTILABEL_CORRESPONDANCE_STRATEGY in ['ml']:
     # Length of dataset = n_unique id_floraveg
     pred_df = pred_df.drop_duplicates(subset=['id_floraveg']).reset_index(drop=True)
     dataset_labels_table = {**train_loader.dataset.label_encoding_table, **test_loader.dataset.label_encoding_table}

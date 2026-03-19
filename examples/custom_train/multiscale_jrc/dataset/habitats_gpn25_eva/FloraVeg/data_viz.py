@@ -11,8 +11,10 @@ def bar_plot_habitats_soft_multilabel(df, counts, title='', plot_width=10, fp_ou
     uhabitats_per_k_multilabel = {}
     colors = ['#FF2A00']
     uhabitats_per_k_multilabel['All'] = df['habitats_code'].nunique()
+    bar_labels = [f'{uhabitats_per_k_multilabel['All']}\n({100*uhabitats_per_k_multilabel['All']/uhabitats_per_k_multilabel['All']:.2f}%)']
     for k in range(min(counts_per_k_multilabel.keys()), max(counts_per_k_multilabel.keys())+1, 1):
         uhabitats_per_k_multilabel[str(k)] = df[df['id_floraveg'].isin(counts_per_k_multilabel[k])]['habitats_code'].nunique()
+        bar_labels.append(f'{uhabitats_per_k_multilabel[str(k)]}\n({100*uhabitats_per_k_multilabel[str(k)]/uhabitats_per_k_multilabel['All']:.2f}%)')
         colors.append('orange')
     
 
@@ -22,6 +24,7 @@ def bar_plot_habitats_soft_multilabel(df, counts, title='', plot_width=10, fp_ou
 
     ax.set_xlabel('k')
     ax.set_ylabel("Nb of unique habitats")
+    ax.set_ylim([0, 250])
     ax.set_title(
         f"Distribution of unique habitats for each 1-to-k soft multilabel samples\n",
         fontsize=11
@@ -36,7 +39,7 @@ def bar_plot_habitats_soft_multilabel(df, counts, title='', plot_width=10, fp_ou
     plt.xticks(rotation=0)
 
     # Add bar labels
-    ax.bar_label(ax.containers[0], padding=3)
+    ax.bar_label(ax.containers[0], bar_labels, padding=1, label_type='edge')
 
     # --- Floating info box ---
     # n_unique_habitats = df['habitats'].nunique()
