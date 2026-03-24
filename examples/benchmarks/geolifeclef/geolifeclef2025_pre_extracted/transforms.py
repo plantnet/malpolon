@@ -238,8 +238,8 @@ class QuantileNormalizeFromPreComputedDatasetPercentiles:
     def __call__(
         self,
         img: np.ndarray,
-        fp_quantiles: Union[str, Path] = "dataset/geolifeclef-2025/Stats/Satellite_quantiles_linear_approx-100.npy",
-        fp_min_max: Union[str, Path] = "dataset/geolifeclef-2025/Stats/Satellite_min-max_values_linear_approx-100.npy",
+        fp_quantiles: Union[str, Path] = "dataset/Stats/Satellite_quantiles_linear_approx-100.npy",
+        fp_min_max: Union[str, Path] = "dataset/Stats/Satellite_min-max_values_linear_approx-100.npy",
     ):
         """Call method.
 

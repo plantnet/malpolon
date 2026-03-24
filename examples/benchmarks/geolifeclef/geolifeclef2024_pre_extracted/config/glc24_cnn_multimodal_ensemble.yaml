@@ -4,7 +4,7 @@ hydra:
 
 run:
   predict: False
-  checkpoint_path: "outputs/glc24_cnn_multimodal_ensemble/pretrained.ckpt"
+  checkpoint_path: # "outputs/glc24_cnn_multimodal_ensemble/pretrained.ckpt"
 
 data:
   root: "dataset/geolifeclef-2024/"

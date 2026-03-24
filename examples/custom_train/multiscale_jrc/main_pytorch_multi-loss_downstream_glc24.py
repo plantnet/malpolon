@@ -297,7 +297,7 @@ if __name__ == "__main__":
         'learning_rate': 0.01, # 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "TEST TO DELETE INFERENCE [Downstream] GLC24 train/val, multi-loss model frozen bb, linear-probing (3 hidd layers), f1 threshold computed on val, landscape+gps -> landscape+gps (from u6tiioze)",
+        'name': "TEST TO DELETE  (from u6tiioze)",
         'out_dim': 2048,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'subset_cls': 0.1,  # nb of random samples per class for train & val. Either int or float (percentage of the dataset size).
@@ -312,7 +312,7 @@ if __name__ == "__main__":
         'num_labels': 11255,
         'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
         'predict': False,
-        'wandb_mode': 'online',  # 'online', 'offline', 'disabled'
+        'wandb_mode': 'disabled',  # 'online', 'offline', 'disabled'
         'metrics': {'accuracy_type': 'precision',
                     'accuracy_average': 'micro',
                     'accuracy_topks': (1, 5, 20),

@@ -80,7 +80,7 @@ args = {
         'arch': 'multi-loss',  # always paired with gps
         'OAR_job_id': os.getenv("OAR_JOB_ID", "no_jobid"),
         'batch_size': 16,
-        'ckpt_path':  'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar', # 'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar',
+        'ckpt_path':  'outputs/Downstream satellite img GLC24 IMAGENET pretraining/last.pt',  # 'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar', # 'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar',
         'resume_wandb_run': False,
         'device': "cuda",
         'disable_cuda': False,
@@ -107,7 +107,7 @@ args = {
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
         'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
-        'predict': False,
+        'predict': True,
         'wandb_mode': 'online',  # 'online', 'offline', 'disabled'
         'metrics': {'accuracy_type': 'precision',
                     'accuracy_average': 'micro',
@@ -846,7 +846,7 @@ def run_inference(
 
             images = images.to(device)
             labels = labels.to(device).float()
-            gps = gps.to(device).float()
+            gps = torch.tensor(gps, dtype=torch.float32).to(device)
 
             data = {
                 "satellite_img": images,
@@ -854,9 +854,15 @@ def run_inference(
             }
 
             logits = None
-            for k, v in data.items():
-                logits, _ = forward_accumulate(
-                    model, criterion, v, k, loss=0.0, labels=labels
+            loss = 0.0
+            # for k, v in data.items():
+            #     logits, _ = forward_accumulate(
+            #         model, criterion, v, k, loss=0.0, labels=labels
+            #     )
+            for k in args.downstream_modalities_to_process:
+                logits, loss = forward_accumulate(
+                    model, criterion, data[k], k,
+                    loss=loss, labels=labels
                 )
 
             probs = torch.sigmoid(logits)
@@ -928,25 +934,25 @@ def run_inference(
 # ## Train !
 
 # %%
-train_validate(
-    classifier,
-    train_loader,
-    val_loader,
-    optimizer,
-    device,
-    args.epochs,
-    args.num_labels,
-    output_dir='outputs',
-    f1_threshold=0.3,
-)
-
-
-# run_inference(
+# train_validate(
 #     classifier,
-#     'outputs/Downstream satellite img+gps GLC24 | subset_cls=0.01/best.pt',
-#     test_loader,
-#     device=device,
-#     num_classes = args.num_labels,
-#     output_dir = 'outputs/inference/Downstream satellite img+gps GLC24 | subset_cls=0.01/',
-#     threshold=0.3
+#     train_loader,
+#     val_loader,
+#     optimizer,
+#     device,
+#     args.epochs,
+#     args.num_labels,
+#     output_dir='outputs/Downstream satellite img GLC24 IMAGENET pretraining',
+#     f1_threshold=0.3,
 # )
+
+
+run_inference(
+    classifier,
+    'outputs/Downstream satellite img GLC24 IMAGENET pretraining/last.pt',
+    test_loader,
+    device=device,
+    num_classes = args.num_labels,
+    output_dir = 'outputs/inference/Downstream satellite img GLC24 IMAGENET pretraining/',
+    threshold=0.3
+)

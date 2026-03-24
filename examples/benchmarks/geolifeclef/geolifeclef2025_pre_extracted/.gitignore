@@ -8,3 +8,6 @@ dataset/geolifeclef-2025/SateliteTimeSeries-Landsat
 dataset/geolifeclef-2025/*.csv
 
 dataset/geolifeclef-2025/stats/fps*
+
+# Run scripts
+./*.sh

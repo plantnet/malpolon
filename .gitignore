@@ -9,6 +9,8 @@
 # Jobs
 *.stderr
 *.stdout
+*.err
+*.out
 
 # Build utilities
 docs/_build

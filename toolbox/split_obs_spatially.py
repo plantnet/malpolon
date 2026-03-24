@@ -8,12 +8,16 @@ import argparse
 
 import pandas as pd
 from verde import train_test_split as spatial_tts
+import verde as vd
+from pyproj import Transformer
 
 from malpolon.plot.map import plot_observation_dataset as plot_od
 
 
 def main(input_path: str,
          spacing: float = 10 / 60,
+         source_crs: str = "EPSG:4326",
+         spacing_crs: str = "EPSG:4326",
          plot: bool = False,
          val_size: float = 0.15,
          col_lon: str = 'lon',
@@ -40,26 +44,46 @@ def main(input_path: str,
     """
     input_name = input_path[:-4] if input_path.endswith(".csv") else input_path
     df = pd.read_csv(f'{input_name}.csv')
+    
+    if source_crs != spacing_crs:
+        transformer = Transformer.from_crs(source_crs, spacing_crs, always_xy=True)
+        x, y = transformer.transform(df.lon.values, df.lat.values)
+        df_spacing = df.copy()
+        df_spacing['lon'] = x
+        df_spacing['lat'] = y
+    else:
+        x, y = df[col_lon].values, df[col_lat].values
+        df_spacing = df.copy()
+    
     coords, data = {}, {}
-    for col in df.columns:
+    for col in df_spacing.columns:
         if col in [col_lon, col_lat]:
-            coords[col] = df[col].to_numpy()
+            coords[col] = df_spacing[col].to_numpy()
         else:
-            data[col] = df[col].to_numpy()
-    train_split, val_split = spatial_tts((coords[col_lon], coords[col_lat]), tuple(data.values()),
-                                         spacing=spacing, test_size=val_size)
+            data[col] = df_spacing[col].to_numpy()
+
+    train_split, val_split = spatial_tts(
+        coordinates=(x, y),
+        data=tuple(data.values()),
+        spacing=spacing,
+        test_size=val_size
+    )
 
     df_train = pd.DataFrame(dict(zip(data.keys(), train_split[1])))
     df_val = pd.DataFrame(dict(zip(data.keys(), val_split[1])))
+    
+    df_train = df.loc[df_train.index]
+    df_val = df.loc[df_val.index]
+    
     df_train[['lon', 'lat']] = pd.DataFrame({'lon': train_split[0][0], 'lat': train_split[0][1]})
     df_val[['lon', 'lat']] = pd.DataFrame({'lon': val_split[0][0], 'lat': val_split[0][1]})
     df_train['subset'] = ['train'] * len(df_train)
     df_val['subset'] = ['val'] * len(df_val)
     df_train_val = pd.concat([df_train, df_val])
 
-    df_train_val.to_csv(f'{input_name}_train_val-{spacing*60}min.csv', index=False)
-    df_train.to_csv(f'{input_name}_train-{spacing*60}min.csv', index=False)
-    df_val.to_csv(f'{input_name}_val-{spacing*60}min.csv', index=False)
+    df_train_val.to_csv(f'{input_name}_train_val-{spacing*60}mina.csv', index=False)
+    df_train.to_csv(f'{input_name}_train-{spacing*60}mina.csv', index=False)
+    df_val.to_csv(f'{input_name}_val-{spacing*60}mina.csv', index=False)
 
     if plot:
         plot_od(df=df_train_val, show_map=True)
@@ -75,6 +99,14 @@ if __name__ == '__main__':
                         help="Size of the spatial split in degrees (or whatever unit the coordinates are in)",
                         default=10 / 60,
                         type=float)
+    parser.add_argument("--source_crs",
+                        help="CRS of the input coordinates.",
+                        default="EPSG:4326",
+                        type=str)
+    parser.add_argument("--spacing_crs",
+                        help="CRS in which to compute the spacing.",
+                        default="EPSG:4326",
+                        type=str)
     parser.add_argument("--val_size",
                         help="Size of the validation subset to produce.",
                         default=0.15,
@@ -91,4 +123,4 @@ if __name__ == '__main__':
                         help="If true, plot the train/val split at the end of the script.",
                         action='store_true')
     args = parser.parse_args()
-    main(args.input_path, args.spacing, plot=args.plot, val_size=args.val_size, col_lon=args.col_lon, col_lat=args.col_lat)
+    main(args.input_path, args.spacing, source_crs=args.source_crs, spacing_crs=args.spacing_crs, plot=args.plot, val_size=args.val_size, col_lon=args.col_lon, col_lat=args.col_lat)

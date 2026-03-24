@@ -32,9 +32,9 @@ from sklearn.metrics import (
 # ----------------------------
 INFERENCE = False
 INFERENCE_SUFFIX = '_1-to-1'
-TRAIN_SUFFIX = ''
-MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['naive', 'random sampling', 'soft_ml', 'ml']
-LOSS_FUNCTION = 'CE_soft_ml'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
+TRAIN_SUFFIX = '_1-to-1'
+MULTILABEL_CORRESPONDANCE_STRATEGY = 'random sampling'  # One of ['naive', 'random sampling', 'soft_ml', 'ml']
+LOSS_FUNCTION = 'CE'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
 LABEL_SMOOTHING = 0.0  # Float in [0, 1]
 
 CSV_S1_TRAIN = "metadata_labels_merged_S1_stratified_split-10.33%_train.csv"
@@ -49,7 +49,7 @@ CSV_S0BIS_TEST = f'metadata_labels_merged_S0bis-10%_test{INFERENCE_SUFFIX}.csv'
 CSV_FILE = CSV_S0BIS_TRAIN
 CSV_FILE_TEST = CSV_S0BIS_TEST # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
 IMAGE_DIR = "Images"
-OUTPUT_DIR = "baselines/B2_S0bis_1-to-1_ResNet18/"
+OUTPUT_DIR = "baselines/B2_S0bis_ResNet18_1-to-1_CE/"
 SAVE_DIR = OUTPUT_DIR
 
 MODEL = "resnet18"  # One of ['resnet18', 'dinov2_vits14']
@@ -76,7 +76,7 @@ TIME_STAMP_START = time()
 writer = wandb.init(
     entity="tlarcher-phd-jrc",
     project='habitats_floraveg',
-    name='B2_S0bis_new: resnet18 (1-to-k)',  #'Unique surveyId spatial split 0.06min, dropout',
+    name=f'{OUTPUT_DIR} (train {TRAIN_SUFFIX}, test {INFERENCE_SUFFIX})',  #'Unique surveyId spatial split 0.06min, dropout',
     notes="B2: Custom loss & metrics adapted for soft multilabelling.\n"
           "S1bis: Split over unique FLoraveg IDs (no leakeage) Stratified 1-to-k soft multilabels.",
     config={'MULTILABEL_CORRESPONDANCE_STRATEGY': MULTILABEL_CORRESPONDANCE_STRATEGY,
@@ -487,10 +487,10 @@ def top1_soft_multilabels_accuracy(y_true, y_pred):
     result = (y_true[np.arange(y_true.shape[0]), top_indices] == 1).astype(int)
     return result.mean()
 
-def topk_soft_multilabels_accuracy(y_true, y_pred, k):
-    top_indices = np.argsort(y_pred, axis=1)[:, -k:]
-    # result = (y_true[np.arange(y_true.shape[0]), top_indices] == 1).astype(int)
-    return result.mean()
+# def topk_soft_multilabels_accuracy(y_true, y_pred, k):
+#     top_indices = np.argsort(y_pred, axis=1)[:, -k:]
+#     # result = (y_true[np.arange(y_true.shape[0]), top_indices] == 1).astype(int)
+#     return result.mean()
     
 def compute_metrics(y_true, y_pred, y_prob):
     if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:

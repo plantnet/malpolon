@@ -15,6 +15,7 @@ from typing import Optional
 import timm
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from geoclip import LocationEncoder
 from omegaconf import OmegaConf
 from torchvision.datasets.utils import download_and_extract_archive, download_url
@@ -409,3 +410,34 @@ class MultiLabelClassifier(nn.Module):
             logits = self.classifier(features)
         return logits
 
+
+class ErrorDetectionClassifier(nn.Module):
+    def __init__(self, hidden_layer_size=32):
+        super().__init__()
+        self.hidden_layer_size = hidden_layer_size
+        
+        # Small MLP head
+        self.classifier = nn.Sequential(
+            nn.Linear(1, self.hidden_layer_size),
+            nn.ReLU(),
+            nn.Linear(self.hidden_layer_size, 2*self.hidden_layer_size),
+            nn.Dropout(0.1),
+            nn.Linear(2*self.hidden_layer_size, 1)
+        )
+
+    def forward(self, x1, x2):
+        """
+        x1, x2: tensors of shape (batch_size, feature_dim)
+        """
+
+        # Normalize (important for cosine similarity stability)
+        x1 = F.normalize(x1, dim=-1)
+        x2 = F.normalize(x2, dim=-1)
+
+        # Cosine similarity
+        sim = torch.sum(x1 * x2, dim=-1, keepdim=True)  # shape: (batch, 1)
+
+        # Pass through head
+        logits = self.classifier(sim)
+
+        return logits  # use with BCEWithLogitsLoss

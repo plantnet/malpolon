@@ -153,20 +153,24 @@ class DatasetSimple(Dataset):
         self.root_path = root_path
         self.metadata = pd.read_csv(f'{Path(fp_metadata)}') if fp_metadata is not None else pd.DataFrame()
         self.cls_id = cls_id
-        self.unique_cls = get_unique_values_from_df_column(self.metadata, self.cls_id)
-        ### sklearn LabelEncoder
-        from sklearn.preprocessing import LabelEncoder
-        self.le = LabelEncoder()
-        self.le.fit(self.unique_cls)
-        self.unique_cls = self.le.transform(self.unique_cls).tolist()
-        if 'test' in fp_metadata:  # Extremely janky
-            for rowi, row in deepcopy(self.metadata).iterrows():
-                speciesIds = np.array(row[self.cls_id].split()).astype(int)
-                speciesIds_le = self.le.transform(speciesIds).astype(str)
-                self.metadata.loc[rowi, self.cls_id] = ' '.join(speciesIds_le)
+        if self.cls_id is None or self.cls_id not in self.metadata.columns:
+            print(f"[INFO] Class column '{self.cls_id}' not found in metadata. Attribute self.unique_cls set to empty list []")
+            self.unique_cls = []
         else:
-            self.metadata[self.cls_id] = self.le.transform(self.metadata[self.cls_id]).tolist()
-        ###
+            self.unique_cls = get_unique_values_from_df_column(self.metadata, self.cls_id)
+            ### sklearn LabelEncoder
+            from sklearn.preprocessing import LabelEncoder
+            self.le = LabelEncoder()
+            self.le.fit(self.unique_cls)
+            self.unique_cls = self.le.transform(self.unique_cls).tolist()
+            if 'test' in fp_metadata:  # Extremely janky
+                for rowi, row in deepcopy(self.metadata).iterrows():
+                    speciesIds = np.array(row[self.cls_id].split()).astype(int)
+                    speciesIds_le = self.le.transform(speciesIds).astype(str)
+                    self.metadata.loc[rowi, self.cls_id] = ' '.join(speciesIds_le)
+            else:
+                self.metadata[self.cls_id] = self.le.transform(self.metadata[self.cls_id]).tolist()
+            ###
         self.subset = subset
         self.subset_cls = subset_cls
         if subset:
@@ -242,6 +246,14 @@ class LandscapeDatasetSimple(DatasetSimple):
     #     return len(self.query_ids) if not self.metadata.empty else 0
     # # inference end
     def __getitem__(self, index) -> Any:
+        """Return a sample of the dataset.
+
+        Args:
+            index (int): sample index
+
+        Returns:
+            tuple: image, coordinates, index, query id
+        """
         img, coords = self.img, self.coords
         if not self.metadata.empty:
             # # Inference

@@ -16,3 +16,10 @@ dataset/scale_2_landscape/old/
 *.err
 *.out
 *.sh
+
+# Resources
+./*.png
+./*.jpeg
+
+# Debug
+debug/

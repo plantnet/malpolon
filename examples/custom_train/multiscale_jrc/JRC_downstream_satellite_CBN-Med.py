@@ -79,7 +79,11 @@ args = {
         'arch': 'multi-loss',  # always paired with gps
         'OAR_job_id': os.getenv("OAR_JOB_ID", "no_jobid"),
         'batch_size': 16,
+<<<<<<< Updated upstream
         'ckpt_path':  'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar',  # 'outputs/Downstream satellite img+gps GLC24_CBN-Med | subset_cls=0.01/last.pt'
+=======
+        'ckpt_path':  'outputs/Downstream satellite img+gps GLC24_CBN-Med/last.pt',  # 'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar',
+>>>>>>> Stashed changes
         'resume_wandb_run': False,
         'device': "cuda",
         'disable_cuda': False,
@@ -106,7 +110,11 @@ args = {
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'num_labels': 11255,
         'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
+<<<<<<< Updated upstream
         'predict': False,
+=======
+        'predict': True,
+>>>>>>> Stashed changes
         'wandb_mode': 'online',  # 'online', 'offline', 'disabled'
         'metrics': {'accuracy_type': 'precision',
                     'accuracy_average': 'micro',
@@ -941,6 +949,7 @@ def run_inference(
 # ## Train !
 
 # %%
+<<<<<<< Updated upstream
 train_validate(
     classifier,
     train_loader,
@@ -963,3 +972,27 @@ train_validate(
 #     output_dir = 'outputs/inference/Downstream satellite img+gps GLC24_CBN-Med | subset_cls=0.01/',
 #     threshold=0.3
 # )
+=======
+# train_validate(
+#     classifier,
+#     train_loader,
+#     val_loader,
+#     optimizer,
+#     device,
+#     args.epochs,
+#     args.num_labels,
+#     output_dir='outputs/Downstream satellite img+gps GLC24_CBN-Med/',
+#     f1_threshold=0.3,
+# )
+
+
+run_inference(
+    classifier,
+    'outputs/Downstream satellite img+gps GLC24_CBN-Med/last.pt',
+    test_loader,
+    device=device,
+    num_classes = args.num_labels,
+    output_dir = 'outputs/inference/Downstream satellite img+gps GLC24_CBN-Med/',
+    threshold=0.3
+)
+>>>>>>> Stashed changes
