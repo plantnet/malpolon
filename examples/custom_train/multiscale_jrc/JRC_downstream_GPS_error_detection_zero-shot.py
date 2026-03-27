@@ -9,16 +9,23 @@ import torch
 import pandas as pd
 import numpy as np
 import csv
-from torch.amp import GradScaler
-from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
-from torch.utils.data import DataLoader, Dataset
 from matplotlib import pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import (
     f1_score,
     roc_auc_score,
-    precision_score
+    precision_score,
+    average_precision_score
 )
+import torch.nn.functional as F
+from torch.amp import GradScaler
+from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
+from torch.utils.data import DataLoader, Dataset
+from torchvision import transforms
+from torchvision.io import read_image
+from torchmetrics.functional import minkowski_distance, mean_squared_error, cosine_similarity
+from torchvision.transforms import CenterCrop, Resize
+
 from malpolon.data.datasets.jrc_multiscale import (
     LandscapeDatasetSimple, load_LUCAS_img,
 )
@@ -29,11 +36,6 @@ from malpolon.models.custom_models.jrc_multiscale.jrc_contrastive_losses import 
     KoLeoLoss, MCR
 )
 from transforms import (transforms_species, transforms_satellite)
-from torchvision import transforms
-from torchvision.io import read_image
-from torchmetrics.functional import minkowski_distance, mean_squared_error, cosine_similarity
-from torchvision.transforms import CenterCrop, Resize
-
 
 # %% [markdown]
 # ## Parameters
@@ -46,15 +48,16 @@ LANDSCAPE_INPUT_SIZE = 518
 SATELLITE_INPUT_SIZE = 128
 
 ROOT_PATH_LUCAS = 'dataset/scale_2_landscape/'
+OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_LUCAS/'
 
 DATA_PATHS = {'train': {
-                  'landscape_dir': ROOT_PATH_LUCAS,
+                  'landscape_dir': os.path.join(ROOT_PATH_LUCAS, 'LUCAS/'),
                 },
               'val': {
-                  'landscape_dir': ROOT_PATH_LUCAS,
+                  'landscape_dir': os.path.join(ROOT_PATH_LUCAS, 'LUCAS/'),
                 },
               'test': {
-                  'landscape_dir': ROOT_PATH_LUCAS,
+                  'landscape_dir': os.path.join(ROOT_PATH_LUCAS, 'LUCAS/'),
                 }
              }
 METADATA_PATHS = {'train':  os.path.join(ROOT_PATH_LUCAS, "lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min_noisy_100m.csv"),
@@ -67,10 +70,11 @@ BATCH_SIZE = 64
 EPOCHS = 50
 LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 1e-6
-
 # NUM_WORKERS = 8
 # WARMUP_EPOCHS = 5
 
+## Inference mode
+SCORE_MODE = "cosine"  # "cosine" or "sigmoid"
 
 args = {
         'arch': 'multi-loss',  # always paired with gps
@@ -203,13 +207,14 @@ test_loader = DataLoader(
 ## Models
 # model_species = ModelSimCLR(base_model='species', out_dim=args.out_dim, dropout=args.dropout,
 #                             freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
-model = ModelSimCLR(base_model='landscape', out_dim=args.out_dim, dropout=args.dropout,
+model_landscape = ModelSimCLR(base_model='landscape', out_dim=args.out_dim, dropout=args.dropout,
                                 freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
 # model_satellite = ModelSimCLR(base_model='satellite', out_dim=args.out_dim, dropout=args.dropout,
 #                                 gps_encoder=model_species.gps_encoder, gps_head=model_species.gps_contrastive_head,
 #                                 freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
 # model = torch.nn.ModuleList([model_species, model_landscape, model_satellite])
-model = model.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
+model = model_landscape.to(args.device)  # Must happen before instanciating he optimizer in case of loading a checkpoint
+model = torch.nn.DataParallel(model, device_ids=[0])
 
 # Transfer learning: linear probing / fine-tuning
 def filter_state_dict_keys(state_dict, prefix="landscape"):
@@ -219,23 +224,20 @@ def filter_state_dict_keys(state_dict, prefix="landscape"):
         if k.startswith(prefix)
     }
 
-if args.ckpt_path and args.predict == "False":
+def filter_state_dict_keys_data_parallel(state_dict, prefix="landscape"):
+    return {
+        f'module.{k.split(prefix)[1]}': v
+        for k, v in state_dict.items()
+        if k.startswith(prefix)
+    }
+
+if args.ckpt_path:
     checkpoint = torch.load(args.ckpt_path, map_location='cuda' if not args.disable_cuda else 'cpu')
-    landscape_sd = filter_state_dict_keys(checkpoint['state_dict'], prefix='landscape.')
+    landscape_sd = filter_state_dict_keys_data_parallel(checkpoint['state_dict'], prefix='landscape.')
     model.load_state_dict(landscape_sd)
     print(f"Checkpoint loaded from {args.ckpt_path}")
 
-# Evaluation strategy
-classifier = ErrorDetectionClassifier(hidden_layer_size=32)
-classifier = torch.nn.DataParallel(classifier, device_ids=[0])
-
-# Inference
-if args.ckpt_path and args.predict == "True":
-    checkpoint = torch.load(args.ckpt_path, map_location='cuda' if not args.disable_cuda else 'cpu')
-    classifier.load_state_dict(checkpoint['state_dict'])
-    print(f"Checkpoint loaded from {args.ckpt_path}")
-
-optimizer = torch.optim.AdamW(classifier.module.classifier.parameters() if isinstance(classifier, torch.nn.parallel.DataParallel) else classifier.classifier.parameters(),
+optimizer = torch.optim.AdamW(model.module.parameters() if isinstance(model, torch.nn.parallel.DataParallel) else model.parameters(),
                                 lr=args.learning_rate, weight_decay=args.weight_decay)
 warmup_scheduler = LinearLR(
     optimizer,
@@ -357,7 +359,6 @@ def forward_accumulate(model: torch.nn.Module,
 # %%
 def train_validate(
     model,
-    classifier,
     train_loader,
     val_loader,
     optimizer,
@@ -417,11 +418,11 @@ def train_validate(
                         logits_gps, logits_img = model.module(images, gps_noisy)
                     else:
                         logits_gps, logits_img = model(images, gps_noisy)
-                    # Pass logits to classifier which will compare the distance between each modality's features to determine if they match or not
-                    if isinstance(classifier, torch.nn.DataParallel):
-                        logits = classifier.module(logits_gps, logits_img)
+                    # Pass logits to model which will compare the distance between each modality's features to determine if they match or not
+                    if isinstance(model, torch.nn.DataParallel):
+                        logits = model.module(logits_gps, logits_img)
                     else:
-                        logits = classifier(logits_gps, logits_img)
+                        logits = model(logits_gps, logits_img)
                     loss = criterion(logits.flatten(), labels)
                     # loss += get_regularizer(logits, regularizer)
 
@@ -503,132 +504,103 @@ def run_inference(
     checkpoint_path,
     test_loader,
     device,
-    num_classes: str = 11255,
     output_dir: str = 'outputs/inference/',
-    threshold=0.3,
+    score_mode: str = "cosine",  # "cosine" or "sigmoid"
 ):
-    criterion = torch.nn.BCEWithLogitsLoss()
+    assert score_mode in ["cosine", "sigmoid"], "score_mode must be 'cosine' or 'sigmoid'"
+
     os.makedirs(output_dir, exist_ok=True)
 
-    # Load checkpoint
-    checkpoint = torch.load(checkpoint_path, map_location=device)
-    model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)
     model.eval()
 
     all_labels = []
-    all_probs = []
+    all_scores = []
     all_ids = []
 
     with torch.no_grad():
-        for data_dict in tqdm(test_loader):
-            images_landsat, images_bioclim, images_sentinel = data_dict["data"]
-            images = images_sentinel.clone()
-            labels = data_dict["label"]
-            gps = data_dict["gps"]
-            survey_ids = data_dict["survey_id"]
+        for step, data in tqdm(enumerate(test_loader), total=len(test_loader)):
+            images, gps, gps_noisy, gps_match, index, query_id = data
 
+            labels = gps_match.float().to(device)
             images = images.to(device)
-            labels = labels.to(device).float()
-            gps = gps.to(device).float()
+            gps_noisy = gps_noisy.to(device)
 
-            data = {
-                "satellite_img": images,
-                "satellite_gps": gps
-            }
+            # Forward pass
+            if isinstance(model, torch.nn.DataParallel):
+                logits_gps, logits_img = model.module(images, gps_noisy)
+            else:
+                logits_gps, logits_img = model(images, gps_noisy)
 
-            logits = None
-            for k, v in data.items():
-                logits, _ = forward_accumulate(
-                    model, criterion, v, k, loss=0.0, labels=labels
-                )
+            # Score computation options
+            if score_mode == "cosine":
+                emb_gps = F.normalize(logits_gps, dim=-1)
+                emb_img = F.normalize(logits_img, dim=-1)
+                # scores = torch.sum(emb_gps * emb_img, dim=-1)  # Manual
+                scores = cosine_similarity(emb_gps, emb_img)  # Using torchmetrics implementation (handles edge cases)
 
-            probs = torch.sigmoid(logits)
+            elif score_mode == "sigmoid":
+                scores = torch.sigmoid((logits_gps - logits_img).sum(dim=-1))  # logits are from similar feature spaces
 
             all_labels.append(labels.cpu())
-            all_probs.append(probs.cpu())
-            all_ids.extend(survey_ids)
+            all_scores.append(scores.cpu())
+            all_ids.extend(query_id)
 
     # Stack
-    ids = torch.tensor(all_ids).numpy()
     y_true = torch.cat(all_labels).numpy()
-    multi_label_indices = [' '.join(np.where(row > 0)[0].astype(str).tolist()) for row in y_true]
-    y_prob = torch.cat(all_probs).numpy()
-    preds = torch.argsort(torch.tensor(y_prob), dim=1, descending=True).numpy()
+    y_scores = torch.cat(all_scores).numpy()
 
-    # Save predictions
-    print(f"Saving top-25 predictions to {output_dir}...")
-    preds_path = os.path.join(output_dir, "predictions_top25.csv")
-    df = pd.DataFrame({'surveyId': ids.tolist(),
-                       'probas': [' '.join(y_prob[i, :25].astype(str).tolist()) for i in range(y_prob.shape[0])],
-                       'predictions': [' '.join(preds[i, :25].astype(str).tolist()) for i in range(preds.shape[0])],
-                       'target_species_ids': multi_label_indices})
-    df.to_csv(preds_path, index=False)
-    print('Done.')
+    # Metrics
+    roc_auc = roc_auc_score(y_true, y_scores)
+    pr_auc = average_precision_score(y_true, y_scores)
+
+    print(f"[{score_mode}] ROC-AUC: {roc_auc:.4f}")
+    print(f"[{score_mode}] PR-AUC: {pr_auc:.4f}")
+
+    # Save per-sample results
+    results_df = pd.DataFrame({
+        "id": all_ids,
+        "label": y_true,
+        "score": y_scores
+    })
+
+    results_path = os.path.join(output_dir, f"scores_{score_mode}.csv")
+    results_df.to_csv(results_path, index=False)
+
+    # Save metrics
+    metrics_df = pd.DataFrame([{
+        "score_mode": score_mode,
+        "roc_auc": roc_auc,
+        "pr_auc": pr_auc
+    }])
+
+    metrics_path = os.path.join(output_dir, f"metrics_{score_mode}.csv")
+    metrics_df.to_csv(metrics_path, index=False)
+
+    print(f"Saved results to {output_dir}")
+
+
+# Train / Infer !
+
+if not args.predict:
+    train_validate(
+        model,
+        train_loader,
+        val_loader,
+        optimizer,
+        device,
+        args.epochs,
+        args.num_labels,
+        output_dir='outputs/Downstream satellite img+gps GLC24_CBN-Med/',
+        f1_threshold=0.3,
+    )
+else:
+    run_inference(
+        model,
+        args.ckpt_path,
+        test_loader,
+        device=device,
+        output_dir = OUTPUT_DIR,
+        score_mode=SCORE_MODE,
+    )
     
-    print(f"Saving all predictions to {output_dir}...")
-    preds_path = os.path.join(output_dir, "predictions_all.csv")
-    df = pd.DataFrame({'surveyId': ids.tolist(),
-                       'probas': [' '.join(y_prob[i].astype(str).tolist()) for i in range(y_prob.shape[0])],
-                       'predictions': [' '.join(preds[i].astype(str).tolist()) for i in range(preds.shape[0])],
-                       'target_species_ids': multi_label_indices})
-    df.to_csv(preds_path, index=False)
-    print('Done.')
-
-    # # Metrics
-    # y_pred = (y_prob >= threshold).astype(int)
-    # f1_micro = f1_score(y_true, y_pred, average="micro", zero_division=0)
-    # precision = precision_score(y_true, y_pred, average="micro", zero_division=0)
-
-    # try:
-    #     auc = roc_auc_score(y_true, y_prob, average="micro")
-    # except ValueError:
-    #     auc = float("nan")
-
-    # recall_100 = recall_at_k(y_true, y_prob, k=min(100, num_classes))
-    # recall_20 = recall_at_k(y_true, y_prob, k=min(20, num_classes))
-
-    # metrics_path = os.path.join(output_dir, "metrics.csv")
-    # with open(metrics_path, "w", newline="") as f:
-    #     writer = csv.writer(f)
-    #     writer.writerow([
-    #         "f1_micro", "auc", "precision", "recall_100", "recall_20"
-    #     ])
-    #     writer.writerow([
-    #         f1_micro, auc, precision, recall_100, recall_20
-    #     ])
-
-    # print(
-    #     f"[TEST] "
-    #     f"F1-micro: {f1_micro:.4f} | "
-    #     f"AUC: {auc:.4f} | "
-    #     f"Precision: {precision:.4f} | "
-    #     f"Recall@100: {recall_100:.4f} | "
-    #     f"Recall@20: {recall_20:.4f}"
-    # )
-
-
-## Train !
-train_validate(
-    model,
-    classifier,
-    train_loader,
-    val_loader,
-    optimizer,
-    device,
-    args.epochs,
-    args.num_labels,
-    output_dir='outputs/Downstream satellite img+gps GLC24_CBN-Med/',
-    f1_threshold=0.3,
-)
-
-
-# run_inference(
-#     classifier,
-#     'outputs/Downstream satellite img+gps GLC24_CBN-Med/last.pt',
-#     test_loader,
-#     device=device,
-#     num_classes = args.num_labels,
-#     output_dir = 'outputs/inference/Downstream satellite img+gps GLC24_CBN-Med/',
-#     threshold=0.3
-# )
