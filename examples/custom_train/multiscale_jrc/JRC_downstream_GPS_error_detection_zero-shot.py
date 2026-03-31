@@ -668,6 +668,24 @@ def run_inference(
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, f"curves_{score_mode}.png"))
     plt.close()
+    
+    ## Wandb
+    y_true_wb = y_true
+    y_scores_wb = y_scores
+
+    ### --- Scalars ---
+    wandb.log({
+        f"{score_mode}/roc_auc": roc_auc,
+        f"{score_mode}/pr_auc": pr_auc,
+    })
+
+    ### --- Loging Matplotlib curves ---
+    ### Note: wandb's built-in pr-recall and roc curves plotting functions do not handle binary classification with scores of shape (N,)
+    wandb.log({
+        f"{score_mode}/curves_plot": wandb.Image(
+            os.path.join(output_dir, f"curves_{score_mode}.png")
+        )
+    })
 
     # Save per-sample results
     results_df = pd.DataFrame({
