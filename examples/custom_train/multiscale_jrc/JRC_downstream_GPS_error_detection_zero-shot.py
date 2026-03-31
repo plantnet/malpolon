@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from typing import List, Union, Optional, Callable, Any
 from tqdm import tqdm
 import torch
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import csv
@@ -13,17 +14,25 @@ from matplotlib import pyplot as plt
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import (
     f1_score,
+    roc_curve,
     roc_auc_score,
     precision_score,
-    average_precision_score
+    average_precision_score,
+    PrecisionRecallDisplay,
+    precision_recall_curve,
+    RocCurveDisplay,
+    roc_curve,
 )
+import wandb
+import torchvision
 import torch.nn.functional as F
 from torch.amp import GradScaler
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from torch.utils.data import DataLoader, Dataset
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 from torchvision.io import read_image
-from torchmetrics.functional import minkowski_distance, mean_squared_error, cosine_similarity
+from torchmetrics.functional import minkowski_distance, mean_squared_error
 from torchvision.transforms import CenterCrop, Resize
 
 from malpolon.data.datasets.jrc_multiscale import (
@@ -37,11 +46,8 @@ from malpolon.models.custom_models.jrc_multiscale.jrc_contrastive_losses import 
 )
 from transforms import (transforms_species, transforms_satellite)
 
-# %% [markdown]
-# ## Parameters
 
-# %%
-## Data params
+# Parameters
 
 SPECIES_INPUT_SIZE = 518
 LANDSCAPE_INPUT_SIZE = 518
@@ -62,7 +68,7 @@ DATA_PATHS = {'train': {
              }
 METADATA_PATHS = {'train':  os.path.join(ROOT_PATH_LUCAS, "lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min_noisy_100m.csv"),
                   'val':  os.path.join(ROOT_PATH_LUCAS, "lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_noisy_100m.csv"),
-                  'test':  os.path.join(ROOT_PATH_LUCAS, "glc24_pa_test_private_CBN-med_matching-LUCAS-500m_noisy_100m.csv"),
+                  'test':  os.path.join(ROOT_PATH_LUCAS, "glc24_pa_test_private_CBN-med_matching-LUCAS-500m_noisy_1000m.csv"),
                  }
 
 ## Hyper-params
@@ -79,7 +85,7 @@ SCORE_MODE = "cosine"  # "cosine" or "sigmoid"
 args = {
         'arch': 'multi-loss',  # always paired with gps
         'OAR_job_id': os.getenv("OAR_JOB_ID", "no_jobid"),
-        'batch_size': 32,
+        'batch_size': 8,
         'ckpt_path': 'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar',
         'resume_wandb_run': False,
         'device': "cuda",
@@ -97,7 +103,7 @@ args = {
         'out_dim': 2048,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'subset_cls': None,  # nb of random samples per class for train & val. Either int or float (percentage of the dataset size).
-        'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'
+        'wandb_project': 'GPS_error_detection',
         'weight_decay': 1e-3,
         'workers': os.cpu_count(),
         'warmup_epochs': 0,
@@ -108,17 +114,79 @@ args = {
         'num_labels': 11255,
         'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
         'predict': True,
-        'wandb_mode': 'disabled',  # 'online', 'offline', 'disabled'
+        'wandb_mode': 'online',  # 'online', 'offline', 'disabled'
         'metrics': {'accuracy_type': 'precision',
                     'accuracy_average': 'micro',
                     'accuracy_topks': (1, 5, 20),
                    },
     }
 args = SimpleNamespace(**args) if isinstance(args, dict) else args
-
+writer = wandb.init(
+    entity = "tlarcher-phd-jrc",
+    id = getattr(args, 'ckpt_path', '').split('/')[-2].split('-')[2] if (getattr(args, 'ckpt_path', None) and getattr(args, 'resume_wandb_run', False)) else None,
+    project = getattr(args, 'wandb_project', None),
+    name = args.name,
+    notes = f"",
+    config = args,
+    job_type = 'inference' if getattr(args, 'predict', False) else 'train',
+    mode = getattr(args, 'wandb_mode', 'offline'),
+)
 
 ## Dataloaders
-class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
+class LandscapeGPSErrorDetection(LandscapeDatasetSimple):    
+    def load_LUCAS_imgs_error_detection(
+        self,
+        sample,
+        root_path: str = "dataset/scale_2_landscape/",
+        return_gps: Optional[bool] = False,
+        return_ids: Optional[bool] = False,
+        return_fps: Optional[bool] = False,
+        return_n_img_per_lid: Optional[bool] = False,
+        gps_col: list = ['lon', 'lat'],
+        transform: Callable = None,
+    ):
+        lucas_data = {}
+        imgs = []
+        for l_id, l_fp in zip(sample['lucas_matching_ids'].split(';'), sample['file_path'].split(';')):
+            lucas_data[l_id] = {'fps': l_fp.split()}
+            lucas_data[l_id]['n_imgs'] = 0
+
+        # Iterate over every lucas_id
+        for l_id, v in lucas_data.items():
+            imgs = []
+            # Iterate over every 6 views of each lucas_id
+            for l_fp in v['fps']:
+                try:
+                    imgs.append(torchvision.io.read_image(str(Path(root_path) / Path(l_fp))))
+                except:
+                    print(f'[WARNING]: LUCAS image {l_fp} not found.')
+                    continue
+            lucas_data[l_id]['imgs'] = imgs
+            lucas_data[l_id]['n_imgs'] = len(imgs)
+            if sum(len(img) for img in lucas_data[l_id]['imgs']) == 0:
+                lucas_data[l_id]['imgs'] = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE) -1
+            else:
+                imgs = [transform(i) for i in lucas_data[l_id]['imgs']]
+                lucas_data[l_id]['imgs'] = torch.stack(imgs, dim=0)
+        
+        imgs = torch.cat([lucas_data[idx]['imgs'] for idx in lucas_data.keys()], dim=0)
+        gps = tuple(sample[gps_col].values.flatten())
+        fps = sample['file_path']
+        ids = sample['lucas_matching_ids']
+        n_img_per_ids = [lucas_data[l_id]['n_imgs'] for l_id in lucas_data.keys()]
+        res = [imgs]
+
+        # Order: imgs, gps, ids, fps
+        if return_gps:
+            res.append(gps)
+        if return_ids:
+            res.append(ids)
+        if return_fps:
+            res.append(fps)
+        if return_n_img_per_lid:
+            res.append(n_img_per_ids)
+        return tuple(res)
+
     def __getitem__(self, index) -> Any:
         """Return a sample of the dataset.
 
@@ -128,24 +196,29 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
         Returns:
             tuple: image, coordinates, index, query id
         """
-        img, coords = self.img, self.coords
+        imgs, gps = self.img, self.coords
         if not self.metadata.empty:
             sample = self.metadata.iloc[index]
-            img = load_LUCAS_img(index, self.metadata, self.root_path, **self.dataset_kwargs, transform=self.transform)
-            img = img.to(torch.float32)
-            img = self.transform(img)
-            if torch.equal(img, torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE) -1):
-                coords = (1000, 1000)
-                coords_noisy = (1000, 1000)
+            imgs, gps, lucas_ids, fps, n_img_per_ids = self.load_LUCAS_imgs_error_detection(sample, self.root_path, **self.dataset_kwargs,
+                                                       return_gps=True,
+                                                       return_ids=True,
+                                                       return_fps=True,
+                                                       return_n_img_per_lid=True,
+                                                       transform=self.transform)
+            imgs = imgs.to(torch.float32)
+            if torch.equal(imgs, torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE) -1):
+                gps = (1000, 1000)
+                gps_noisy = (1000, 1000)
                 gps_match = True
             else:
-                coords = tuple(sample[['lon', 'lat']].values.flatten())
-                coords_noisy = tuple(sample[['lon_noisy', 'lat_noisy']].values.flatten())
+                gps = tuple(sample[['lon', 'lat']].values.flatten())
+                gps_noisy = tuple(sample[['lon_noisy', 'lat_noisy']].values.flatten())
                 gps_match = bool(sample['gps_match'])
-            id = int(sample[self.query_id])
+            surveyId = int(sample[self.query_id])  # self.query_id inherited from LandscapeDatasetSimple. By default: 'id' and should be equal to surveyId if the CSV file is based off GLC24 PA
+            lucas_ids = [int(l_id) for l_id in lucas_ids.split(';')]
 
-        # return {'img': img, 'gps': coords}
-        return img, torch.Tensor(coords), torch.Tensor(coords_noisy), torch.tensor(gps_match), torch.tensor([index]), torch.tensor([id])
+        # Order: imgs, gps, gps_noisy, gps_match (binary label), plot ID, LUCAS IDs
+        return imgs, torch.Tensor(gps), torch.Tensor(gps_noisy), torch.tensor(gps_match),  torch.tensor([surveyId]), np.array(lucas_ids), np.array(n_img_per_ids)
 
 
 def transforms_landscape():
@@ -159,14 +232,19 @@ def transforms_landscape():
     return transforms.Compose(ts)
 
 def collate_landscape(original_batch):
-    imgs, gpss, gpss_noisy, gps_match, inds, ids = zip(*original_batch)
+    imgs, gpss, gpss_noisy, gps_match, s_ids, l_ids, n_img_per_ids = zip(*original_batch)
+
+    # Stackable quantities
     img_batched = torch.cat(list(imgs), dim=0)
     gps_batched = torch.stack(list(gpss), dim=0)
     gpss_noisy_batched = torch.stack(list(gpss_noisy), dim=0)
     gps_match_batched = torch.stack(list(gps_match), dim=0)
-    inds_batched = torch.stack(list(inds), dim=0)
-    ids_batched = torch.cat(ids, dim=0)
-    return img_batched, gps_batched, gpss_noisy_batched, gps_match_batched, inds_batched, ids_batched
+    s_ids_batched = torch.stack(list(s_ids), dim=0)
+    
+    # Quantities with variable amounts (impossible to stack)
+    l_ids_batched = list(l_ids)
+    n_img_per_ids_batched = list(n_img_per_ids)
+    return img_batched, gps_batched, gpss_noisy_batched, gps_match_batched, s_ids_batched, l_ids_batched, n_img_per_ids_batched
 
 custom_collate = collate_landscape
 dataset_train = LandscapeGPSErrorDetection(
@@ -356,7 +434,7 @@ def forward_accumulate(model: torch.nn.Module,
         loss += get_regularizer(logits, regularizer)
     return logits, loss
 
-# %%
+# TO ADAPT following dataloader modifications
 def train_validate(
     model,
     train_loader,
@@ -520,42 +598,76 @@ def run_inference(
 
     with torch.no_grad():
         for step, data in tqdm(enumerate(test_loader), total=len(test_loader)):
-            images, gps, gps_noisy, gps_match, index, query_id = data
+            images, gps, gps_noisy, gps_match, surveyIds, lucas_ids, n_img_per_ids = data
 
             labels = gps_match.float().to(device)
             images = images.to(device)
             gps_noisy = gps_noisy.to(device)
 
             # Forward pass
-            if isinstance(model, torch.nn.DataParallel):
-                logits_gps, logits_img = model.module(images, gps_noisy)
-            else:
-                logits_gps, logits_img = model(images, gps_noisy)
+            """
+            Since there are 1 to k LUCAS_ID per geolocalized sample;
+            and there are 1 to 6 image per LUCAS_ID,
+            we compute the mean logit values for all LUCAS_IDs tied to a geo-tagged point
+            """
+            logits_img, logits_gps, start, stop = [], [], 0, 0
+            for sample_idx in range(test_loader.batch_size):
+                stop = start + n_img_per_ids[sample_idx].sum()  # Number of loaded images per LUCAS_ID, per surveyId (i.e. plot, i.e. sample)
+                stop = stop + 1 if start == stop else stop  # If no images found for the current LUCAS_ID
+                images_sample = images[start:stop]
+                gps_sample = gps_noisy[sample_idx].repeat(images_sample.shape[0], 1)
+                if isinstance(model, torch.nn.DataParallel):
+                    logit_gps, logit_img = model.module(images_sample, gps_sample)
+                else:
+                    logit_gps, logit_img = model.module(images_sample, gps_sample)
+                logits_img.append(logit_img.mean(dim=0))
+                logits_gps.append(logit_gps[0])  # The same GPS values are passed in forward (se torch.repeat()) so all logits are equal. No need to call mean()
+                start = stop
+            logits_img = torch.stack(logits_img, dim=0)
+            logits_gps = torch.stack(logits_gps, dim=0)
 
             # Score computation options
             if score_mode == "cosine":
                 emb_gps = F.normalize(logits_gps, dim=-1)
                 emb_img = F.normalize(logits_img, dim=-1)
                 # scores = torch.sum(emb_gps * emb_img, dim=-1)  # Manual
-                scores = cosine_similarity(emb_gps, emb_img)  # Using torchmetrics implementation (handles edge cases)
+                scores = F.cosine_similarity(emb_gps, emb_img, dim=1)  # Using torchmetrics implementation (handles edge cases)
 
             elif score_mode == "sigmoid":
                 scores = torch.sigmoid((logits_gps - logits_img).sum(dim=-1))  # logits are from similar feature spaces
 
             all_labels.append(labels.cpu())
             all_scores.append(scores.cpu())
-            all_ids.extend(query_id)
+            all_ids.extend(surveyIds.cpu().ravel().tolist())
 
     # Stack
     y_true = torch.cat(all_labels).numpy()
     y_scores = torch.cat(all_scores).numpy()
 
     # Metrics
+    ## AUCs
     roc_auc = roc_auc_score(y_true, y_scores)
     pr_auc = average_precision_score(y_true, y_scores)
 
     print(f"[{score_mode}] ROC-AUC: {roc_auc:.4f}")
     print(f"[{score_mode}] PR-AUC: {pr_auc:.4f}")
+    
+    ## Curves
+    prec, recall, _ = precision_recall_curve(y_true, y_scores)
+    pr_display = PrecisionRecallDisplay(precision=prec, recall=recall, estimator_name='GPS-Image Cosine Similarity Score')
+    
+    fpr, tpr, _ = roc_curve(y_true, y_scores)
+    roc_display = RocCurveDisplay(fpr=fpr, tpr=tpr, estimator_name='GPS-Image Cosine Similarity Score')
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
+    plt.suptitle('Zero-shot inference of GPS-degraded GLC24 PA, from contrastive multi-scale pretraining.', fontsize=18)
+    ax1.set_title('ROC curve')
+    ax2.set_title('Precision-Recall curve')
+    roc_display.plot(ax=ax1)
+    pr_display.plot(ax=ax2)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, f"curves_{score_mode}.png"))
+    plt.close()
 
     # Save per-sample results
     results_df = pd.DataFrame({
