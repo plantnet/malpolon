@@ -53,8 +53,8 @@ SPECIES_INPUT_SIZE = 518
 LANDSCAPE_INPUT_SIZE = 518
 SATELLITE_INPUT_SIZE = 128
 
-ROOT_PATH_LUCAS = 'dataset/scale_2_landscape/'
-OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_LUCAS/'
+ROOT_PATH_LUCAS = 'dataset/scale_2_landscape'
+OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_LUCAS_noise_mixture/'
 
 DATA_PATHS = {'train': {
                   'landscape_dir': os.path.join(ROOT_PATH_LUCAS, 'LUCAS/'),
@@ -66,18 +66,12 @@ DATA_PATHS = {'train': {
                   'landscape_dir': os.path.join(ROOT_PATH_LUCAS, 'LUCAS/'),
                 }
              }
-METADATA_PATHS = {'train':  os.path.join(ROOT_PATH_LUCAS, "lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min_noisy_100m.csv"),
-                  'val':  os.path.join(ROOT_PATH_LUCAS, "lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_noisy_100m.csv"),
-                  'test':  os.path.join(ROOT_PATH_LUCAS, "glc24_pa_test_private_CBN-med_matching-LUCAS-500m_noisy_1000m.csv"),
+METADATA_PATHS = {
+    # 'train':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min_noise_mixture.csv"),
+    # 'val':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_noise_mixture.csv"),
+    'test':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_noise_mixture.csv"),
                  }
-
-## Hyper-params
-BATCH_SIZE = 64
-EPOCHS = 50
-LEARNING_RATE = 1e-4
-WEIGHT_DECAY = 1e-6
-# NUM_WORKERS = 8
-# WARMUP_EPOCHS = 5
+SEEDS = [2]# [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
 
 ## Inference mode
 SCORE_MODE = "cosine"  # "cosine" or "sigmoid"
@@ -92,33 +86,21 @@ args = {
         'disable_cuda': False,
         'dropout': 0.1,
         'epochs': 40,
-        'fp16_precision': False,
         'freeze_gps_backbone': True,
         'freeze_modality_backbone': True,
-        'gpu_index': 0,
-        'learning_rate': 0.01, # 0.00025,
-        'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
-        'max_iter': torch.inf,
         'name': "[Downstream: GPS error detection] (from u6tiioze)",
         'out_dim': 2048,
         'subset': None,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'subset_cls': None,  # nb of random samples per class for train & val. Either int or float (percentage of the dataset size).
         'wandb_project': 'GPS_error_detection',
-        'weight_decay': 1e-3,
         'workers': os.cpu_count(),
-        'warmup_epochs': 0,
         'log_images': True,  # If True, logs images to wandb
         'skip_modalities': ['satellite', 'species'], 
         'downstream_modalities_to_process': ['landscape_img', 'landscape_gps'],  # Will skip modalities during training
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
-        'num_labels': 11255,
-        'loss_criterion': 'BCE',  # Takes values in ['cross_entropy', 'BCE']
         'predict': True,
+        'verbose': False,
         'wandb_mode': 'online',  # 'online', 'offline', 'disabled'
-        'metrics': {'accuracy_type': 'precision',
-                    'accuracy_average': 'micro',
-                    'accuracy_topks': (1, 5, 20),
-                   },
     }
 args = SimpleNamespace(**args) if isinstance(args, dict) else args
 writer = wandb.init(
@@ -133,7 +115,20 @@ writer = wandb.init(
 )
 
 ## Dataloaders
-class LandscapeGPSErrorDetection(LandscapeDatasetSimple):    
+class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
+    def __init__(
+        self,
+        root_path: str = None,
+        fp_metadata: str = None,
+        transform: Callable = None,
+        dataset_kwargs: dict = {},
+        query_id: str = 'id',
+        verbose:bool = False,
+        **kwargs
+    ) -> None:
+        super().__init__(root_path, fp_metadata, transform, dataset_kwargs, query_id=query_id, **kwargs)
+        self.verbose = verbose
+   
     def load_LUCAS_imgs_error_detection(
         self,
         sample,
@@ -147,6 +142,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
     ):
         lucas_data = {}
         imgs = []
+        missing_imgs = []
         for l_id, l_fp in zip(sample['lucas_matching_ids'].split(';'), sample['file_path'].split(';')):
             lucas_data[l_id] = {'fps': l_fp.split()}
             lucas_data[l_id]['n_imgs'] = 0
@@ -159,7 +155,9 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
                 try:
                     imgs.append(torchvision.io.read_image(str(Path(root_path) / Path(l_fp))))
                 except:
-                    print(f'[WARNING]: LUCAS image {l_fp} not found.')
+                    if self.verbose:
+                        print(f'[WARNING]: LUCAS image {l_fp} not found.')
+                    missing_imgs.append(l_fp)
                     continue
             lucas_data[l_id]['imgs'] = imgs
             lucas_data[l_id]['n_imgs'] = len(imgs)
@@ -185,6 +183,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
             res.append(fps)
         if return_n_img_per_lid:
             res.append(n_img_per_ids)
+        res.append(missing_imgs)
         return tuple(res)
 
     def __getitem__(self, index) -> Any:
@@ -199,12 +198,16 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
         imgs, gps = self.img, self.coords
         if not self.metadata.empty:
             sample = self.metadata.iloc[index]
-            imgs, gps, lucas_ids, fps, n_img_per_ids = self.load_LUCAS_imgs_error_detection(sample, self.root_path, **self.dataset_kwargs,
-                                                       return_gps=True,
-                                                       return_ids=True,
-                                                       return_fps=True,
-                                                       return_n_img_per_lid=True,
-                                                       transform=self.transform)
+            imgs, gps, lucas_ids, fps, n_img_per_ids, missing_imgs = self.load_LUCAS_imgs_error_detection(
+                sample,
+                self.root_path,
+                **self.dataset_kwargs,
+                return_gps=True,
+                return_ids=True,
+                return_fps=True,
+                return_n_img_per_lid=True,
+                transform=self.transform
+            )
             imgs = imgs.to(torch.float32)
             if torch.equal(imgs, torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE) -1):
                 gps = (1000, 1000)
@@ -218,7 +221,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
             lucas_ids = [int(l_id) for l_id in lucas_ids.split(';')]
 
         # Order: imgs, gps, gps_noisy, gps_match (binary label), plot ID, LUCAS IDs
-        return imgs, torch.Tensor(gps), torch.Tensor(gps_noisy), torch.tensor(gps_match),  torch.tensor([surveyId]), np.array(lucas_ids), np.array(n_img_per_ids)
+        return imgs, torch.Tensor(gps), torch.Tensor(gps_noisy), torch.tensor(gps_match),  torch.tensor([surveyId]), np.array(lucas_ids), np.array(n_img_per_ids), np.array(missing_imgs)
 
 
 def transforms_landscape():
@@ -232,7 +235,7 @@ def transforms_landscape():
     return transforms.Compose(ts)
 
 def collate_landscape(original_batch):
-    imgs, gpss, gpss_noisy, gps_match, s_ids, l_ids, n_img_per_ids = zip(*original_batch)
+    imgs, gpss, gpss_noisy, gps_match, s_ids, l_ids, n_img_per_ids, missing_imgs = zip(*original_batch)
 
     # Stackable quantities
     img_batched = torch.cat(list(imgs), dim=0)
@@ -244,49 +247,17 @@ def collate_landscape(original_batch):
     # Quantities with variable amounts (impossible to stack)
     l_ids_batched = list(l_ids)
     n_img_per_ids_batched = list(n_img_per_ids)
-    return img_batched, gps_batched, gpss_noisy_batched, gps_match_batched, s_ids_batched, l_ids_batched, n_img_per_ids_batched
 
-custom_collate = collate_landscape
-dataset_train = LandscapeGPSErrorDetection(
-    root_path = DATA_PATHS['train']['landscape_dir'],
-    fp_metadata = METADATA_PATHS['train'],
-    transform = transforms_landscape(),
-    subset = args.subset,
-    cls_id=None,
-)
-dataset_val = LandscapeGPSErrorDetection(
-    root_path = DATA_PATHS['val']['landscape_dir'],
-    fp_metadata = METADATA_PATHS['val'],
-    transform = transforms_landscape(),
-    subset = args.subset,
-    cls_id=None,
-)
-dataset_test = LandscapeGPSErrorDetection(
-    root_path = DATA_PATHS['test']['landscape_dir'],
-    fp_metadata = METADATA_PATHS['test'],
-    transform = transforms_landscape(),
-    subset = args.subset,
-    cls_id=None,
-)
+    # No stacking needed
+    missing_imgs_batched = np.concatenate(list(missing_imgs), axis=0)
+    return img_batched, gps_batched, gpss_noisy_batched, gps_match_batched, s_ids_batched, l_ids_batched, n_img_per_ids_batched, missing_imgs_batched
 
-train_loader = DataLoader(
-            dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True, drop_last=True,
-            collate_fn=custom_collate,
-            sampler=None)
-val_loader = DataLoader(
-            dataset_val, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True, drop_last=True,
-            collate_fn=custom_collate,
-            sampler=None)
-test_loader = DataLoader(
-            dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True, drop_last=False,
-            collate_fn=custom_collate,
-            sampler=None)
 
 ## Models
 # model_species = ModelSimCLR(base_model='species', out_dim=args.out_dim, dropout=args.dropout,
 #                             freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
 model_landscape = ModelSimCLR(base_model='landscape', out_dim=args.out_dim, dropout=args.dropout,
-                                freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
+                              freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
 # model_satellite = ModelSimCLR(base_model='satellite', out_dim=args.out_dim, dropout=args.dropout,
 #                                 gps_encoder=model_species.gps_encoder, gps_head=model_species.gps_contrastive_head,
 #                                 freeze_modality_backbone=args.freeze_modality_backbone, freeze_gps_backbone=args.freeze_gps_backbone)
@@ -315,22 +286,7 @@ if args.ckpt_path:
     model.load_state_dict(landscape_sd)
     print(f"Checkpoint loaded from {args.ckpt_path}")
 
-optimizer = torch.optim.AdamW(model.module.parameters() if isinstance(model, torch.nn.parallel.DataParallel) else model.parameters(),
-                                lr=args.learning_rate, weight_decay=args.weight_decay)
-warmup_scheduler = LinearLR(
-    optimizer,
-    start_factor=0.05,  # Starts from 10 * lr
-    end_factor=1.0,     # Ends at 1.0 * lr = 1e-3
-    total_iters=args.warmup_epochs,
-)
-cosine_scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs)
-scheduler = SequentialLR(optimizer, schedulers=[warmup_scheduler, cosine_scheduler], milestones=[args.warmup_epochs])
-
-device = torch.device("cuda" if torch.cuda.is_available() and not args.disable_cuda else "cpu")
-
-
 ## Pipeline
-
 def inspect_first_batch(images, labels, epoch, phase, save_dir="first_batch_images", max_images=3):
     """
     images: Tensor [B, C, H, W]
@@ -434,148 +390,130 @@ def forward_accumulate(model: torch.nn.Module,
         loss += get_regularizer(logits, regularizer)
     return logits, loss
 
-# TO ADAPT following dataloader modifications
-def train_validate(
-    model,
-    train_loader,
-    val_loader,
-    optimizer,
-    device,
-    epochs: int,
-    num_classes: int,
-    output_dir: str,
-    f1_threshold: float = 0.3,
-):
-    os.makedirs(output_dir, exist_ok=True)
+from pathlib import Path
+from collections import Counter
 
-    criterion = torch.nn.BCEWithLogitsLoss()
-    best_val_loss = float("inf")
+def remap_keys(d, key_map):
+    """
+    d: dict original
+    key_map: dict {old_key: new_key}
+    """
+    return {
+        key_map.get(k, k): v
+        for k, v in d.items()
+    }
 
-    metrics_path = os.path.join(output_dir, "metrics.csv")
+def count_unique_last_letters(file_paths, ignore_case=False):
+    """
+    Count unique last letters of file names (without extension).
 
-    # Initialize CSV
-    with open(metrics_path, "w", newline="") as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            "epoch", "phase", "loss",
-            "f1_micro", "auc", "precision",
-            "recall_100", "recall_20"
-        ])
+    Parameters
+    ----------
+    file_paths : list of str or Path
+    ignore_case : bool
+        If True, normalize letters to lowercase
 
-    for epoch in range(1, epochs + 1):
-        print(f"Epoch {epoch}/{epochs}")
+    Returns
+    -------
+    dict : {letter: count}
+    """
+    letter_to_category = {
+        'C': 'Cover',
+        'N': 'North',
+        'S': 'South',
+        'E': 'East',
+        'W': 'West',
+        'P': 'Point',
+    }
+    last_letters = []
 
-        for phase, loader in [("train", train_loader), ("val", val_loader)]:
-            is_train = phase == "train"
-            model.train() if is_train else model.eval()
+    for fp in file_paths:
+        name = Path(fp).stem  # filename without extension
+        if len(name) == 0:
+            continue
 
-            all_labels = []
-            all_probs = []
-            running_loss = 0.0
+        last_char = name[-1]
+    
+        # Option: keep only alphabetic characters
+        if not last_char.isalpha():
+            continue
 
-            for step, data in enumerate(tqdm(loader)):
-                images, gps, gps_noisy, gps_match, index, query_id = data
-                labels = gps_match
+        if ignore_case:
+            last_char = last_char.lower()
 
-                images = images.to(device)
-                labels = labels.to(device).float()
-                gps_noisy = gps_noisy.to(device)
+        last_letters.append(last_char)
+    out_dict = remap_keys(dict(Counter(last_letters)), letter_to_category)
+    out_dict['Total_missing_imgs'] = sum(out_dict.values())
+    return out_dict
 
-                # TO ADAPT
-                # if step == 0:
-                #     inspect_first_batch(images, labels, epoch, phase)
+def log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, seed_prefix):
+    ## AUCs
+    print('y_scores: ', y_scores)
+    roc_auc = roc_auc_score(y_true, y_scores)
+    pr_auc = average_precision_score(y_true, y_scores)
 
-                with torch.set_grad_enabled(is_train):
-                    data = {
-                        "landscape_img": images,
-                        "landscape_gps": gps
-                    }
+    print(f"[{score_mode}] ROC-AUC: {roc_auc:.4f}")
+    print(f"[{score_mode}] PR-AUC: {pr_auc:.4f}")
+    
+    ## Curves
+    prec, recall, _ = precision_recall_curve(y_true, y_scores)
+    pr_display = PrecisionRecallDisplay(precision=prec, recall=recall, estimator_name='GPS-Image Cosine Similarity Score')
+    
+    fpr, tpr, _ = roc_curve(y_true, y_scores)
+    roc_display = RocCurveDisplay(fpr=fpr, tpr=tpr, estimator_name='GPS-Image Cosine Similarity Score')
+    
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
+    plt.suptitle(f"Zero-shot inference of GPS-degraded GLC24 PA, from contrastive multi-scale pretraining{seed_prefix}.", fontsize=18)
+    ax1.set_title('ROC curve')
+    ax2.set_title('Precision-Recall curve')
+    roc_display.plot(ax=ax1)
+    pr_display.plot(ax=ax2)
+    plt.tight_layout()
+    plt.savefig(os.path.join(output_dir, f"curves_{score_mode}{seed_prefix}.png"))
+    plt.close()
 
-                    loss = 0.0
-                    if isinstance(model, torch.nn.DataParallel):
-                        logits_gps, logits_img = model.module(images, gps_noisy)
-                    else:
-                        logits_gps, logits_img = model(images, gps_noisy)
-                    # Pass logits to model which will compare the distance between each modality's features to determine if they match or not
-                    if isinstance(model, torch.nn.DataParallel):
-                        logits = model.module(logits_gps, logits_img)
-                    else:
-                        logits = model(logits_gps, logits_img)
-                    loss = criterion(logits.flatten(), labels)
-                    # loss += get_regularizer(logits, regularizer)
-
-                    if is_train:
-                        optimizer.zero_grad()
-                        loss.backward()
-                        optimizer.step()
-
-                probs = torch.sigmoid(logits)
-
-                running_loss += loss.item() * images.size(0)
-                all_labels.append(labels.detach().cpu())
-                all_probs.append(probs.detach().cpu())
-
-            # Stack results
-            y_true = torch.cat(all_labels).numpy()
-            y_prob = torch.cat(all_probs).numpy()
-            y_pred = (y_prob >= f1_threshold).astype(int)
-
-            # Metrics
-            f1_micro = f1_score(y_true, y_pred, average="micro", zero_division=0)
-            precision = precision_score(y_true, y_pred, average="micro", zero_division=0)
-
-            try:
-                auc = roc_auc_score(y_true, y_prob, average="micro")
-            except ValueError:
-                auc = float("nan")
-
-            recall_100 = recall_at_k(y_true, y_prob, k=min(100, num_classes))
-            recall_20 = recall_at_k(y_true, y_prob, k=min(20, num_classes))
-
-            epoch_loss = running_loss / len(loader.dataset)
-
-            print(
-                f"[{phase.upper()}] Epoch {epoch} | "
-                f"Loss: {epoch_loss:.4f} | "
-                f"F1-micro: {f1_micro:.4f} | "
-                f"AUC: {auc:.4f} | "
-                f"Precision: {precision:.4f} | "
-                f"Recall@100: {recall_100:.4f} | "
-                f"Recall@20: {recall_20:.4f}"
-            )
-
-            # Append metrics to CSV
-            with open(metrics_path, "a", newline="") as f:
-                writer = csv.writer(f)
-                writer.writerow([
-                    epoch, phase, epoch_loss,
-                    f1_micro, auc, precision,
-                    recall_100, recall_20
-                ])
-
-            # Save best model (validation only)
-            if phase == "val" and epoch_loss < best_val_loss:
-                best_val_loss = epoch_loss
-                torch.save(
-                    {
-                        "epoch": epoch,
-                        "model_state_dict": model.state_dict(),
-                        "optimizer_state_dict": optimizer.state_dict(),
-                        "val_loss": best_val_loss,
-                    },
-                    os.path.join(output_dir, "best.pt")
-                )
-
-        # Save last epoch checkpoint
-        torch.save(
-            {
-                "epoch": epoch,
-                "model_state_dict": model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-            },
-            os.path.join(output_dir, "last.pt")
+    ### --- Scalars ---
+    data = [
+        ["roc_auc", roc_auc],
+        ["pr_auc", pr_auc],
+    ]
+    table = wandb.Table(data=data, columns=["metric", "value"])
+    wandb.log({
+        "AUC_bar_plot": wandb.plot.bar(
+            table,
+            "metric",   # x-axis
+            "value",    # y-axis
+            title="AUC Metrics"
         )
+    })
 
+    ### --- Loging Matplotlib curves ---
+    ### Note: wandb's built-in pr-recall and roc curves plotting functions do not handle binary classification with scores of shape (N,)
+    wandb.log({
+        f"{score_mode}/curves_plot": wandb.Image(
+            os.path.join(output_dir, f"curves_{score_mode}{seed_prefix}.png")
+        )
+    })
+
+    # Save per-sample results
+    results_df = pd.DataFrame({
+        "id": all_ids,
+        "label": y_true,
+        "score": y_scores
+    })
+
+    results_path = os.path.join(output_dir, f"scores_{score_mode}{seed_prefix}.csv")
+    results_df.to_csv(results_path, index=False)
+
+    # Save metrics
+    metrics_df = pd.DataFrame([{
+        "score_mode": score_mode,
+        "roc_auc": roc_auc,
+        "pr_auc": pr_auc
+    }])
+
+    metrics_path = os.path.join(output_dir, f"metrics_{score_mode}{seed_prefix}.csv")
+    metrics_df.to_csv(metrics_path, index=False)
 
 def run_inference(
     model,
@@ -584,8 +522,13 @@ def run_inference(
     device,
     output_dir: str = 'outputs/inference/',
     score_mode: str = "cosine",  # "cosine" or "sigmoid"
+    seed: Optional[Union[int, str]] = '',
 ):
     assert score_mode in ["cosine", "sigmoid"], "score_mode must be 'cosine' or 'sigmoid'"
+    seed_prefix = f"{'_seed'+str(seed) if seed else ''}"
+    
+    if seed:
+        print(f"\n=== Running inference for seed {seed} ===")
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -598,7 +541,10 @@ def run_inference(
 
     with torch.no_grad():
         for step, data in tqdm(enumerate(test_loader), total=len(test_loader)):
-            images, gps, gps_noisy, gps_match, surveyIds, lucas_ids, n_img_per_ids = data
+            images, gps, gps_noisy, gps_match, surveyIds, lucas_ids, n_img_per_ids, missing_imgs = data
+            uc_missing_imgs = count_unique_last_letters(missing_imgs)
+            if len(missing_imgs) > 0:
+                print(f"[Batch {step}] Missing LUCAS images: {uc_missing_imgs}")
 
             labels = gps_match.float().to(device)
             images = images.to(device)
@@ -645,101 +591,60 @@ def run_inference(
     y_scores = torch.cat(all_scores).numpy()
 
     # Metrics
-    ## AUCs
-    roc_auc = roc_auc_score(y_true, y_scores)
-    pr_auc = average_precision_score(y_true, y_scores)
-
-    print(f"[{score_mode}] ROC-AUC: {roc_auc:.4f}")
-    print(f"[{score_mode}] PR-AUC: {pr_auc:.4f}")
-    
-    ## Curves
-    prec, recall, _ = precision_recall_curve(y_true, y_scores)
-    pr_display = PrecisionRecallDisplay(precision=prec, recall=recall, estimator_name='GPS-Image Cosine Similarity Score')
-    
-    fpr, tpr, _ = roc_curve(y_true, y_scores)
-    roc_display = RocCurveDisplay(fpr=fpr, tpr=tpr, estimator_name='GPS-Image Cosine Similarity Score')
-    
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
-    plt.suptitle('Zero-shot inference of GPS-degraded GLC24 PA, from contrastive multi-scale pretraining.', fontsize=18)
-    ax1.set_title('ROC curve')
-    ax2.set_title('Precision-Recall curve')
-    roc_display.plot(ax=ax1)
-    pr_display.plot(ax=ax2)
-    plt.tight_layout()
-    plt.savefig(os.path.join(output_dir, f"curves_{score_mode}.png"))
-    plt.close()
-    
-    ## Wandb
-    y_true_wb = y_true
-    y_scores_wb = y_scores
-
-    ### --- Scalars ---
-    data = [
-        ["roc_auc", roc_auc],
-        ["pr_auc", pr_auc],
-    ]
-    table = wandb.Table(data=data, columns=["metric", "value"])
-    wandb.log({
-        "AUC_bar_plot": wandb.plot.bar(
-            table,
-            "metric",   # x-axis
-            "value",    # y-axis
-            title="AUC Metrics"
-        )
-    })
-
-    ### --- Loging Matplotlib curves ---
-    ### Note: wandb's built-in pr-recall and roc curves plotting functions do not handle binary classification with scores of shape (N,)
-    wandb.log({
-        f"{score_mode}/curves_plot": wandb.Image(
-            os.path.join(output_dir, f"curves_{score_mode}.png")
-        )
-    })
-
-    # Save per-sample results
-    results_df = pd.DataFrame({
-        "id": all_ids,
-        "label": y_true,
-        "score": y_scores
-    })
-
-    results_path = os.path.join(output_dir, f"scores_{score_mode}.csv")
-    results_df.to_csv(results_path, index=False)
-
-    # Save metrics
-    metrics_df = pd.DataFrame([{
-        "score_mode": score_mode,
-        "roc_auc": roc_auc,
-        "pr_auc": pr_auc
-    }])
-
-    metrics_path = os.path.join(output_dir, f"metrics_{score_mode}.csv")
-    metrics_df.to_csv(metrics_path, index=False)
+    log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, seed_prefix)
 
     print(f"Saved results to {output_dir}")
 
 
-# Train / Infer !
-
-if not args.predict:
-    train_validate(
-        model,
-        train_loader,
-        val_loader,
-        optimizer,
-        device,
-        args.epochs,
-        args.num_labels,
-        output_dir='outputs/Downstream satellite img+gps GLC24_CBN-Med/',
-        f1_threshold=0.3,
+# Infer !
+for seed in tqdm(SEEDS, 'Test set seeds'):
+    # Load data for each seed
+    dataset_test = LandscapeGPSErrorDetection(
+        root_path = DATA_PATHS['test']['landscape_dir'],
+        fp_metadata = f"{METADATA_PATHS['test'].split('.csv')[0]}_seed{seed}.csv",
+        transform = transforms_landscape(),
+        subset = args.subset,
+        cls_id=None,
+        verbose=args.verbose,
     )
-else:
+
+    test_loader = DataLoader(
+                dataset_test, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True, drop_last=False,
+                collate_fn=collate_landscape,
+                sampler=None)
+    
     run_inference(
         model,
         args.ckpt_path,
         test_loader,
-        device=device,
+        device=args.device,
         output_dir = OUTPUT_DIR,
         score_mode=SCORE_MODE,
+        seed=seed,
     )
     
+
+
+# dataset_train = LandscapeGPSErrorDetection(
+#     root_path = DATA_PATHS['train']['landscape_dir'],
+#     fp_metadata = f"{METADATA_PATHS['train'].split('.csv')[0]}_seed{seed}.csv",
+#     transform = transforms_landscape(),
+#     subset = args.subset,
+#     cls_id=None,
+# )
+# dataset_val = LandscapeGPSErrorDetection(
+#     root_path = DATA_PATHS['val']['landscape_dir'],
+#     fp_metadata = f"{METADATA_PATHS['val'].split('.csv')[0]}_seed{seed}.csv",
+#     transform = transforms_landscape(),
+#     subset = args.subset,
+#     cls_id=None,
+# )
+
+# train_loader = DataLoader(
+#             dataset_train, batch_size=args.batch_size, shuffle=True, num_workers=args.workers, pin_memory=True, drop_last=True,
+#             collate_fn=collate_landscape,
+#             sampler=None)
+# val_loader = DataLoader(
+#             dataset_val, batch_size=args.batch_size, shuffle=False, num_workers=args.workers, pin_memory=True, drop_last=True,
+#             collate_fn=collate_landscape,
+#             sampler=None)
