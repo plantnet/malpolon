@@ -674,9 +674,18 @@ def run_inference(
     y_scores_wb = y_scores
 
     ### --- Scalars ---
+    data = [
+        ["roc_auc", roc_auc],
+        ["pr_auc", pr_auc],
+    ]
+    table = wandb.Table(data=data, columns=["metric", "value"])
     wandb.log({
-        f"{score_mode}/roc_auc": roc_auc,
-        f"{score_mode}/pr_auc": pr_auc,
+        "AUC_bar_plot": wandb.plot.bar(
+            table,
+            "metric",   # x-axis
+            "value",    # y-axis
+            title="AUC Metrics"
+        )
     })
 
     ### --- Loging Matplotlib curves ---
