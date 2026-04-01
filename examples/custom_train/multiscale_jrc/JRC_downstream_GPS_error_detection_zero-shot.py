@@ -54,7 +54,7 @@ LANDSCAPE_INPUT_SIZE = 518
 SATELLITE_INPUT_SIZE = 128
 
 ROOT_PATH_LUCAS = 'dataset/scale_2_landscape'
-OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_LUCAS_noise_mixture/'
+OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_multi-images-avg/Downstream_GPS_error_detection_LUCAS_noise_swap/'
 
 DATA_PATHS = {'train': {
                   'landscape_dir': os.path.join(ROOT_PATH_LUCAS, 'LUCAS/'),
@@ -69,9 +69,9 @@ DATA_PATHS = {'train': {
 METADATA_PATHS = {
     # 'train':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min_noise_mixture.csv"),
     # 'val':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_noise_mixture.csv"),
-    'test':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_noise_mixture.csv"),
+    'test':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_noise_swap.csv"),
                  }
-SEEDS = [2]# [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
+SEEDS = [55]# [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
 
 ## Inference mode
 SCORE_MODE = "cosine"  # "cosine" or "sigmoid"
@@ -100,7 +100,7 @@ args = {
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'predict': True,
         'verbose': False,
-        'wandb_mode': 'online',  # 'online', 'offline', 'disabled'
+        'wandb_mode': 'offline',  # 'online', 'offline', 'disabled'
     }
 args = SimpleNamespace(**args) if isinstance(args, dict) else args
 writer = wandb.init(
@@ -545,6 +545,7 @@ def run_inference(
             uc_missing_imgs = count_unique_last_letters(missing_imgs)
             if len(missing_imgs) > 0:
                 print(f"[Batch {step}] Missing LUCAS images: {uc_missing_imgs}")
+            print(f"[Batch {step}] Loaded LUCAS images: {images.shape[0]}")
 
             labels = gps_match.float().to(device)
             images = images.to(device)
