@@ -31,10 +31,10 @@ from sklearn.metrics import (
 # Config
 # ----------------------------
 INFERENCE = False
-INFERENCE_SUFFIX = '_1-to-1'
-TRAIN_SUFFIX = '_1-to-1'
-MULTILABEL_CORRESPONDANCE_STRATEGY = 'random sampling'  # One of ['naive', 'random sampling', 'soft_ml', 'ml']
-LOSS_FUNCTION = 'CE'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
+INFERENCE_SUFFIX = ''
+TRAIN_SUFFIX = ''
+MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['naive', 'random sampling', 'soft_ml', 'ml']
+LOSS_FUNCTION = 'CE_soft_ml'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
 LABEL_SMOOTHING = 0.0  # Float in [0, 1]
 
 CSV_S1_TRAIN = "metadata_labels_merged_S1_stratified_split-10.33%_train.csv"
@@ -49,10 +49,10 @@ CSV_S0BIS_TEST = f'metadata_labels_merged_S0bis-10%_test{INFERENCE_SUFFIX}.csv'
 CSV_FILE = CSV_S0BIS_TRAIN
 CSV_FILE_TEST = CSV_S0BIS_TEST # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
 IMAGE_DIR = "Images"
-OUTPUT_DIR = "baselines/B2_S0bis_ResNet18_1-to-1_CE/"
+OUTPUT_DIR = "baselines/B2_S0bis_Dinov2_CE-Soft-ML/"
 SAVE_DIR = OUTPUT_DIR
 
-MODEL = "resnet18"  # One of ['resnet18', 'dinov2_vits14']
+MODEL = "dinov2_vits14"  # One of ['resnet18', 'dinov2_vits14']
 NUM_UNIQUE_CLASSES = 215  # If None, inferred from the dataset
 BATCH_SIZE = 32
 EPOCHS = 20
