@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 from time import time
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -13,6 +14,7 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
 import wandb
 import timm
+from matplotlib import pyplot as plt
 
 import torchvision.transforms as transforms
 import torchvision.models as models
@@ -24,7 +26,8 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     f1_score,
-    roc_auc_score
+    roc_auc_score,
+    confusion_matrix
 )
 
 # ----------------------------
@@ -36,6 +39,14 @@ TRAIN_SUFFIX = ''
 MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['naive', 'random sampling', 'soft_ml', 'ml']
 LOSS_FUNCTION = 'CE_soft_ml'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
 LABEL_SMOOTHING = 0.0  # Float in [0, 1]
+
+MODEL = "resnet50"  # One of ['resnet18', 'resnet50', 'dinov2_vits14', 'convnext', 'vgg16', 'vitb32', 'mobilenet_v3', 'inception_v3']
+NUM_UNIQUE_CLASSES = 215  # If None, inferred from the dataset
+BATCH_SIZE = 32
+EPOCHS = 20
+LR = 1e-4
+NUM_WORKERS = 4
+DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 CSV_S1_TRAIN = "metadata_labels_merged_S1_stratified_split-10.33%_train.csv"
 CSV_FILE_TRAIN_SPATIAL_SPLIT = "metadata_labels_merged_gps_only_S2_train-0.54min.csv"
@@ -49,16 +60,7 @@ CSV_S0BIS_TEST = f'metadata_labels_merged_S0bis-10%_test{INFERENCE_SUFFIX}.csv'
 CSV_FILE = CSV_S0BIS_TRAIN
 CSV_FILE_TEST = CSV_S0BIS_TEST # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
 IMAGE_DIR = "Images"
-OUTPUT_DIR = "baselines/B2_S0bis_Dinov2_CE-Soft-ML/"
-SAVE_DIR = OUTPUT_DIR
-
-MODEL = "dinov2_vits14"  # One of ['resnet18', 'dinov2_vits14']
-NUM_UNIQUE_CLASSES = 215  # If None, inferred from the dataset
-BATCH_SIZE = 32
-EPOCHS = 20
-LR = 1e-4
-NUM_WORKERS = 4
-DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+OUTPUT_DIR = f"baselines/B2_S0bis_{MODEL}/"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(OUTPUT_DIR, 'inference/'), exist_ok=True)
@@ -68,8 +70,8 @@ VAL_METRICS = os.path.join(OUTPUT_DIR, "val_metrics.csv")
 TEST_METRICS = os.path.join(OUTPUT_DIR, f"inference/test_metrics{INFERENCE_SUFFIX}.csv")
 PREDICTIONS_PATH = os.path.join(OUTPUT_DIR, f"inference/test_predictions{INFERENCE_SUFFIX}.csv")
 
-BEST_MODEL_PATH = os.path.join(SAVE_DIR, "best_model.pth")
-LAST_MODEL_PATH = os.path.join(SAVE_DIR, "last_model.pth")
+BEST_MODEL_PATH = os.path.join(f"baselines/B2_S0bis_{MODEL}/", "best_model.pth")
+LAST_MODEL_PATH = os.path.join(f"baselines/B2_S0bis_{MODEL}/", "last_model.pth")
 
 TIME_STAMP_START = time()
 
@@ -82,17 +84,29 @@ writer = wandb.init(
     config={'MULTILABEL_CORRESPONDANCE_STRATEGY': MULTILABEL_CORRESPONDANCE_STRATEGY,
             'LOSS_FUNCTION': LOSS_FUNCTION,
             'LABEL_SMOOTHING': LABEL_SMOOTHING,
+            'MODEL': MODEL,
+            'NUM_UNIQUE_CLASSES': NUM_UNIQUE_CLASSES,
             'BATCH_SIZE': BATCH_SIZE,
             'EPOCHS': EPOCHS,
             'LR': LR,
             'NUM_WORKERS': NUM_WORKERS,
             'DEVICE': DEVICE,
-            'TRAIN_CSV': CSV_FILE,
-            'TEST_CSV': CSV_FILE_TEST,
-            'OUTPUT_DIR': OUTPUT_DIR,},
+            'CSV_FILE': CSV_S0BIS_TRAIN,
+            'CSV_FILE_TEST': CSV_S0BIS_TEST,
+            'OUTPUT_DIR': OUTPUT_DIR,
+            'TRAIN_METRICS': TRAIN_METRICS,
+            'VAL_METRICS': VAL_METRICS,
+            'PREDICTIONS_PATH': PREDICTIONS_PATH,
+            'BEST_MODEL_PATH': BEST_MODEL_PATH,
+            'LAST_MODEL_PATH': LAST_MODEL_PATH,
+            },
     job_type='train' if INFERENCE else 'train',
     mode='disabled',  # any of "online", "offline", "disabled"
 )
+# Print wandb config
+print("[INFO] Wandb config:")
+for key, value in writer.config.items():
+    print(f"{key}: {value}")
 # ----------------------------
 # Dataset
 # ----------------------------
@@ -232,7 +246,6 @@ class HabitatDatasetSoftMultilabels(Dataset):
 
         return image, labels_oh, labels_enc, labels, floraveg_id
 
-
 class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
     """Same as HabitatDatasetSoftMultilabels but assumes data is pre-formated for multi-labelling.
 
@@ -277,8 +290,6 @@ class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
     def labels_value_counts(self, label_id):
         """This method computes the number of samples per unique label in a multilabel dataframe"""
         return self.label_value_counts[label_id]
-            
-
 
 # ----------------------------
 # Load CSV
@@ -352,32 +363,59 @@ train_df = pd.concat([train_df, df_habitats_single_occurrence])
 # ----------------------------
 # Transforms
 # ----------------------------
+# To check the correct values of resize and centercrop, call torchvision.models.<model>_Weights.IMAGENET1K_V1.transforms()
+# The exact name of the class can be found on the doc page of each specific model, ex: https://docs.pytorch.org/vision/main/models/generated/torchvision.models.inception_v3.html#torchvision.models.inception_v3
 if MODEL == 'resnet18':
-    resize_transform = transforms.Resize((224,224))
+    model_specific_transforms = [transforms.Resize(256),
+                                 transforms.CenterCrop(224),]
+if MODEL == 'resnet50':
+    model_specific_transforms = [transforms.Resize(232),  # transforms for IMAGENET1K_V2 are different from V1
+                                 transforms.CenterCrop(224),]
 elif MODEL == 'dinov2_vits14':
-    resize_transform = transforms.Resize((518,518))
+    model_specific_transforms = [transforms.Resize(520),
+                                 transforms.CenterCrop(518),]
+elif MODEL == 'convnext':
+    model_specific_transforms = [transforms.Resize(236),
+                                 transforms.CenterCrop(224),]
+elif MODEL == 'vgg16':
+    model_specific_transforms = [transforms.Resize(256),
+                                 transforms.CenterCrop(224),]
+elif MODEL == 'vitb32':
+    model_specific_transforms = [transforms.Resize(224),
+                                 transforms.CenterCrop(224),]
+elif MODEL == 'mobilenet_v3':
+    model_specific_transforms = [transforms.Resize(232),
+                                 transforms.CenterCrop(224),]
+elif MODEL == 'inception_v3':
+    model_specific_transforms = [transforms.Resize(342),
+                                 transforms.CenterCrop(299),]
 else:
+    model_specific_transforms = []
     print(f'[ERROR] Unknown MODEL: {MODEL}, no resize transform applied !')
 
-train_tf = transforms.Compose([
-    resize_transform,
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(10),
-    transforms.ToTensor(),
-    transforms.Normalize(
-        mean=[0.485,0.456,0.406],
-        std=[0.229,0.224,0.225]
-    )
-])
+train_tf = transforms.Compose(
+    model_specific_transforms + 
+    [
+        transforms.RandomHorizontalFlip(),
+        transforms.RandomRotation(10),
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485,0.456,0.406],
+            std=[0.229,0.224,0.225]
+        )
+    ]
+)
 
-val_tf = transforms.Compose([
-    resize_transform,
-    transforms.ToTensor(),
-    transforms.Normalize(
-        mean=[0.485,0.456,0.406],
-        std=[0.229,0.224,0.225]
-    )
-])
+val_tf = transforms.Compose(
+    model_specific_transforms + 
+    [
+        transforms.ToTensor(),
+        transforms.Normalize(
+            mean=[0.485,0.456,0.406],
+            std=[0.229,0.224,0.225]
+        )
+    ]
+)
 
 
 # ----------------------------
@@ -445,11 +483,53 @@ match MODEL:
             model.fc.in_features,
             NUM_UNIQUE_CLASSES,
         )
+    case 'resnet50':
+        print("[INFO] Using ResNet50")
+        model = models.resnet50(weights="IMAGENET1K_V2")
+        model.fc = nn.Linear(
+            model.fc.in_features,
+            NUM_UNIQUE_CLASSES,
+        )
     case 'dinov2_vits14':
         print("[INFO] Using DINOv2 ViT-S/14")
         model = timm.create_model('timm/vit_small_patch14_dinov2.lvd142m',
                                   pretrained=True,
                                   num_classes=NUM_UNIQUE_CLASSES)
+    case 'convnext':
+        model = models.convnext_base(weights="IMAGENET1K_V1")
+        model.classifier[2] = nn.Linear(
+            model.classifier[2].in_features,
+            NUM_UNIQUE_CLASSES,
+        )
+    case 'vgg16':
+        model = models.vgg16(weights="IMAGENET1K_V1")
+        model.classifier[6] = nn.Linear(
+            model.classifier[6].in_features,
+            NUM_UNIQUE_CLASSES,
+        )
+    case 'vitb32':
+        model = models.vit_b_32(weights="IMAGENET1K_V1")
+        model.heads.head = nn.Linear(
+            model.heads.head.in_features,
+            NUM_UNIQUE_CLASSES,
+        )
+    case 'mobilenet_v3':
+        model = models.mobilenet_v3_large(weights="IMAGENET1K_V1")
+        model.classifier[3] = nn.Linear(
+            model.classifier[3].in_features,
+            NUM_UNIQUE_CLASSES,
+        )
+    case 'inception_v3':
+        model = models.inception_v3(weights="IMAGENET1K_V1")
+        model.fc = nn.Linear(
+            model.fc.in_features,
+            NUM_UNIQUE_CLASSES,
+        )
+        # Also replace the auxiliary classifier head if training
+        model.AuxLogits.fc = nn.Linear(
+            model.AuxLogits.fc.in_features,
+            NUM_UNIQUE_CLASSES,
+        )
 
 model = model.to(DEVICE)
 
@@ -491,11 +571,31 @@ def top1_soft_multilabels_accuracy(y_true, y_pred):
 #     top_indices = np.argsort(y_pred, axis=1)[:, -k:]
 #     # result = (y_true[np.arange(y_true.shape[0]), top_indices] == 1).astype(int)
 #     return result.mean()
+
+def get_confusion_matrix(all_labels, all_preds, num_classes, normalize=True):
+    
+    # The confusion matrix must be computed by hand because labels are in multilabel format while the targets are multiclass
+    cm = np.zeros((num_classes, num_classes), dtype=np.float32)
+    # all_labels_weighted = all_labels / all_labels.sum(axis=1, keepdims=True)
+    for i in range(len(all_preds)):
+        pred_class = all_preds[i]
+        # distribute contribution
+        for true_class in range(num_classes):
+            weight = all_labels[i, true_class]
+            if weight > 0:
+                cm[true_class, pred_class] += weight
+
+    if normalize:
+        # [INFO]: since the inference set does not contain all the labels of the dataset, some rows will contain NaNs and will be displayed white by default
+        cm_norm = cm.astype(np.float32) / cm.sum(axis=1, keepdims=True)
+
+    return cm, cm_norm
     
 def compute_metrics(y_true, y_pred, y_prob):
     if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
         acc_top1_softml = top1_soft_multilabels_accuracy(y_true, y_prob)
-        return [acc_top1_softml]
+        cm, cm_norm = get_confusion_matrix(y_true, y_pred, NUM_UNIQUE_CLASSES, normalize=True)
+        return [acc_top1_softml, cm, cm_norm]
     else:
         acc = accuracy_score(y_true, y_pred)
 
@@ -728,6 +828,23 @@ if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
         f.write(
             f"{test_loss},{test_metrics[0]}\n"
         )
+
+    # Save confusion matrices
+    fig, axes = plt.subplots(1, 2, figsize=(16, 8))
+    im0 = axes[0].imshow(test_metrics[1])
+    axes[0].set_xlabel("Predicted class")
+    axes[0].set_ylabel("True class")
+    axes[0].set_title("Confusion Matrix")
+    fig.colorbar(im0, ax=axes[0])
+    im1 = axes[1].imshow(test_metrics[2])
+    axes[1].set_xlabel("Predicted class")
+    axes[1].set_ylabel("True class")
+    axes[1].set_title("Confusion Matrix (normalized)")
+    fig.colorbar(im1, ax=axes[1])
+    plt.tight_layout()
+    plt.savefig(f'{Path(TEST_METRICS).parent}/confusion_matrix.png')
+    plt.close()
+
 else:
     print("Acc:",test_metrics[0])
     print("Prec:",test_metrics[1])
