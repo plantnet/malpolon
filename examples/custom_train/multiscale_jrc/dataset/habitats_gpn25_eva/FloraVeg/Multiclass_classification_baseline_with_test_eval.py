@@ -15,7 +15,7 @@ import torch.nn.functional as F
 import wandb
 import timm
 from matplotlib import pyplot as plt
-
+40.49
 import torchvision.transforms as transforms
 import torchvision.models as models
 
@@ -33,6 +33,10 @@ from sklearn.metrics import (
 # ----------------------------
 # Config
 # ----------------------------
+SPLIT = 'S3'
+BASELINE = 'B2'
+MODEL = "resnet18"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext',]
+
 INFERENCE = False
 INFERENCE_SUFFIX = ''
 TRAIN_SUFFIX = ''
@@ -40,7 +44,6 @@ MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['naive', 'random sampling',
 LOSS_FUNCTION = 'CE_soft_ml'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
 LABEL_SMOOTHING = 0.0  # Float in [0, 1]
 
-MODEL = "resnet50"  # One of ['resnet18', 'resnet50', 'dinov2_vits14', 'convnext', 'vgg16', 'vitb32', 'mobilenet_v3', 'inception_v3']
 NUM_UNIQUE_CLASSES = 215  # If None, inferred from the dataset
 BATCH_SIZE = 32
 EPOCHS = 20
@@ -48,19 +51,23 @@ LR = 1e-4
 NUM_WORKERS = 4
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-CSV_S1_TRAIN = "metadata_labels_merged_S1_stratified_split-10.33%_train.csv"
-CSV_FILE_TRAIN_SPATIAL_SPLIT = "metadata_labels_merged_gps_only_S2_train-0.54min.csv"
-CSV_S1_TEST = "metadata_labels_merged_S1_stratified_split-10.33%_test.csv"
-CSV_FILE_TEST_SPATIAL_SPLIT = "metadata_labels_merged_gps_only_S2_test-0.54min.csv"
-CSV_S1BIS_TRAIN = f'metadata_labels_merged_S1bis-10%_train{TRAIN_SUFFIX}.csv'
-CSV_S1BIS_TEST = f'metadata_labels_merged_S1bis-10%_test{INFERENCE_SUFFIX}.csv'  # "metadata_labels_merged_S1bis-10%_test.csv"
-CSV_S0BIS_TRAIN = f'metadata_labels_merged_S0bis-10%_train{TRAIN_SUFFIX}.csv'
-CSV_S0BIS_TEST = f'metadata_labels_merged_S0bis-10%_test{INFERENCE_SUFFIX}.csv'
+CSV_FPS = {
+    'CSV_S1_TRAIN': "metadata_labels_merged_S1_stratified_split-10.33%_train.csv",
+    'CSV_S1_TEST': "metadata_labels_merged_S1_stratified_split-10.33%_test.csv",
+    'CSV_S2_TRAIN': "metadata_labels_merged_gps_only_S2_train-0.54min.csv",
+    'CSV_S2_TEST': "metadata_labels_merged_gps_only_S2_test-0.54min.csv",
+    'CSV_S1BIS_TRAIN': f'metadata_labels_merged_S1bis-10%_train{TRAIN_SUFFIX}.csv',
+    'CSV_S1BIS_TEST': f'metadata_labels_merged_S1bis-10%_test{INFERENCE_SUFFIX}.csv',  # "metadata_labels_merged_S1bis-10%_test.csv"
+    'CSV_S0BIS_TRAIN': f'metadata_labels_merged_S0bis-10%_train{TRAIN_SUFFIX}.csv',
+    'CSV_S0BIS_TEST': f'metadata_labels_merged_S0bis-10%_test{INFERENCE_SUFFIX}.csv',
+    'CSV_S3_TRAIN': f'metadata_labels_merged_S3-10%_train{TRAIN_SUFFIX}.csv',
+    'CSV_S3_TEST': f'metadata_labels_merged_S3-10%_test{INFERENCE_SUFFIX}.csv',
+}
 
-CSV_FILE = CSV_S0BIS_TRAIN
-CSV_FILE_TEST = CSV_S0BIS_TEST # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
+CSV_FILE = CSV_FPS[f'CSV_{SPLIT}_TRAIN']
+CSV_FILE_TEST =  CSV_FPS[f'CSV_{SPLIT}_TEST'] # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
 IMAGE_DIR = "Images"
-OUTPUT_DIR = f"baselines/B2_S0bis_{MODEL}/"
+OUTPUT_DIR = f"baselines/{BASELINE}_{SPLIT}_{MODEL}/"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(OUTPUT_DIR, 'inference/'), exist_ok=True)
@@ -70,8 +77,8 @@ VAL_METRICS = os.path.join(OUTPUT_DIR, "val_metrics.csv")
 TEST_METRICS = os.path.join(OUTPUT_DIR, f"inference/test_metrics{INFERENCE_SUFFIX}.csv")
 PREDICTIONS_PATH = os.path.join(OUTPUT_DIR, f"inference/test_predictions{INFERENCE_SUFFIX}.csv")
 
-BEST_MODEL_PATH = os.path.join(f"baselines/B2_S0bis_{MODEL}/", "best_model.pth")
-LAST_MODEL_PATH = os.path.join(f"baselines/B2_S0bis_{MODEL}/", "last_model.pth")
+BEST_MODEL_PATH = os.path.join(f"baselines/{BASELINE}_{SPLIT}_{MODEL}/", "best_model.pth")
+LAST_MODEL_PATH = os.path.join(f"baselines/{BASELINE}_{SPLIT}_{MODEL}/", "last_model.pth")
 
 TIME_STAMP_START = time()
 
@@ -91,8 +98,8 @@ writer = wandb.init(
             'LR': LR,
             'NUM_WORKERS': NUM_WORKERS,
             'DEVICE': DEVICE,
-            'CSV_FILE': CSV_S0BIS_TRAIN,
-            'CSV_FILE_TEST': CSV_S0BIS_TEST,
+            'CSV_FILE': CSV_FILE,
+            'CSV_FILE_TEST': CSV_FILE_TEST,
             'OUTPUT_DIR': OUTPUT_DIR,
             'TRAIN_METRICS': TRAIN_METRICS,
             'VAL_METRICS': VAL_METRICS,
@@ -366,8 +373,11 @@ train_df = pd.concat([train_df, df_habitats_single_occurrence])
 # To check the correct values of resize and centercrop, call torchvision.models.<model>_Weights.IMAGENET1K_V1.transforms()
 # The exact name of the class can be found on the doc page of each specific model, ex: https://docs.pytorch.org/vision/main/models/generated/torchvision.models.inception_v3.html#torchvision.models.inception_v3
 if MODEL == 'resnet18':
-    model_specific_transforms = [transforms.Resize(256),
-                                 transforms.CenterCrop(224),]
+    model_specific_transforms = [
+        transforms.Resize(256),
+        transforms.CenterCrop(224),
+        # transforms.Resize((224,224))
+    ]
 if MODEL == 'resnet50':
     model_specific_transforms = [transforms.Resize(232),  # transforms for IMAGENET1K_V2 are different from V1
                                  transforms.CenterCrop(224),]
@@ -475,63 +485,83 @@ print(f"[INFO] Number of classes in the test set: {test_loader.dataset.n_classe
 # Model
 # ----------------------------
 
-match MODEL:
-    case 'resnet18':
-        print("[INFO] Using ResNet18")
-        model = models.resnet18(weights="IMAGENET1K_V1")
-        model.fc = nn.Linear(
-            model.fc.in_features,
-            NUM_UNIQUE_CLASSES,
-        )
-    case 'resnet50':
-        print("[INFO] Using ResNet50")
-        model = models.resnet50(weights="IMAGENET1K_V2")
-        model.fc = nn.Linear(
-            model.fc.in_features,
-            NUM_UNIQUE_CLASSES,
-        )
-    case 'dinov2_vits14':
-        print("[INFO] Using DINOv2 ViT-S/14")
-        model = timm.create_model('timm/vit_small_patch14_dinov2.lvd142m',
-                                  pretrained=True,
-                                  num_classes=NUM_UNIQUE_CLASSES)
-    case 'convnext':
-        model = models.convnext_base(weights="IMAGENET1K_V1")
-        model.classifier[2] = nn.Linear(
-            model.classifier[2].in_features,
-            NUM_UNIQUE_CLASSES,
-        )
-    case 'vgg16':
-        model = models.vgg16(weights="IMAGENET1K_V1")
-        model.classifier[6] = nn.Linear(
-            model.classifier[6].in_features,
-            NUM_UNIQUE_CLASSES,
-        )
-    case 'vitb32':
-        model = models.vit_b_32(weights="IMAGENET1K_V1")
-        model.heads.head = nn.Linear(
-            model.heads.head.in_features,
-            NUM_UNIQUE_CLASSES,
-        )
-    case 'mobilenet_v3':
-        model = models.mobilenet_v3_large(weights="IMAGENET1K_V1")
-        model.classifier[3] = nn.Linear(
-            model.classifier[3].in_features,
-            NUM_UNIQUE_CLASSES,
-        )
-    case 'inception_v3':
-        model = models.inception_v3(weights="IMAGENET1K_V1")
-        model.fc = nn.Linear(
-            model.fc.in_features,
-            NUM_UNIQUE_CLASSES,
-        )
-        # Also replace the auxiliary classifier head if training
-        model.AuxLogits.fc = nn.Linear(
-            model.AuxLogits.fc.in_features,
-            NUM_UNIQUE_CLASSES,
-        )
+def get_model(model_name, num_classes):
+    match model_name:
+        case 'resnet18':
+            print("[INFO] Using ResNet18")
+            model = models.resnet18(weights="IMAGENET1K_V1")
+            model.fc = nn.Linear(
+                model.fc.in_features,
+                num_classes,
+            )
+        case 'resnet50':
+            print("[INFO] Using ResNet50")
+            model = models.resnet50(weights="IMAGENET1K_V2")
+            model.fc = nn.Linear(
+                model.fc.in_features,
+                num_classes,
+            )
+        case 'dinov2_vits14':
+            print("[INFO] Using DINOv2 ViT-S/14 (partial unfreezing: last 2 transformer blocks and head)")
+            model = timm.create_model('timm/vit_small_patch14_dinov2.lvd142m',
+                                    pretrained=True,
+                                    num_classes=num_classes)
 
-model = model.to(DEVICE)
+            # Freeze everything first
+            for param in model.parameters():
+                param.requires_grad = False
+
+            # Unfreeze the classifier head
+            for param in model.head.parameters():
+                param.requires_grad = True
+
+            # Unfreeze the last N transformer blocks
+            N = 2
+            for block in model.blocks[-N:]:
+                for param in block.parameters():
+                    param.requires_grad = True
+
+            # Unfreeze the final norm layer
+            for param in model.norm.parameters():
+                param.requires_grad = True
+        case 'convnext':
+            model = models.convnext_base(weights="IMAGENET1K_V1")
+            model.classifier[2] = nn.Linear(
+                model.classifier[2].in_features,
+                num_classes,
+            )
+        case 'vgg16':
+            model = models.vgg16(weights="IMAGENET1K_V1")
+            model.classifier[6] = nn.Linear(
+                model.classifier[6].in_features,
+                num_classes,
+            )
+        case 'vitb32':
+            model = models.vit_b_32(weights="IMAGENET1K_V1")
+            model.heads.head = nn.Linear(
+                model.heads.head.in_features,
+                num_classes,
+            )
+        case 'mobilenet_v3':
+            model = models.mobilenet_v3_large(weights="IMAGENET1K_V1")
+            model.classifier[3] = nn.Linear(
+                model.classifier[3].in_features,
+                num_classes,
+            )
+        case 'inception_v3':
+            model = models.inception_v3(weights="IMAGENET1K_V1")
+            model.fc = nn.Linear(
+                model.fc.in_features,
+                num_classes,
+            )
+            # Also replace the auxiliary classifier head if training
+            model.AuxLogits.fc = nn.Linear(
+                model.AuxLogits.fc.in_features,
+                num_classes,
+            )
+    return model
+
+model = get_model(MODEL, NUM_UNIQUE_CLASSES).to(DEVICE)
 
 optimizer = optim.Adam(
     model.parameters(),
@@ -659,7 +689,10 @@ def run_epoch(loader, split, epoch_nb, training=True):
         if training:
             optimizer.zero_grad()
 
-        outputs = model(images)
+        if MODEL == 'inception_v3' and split == 'train':
+            outputs, aux_output = model(images)
+        else:
+            outputs = model(images)
 
         # loss = criterion(outputs, labels)
         loss = get_criterion(outputs, labels_enc)
