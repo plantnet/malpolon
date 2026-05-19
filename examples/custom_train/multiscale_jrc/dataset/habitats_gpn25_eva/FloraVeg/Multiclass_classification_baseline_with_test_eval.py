@@ -373,11 +373,8 @@ train_df = pd.concat([train_df, df_habitats_single_occurrence])
 # To check the correct values of resize and centercrop, call torchvision.models.<model>_Weights.IMAGENET1K_V1.transforms()
 # The exact name of the class can be found on the doc page of each specific model, ex: https://docs.pytorch.org/vision/main/models/generated/torchvision.models.inception_v3.html#torchvision.models.inception_v3
 if MODEL == 'resnet18':
-    model_specific_transforms = [
-        transforms.Resize(256),
-        transforms.CenterCrop(224),
-        # transforms.Resize((224,224))
-    ]
+    model_specific_transforms = [transforms.Resize(256),
+                                 transforms.CenterCrop(224),]
 elif MODEL == 'resnet50':
     model_specific_transforms = [transforms.Resize(232),  # transforms for IMAGENET1K_V2 are different from V1
                                  transforms.CenterCrop(224),]
