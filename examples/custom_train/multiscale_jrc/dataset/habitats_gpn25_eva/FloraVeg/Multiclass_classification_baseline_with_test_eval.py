@@ -15,7 +15,7 @@ import torch.nn.functional as F
 import wandb
 import timm
 from matplotlib import pyplot as plt
-40.49
+
 import torchvision.transforms as transforms
 import torchvision.models as models
 
@@ -378,7 +378,7 @@ if MODEL == 'resnet18':
         transforms.CenterCrop(224),
         # transforms.Resize((224,224))
     ]
-if MODEL == 'resnet50':
+elif MODEL == 'resnet50':
     model_specific_transforms = [transforms.Resize(232),  # transforms for IMAGENET1K_V2 are different from V1
                                  transforms.CenterCrop(224),]
 elif MODEL == 'dinov2_vits14':
