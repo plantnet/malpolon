@@ -636,3 +636,86 @@ def stacked_bars_habitat_distribution(train, test, title='Title', suptitle='', f
     if plot:
         plt.show()
     return fig
+
+def plot_stacked_bar_multilabel_stratify(
+    dict1, dict2, dict3,
+    label1="all_data", label2="test_ideal", label3="test_real",
+    color1="lightblue", color2="red", color3="limegreen",
+    suptitle='Unique habitats distribution',
+    title='',
+    xlabel="Habitat code",
+    ylabel="Count",
+    y_min=None,
+    y_max=None,
+    test_pct=0.10,
+    plot=False,
+    fp_out=False,
+):
+    bins = sorted(dict1.keys(), key=lambda b: dict1.get(b, 0), reverse=True)
+
+    # Align values
+    values1 = [dict1.get(b, 0) for b in bins]
+    values2 = [dict2.get(b, 0) for b in bins]
+    values3 = [dict3.get(b, 0) for b in bins]
+
+    # % dict3 over dict1 (avoid division by zero)
+    pct_values = [
+        (v3 / v1 * 100) if v1 != 0 else 0
+        for v1, v3 in zip(values1, values3)
+    ]
+
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+
+    # --- Bars on primary axis ---
+    ax1.bar(bins, values1, label=label1, color=color1)
+    ax1.bar(bins, values2, bottom=0, label=label2, color=color2)
+    ax1.bar(bins, values3, bottom=0, label=label3, color=color3, alpha=0.8)
+
+    ax1.set_title(title)
+    ax1.set_xlabel(xlabel)
+    ax1.set_ylabel(ylabel)
+
+    if y_min is not None or y_max is not None:
+        ax1.set_ylim(bottom=y_min, top=y_max)
+
+    ax1.set_xticks(bins[::5])
+    ax1.set_xticklabels(bins[::5], rotation=45)
+
+    # --- Secondary axis for percentage line ---
+    ax2 = ax1.twinx()
+    ax2.plot(
+        range(len(bins)),
+        pct_values,
+        color="black",
+        linestyle="--",
+        linewidth=1,
+        marker="o",
+        markersize=3,
+        label="% of test data per habitat"
+    )
+    ax2.set_ylabel("% test data")
+    ax2.set_ylim(0, 100)
+    ax2.axhline(y=100*test_pct, linestyle='--', linewidth=0.8, alpha=0.8, c='gray')
+    ax2.set_yticks(sorted(set(list(range(0, 101, 20)) + [10])))
+    
+    for tick_value, label in zip(ax2.get_yticks(), ax2.get_yticklabels()):
+        if tick_value == 10:
+            label.set_color("gray")
+        else:
+            label.set_color("black")
+
+    # --- Combined legend ---
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper right")
+
+    plt.suptitle(suptitle, fontsize=16)
+    plt.tight_layout()
+
+    if plot:
+        plt.show()
+    if fp_out:
+        fig.savefig(fp_out, bbox_inches='tight')
+
+    plt.close()
+    return fig

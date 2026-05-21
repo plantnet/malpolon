@@ -65,7 +65,7 @@ DATA_PATHS = {'train': {
                   'landscape_dir': os.path.join(ROOT_PATH_SPECIES, 'glc24_pa_test_private_CBN-med_matching-LUCAS-500m/'),
                 },
               'test': {
-                  'species_dir': os.path.join(ROOT_PATH_SPECIES, 'glc24_pa_test_private_CBN-med_matching-LUCAS-500m/'),
+                  'species_dir': os.path.join(ROOT_PATH_SPECIES, 'Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500/'),
                   'landscape_dir': os.path.join(ROOT_PATH_SPECIES, 'glc24_pa_test_private_CBN-med_matching-LUCAS-500m/'),
                 }
              }
