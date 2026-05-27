@@ -79,9 +79,9 @@ def main(input_path: str,
     df_val['subset'] = ['val'] * len(df_val)
     df_train_val = pd.concat([df_train, df_val])
 
-    df_train_val.to_csv(f'{input_name}_train_val-{spacing}.csv', index=False)
-    df_train.to_csv(f'{input_name}_train-{spacing}.csv', index=False)
-    df_val.to_csv(f'{input_name}_val-{spacing}.csv', index=False)
+    df_train_val.to_csv(f'{input_name}-{100*val_size}%_train_test-{spacing}.csv', index=False)
+    df_train.to_csv(f'{input_name}-{100*val_size}%_train-{spacing}.csv', index=False)
+    df_val.to_csv(f'{input_name}-{100*val_size}%_test-{spacing}.csv', index=False)
 
     if plot:
         plot_od(df=df_train_val, show_map=True)
