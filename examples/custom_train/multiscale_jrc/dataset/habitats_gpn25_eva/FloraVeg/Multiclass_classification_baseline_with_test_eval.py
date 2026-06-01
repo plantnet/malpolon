@@ -35,9 +35,9 @@ from habitat_models import get_model
 # ----------------------------
 # Config
 # ----------------------------
-SPLIT = 'S2'
+SPLIT = 'S3'
 BASELINE = 'B2'
-MODEL = "vgg16"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
+MODEL = "resnet18"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
 
 INFERENCE = False
 INFERENCE_SUFFIX = ''
@@ -46,7 +46,7 @@ MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['naive', 'random sampling',
 LOSS_FUNCTION = 'CE_soft_ml'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
 LABEL_SMOOTHING = 0.0  # Float in [0, 1]
 
-EUNIS_LVL = '2'  # Values in [1, 2, 3, 3_4]
+EUNIS_LVL = '3_4'  # Values in [1, 2, 3, 3_4]
 NUM_UNIQUE_CLASSES = 215  # Values in [9, 35, 209, 11, 215] If None, inferred from the dataset
 BATCH_SIZE = 32
 EPOCHS = 20
@@ -70,7 +70,7 @@ CSV_FPS = {
 CSV_FILE = CSV_FPS[f'CSV_{SPLIT}_TRAIN']
 CSV_FILE_TEST =  CSV_FPS[f'CSV_{SPLIT}_TEST'] # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
 IMAGE_DIR = "Images"
-OUTPUT_DIR = f"baselines/{BASELINE}_{SPLIT}-250m_{MODEL}/"
+OUTPUT_DIR = "/tmp" #  f"baselines/{BASELINE}_{SPLIT}-250m_{MODEL}/"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(OUTPUT_DIR, 'inference/'), exist_ok=True)
@@ -440,19 +440,12 @@ elif MODEL == 'mobilenet_v3':
                                  transforms.CenterCrop(224),]
     MODEL_STATS = MODEL_STATS_IMAGENET
 elif MODEL == 'inception_v3':
-<<<<<<< Updated upstream
     model_specific_transforms = [transforms.Resize(342),
                                  transforms.CenterCrop(299),]
     MODEL_STATS = MODEL_STATS_IMAGENET
 else:
     model_specific_transforms = []
     print(f'[ERROR] Unknown MODEL: {MODEL}, no resize transform applied !')
-=======
-train_dataset = dataset(train_df, IMAGE_DIR, eunis_lvl=EUNIS_LVL, n_u_classes=NUM_UNIQUE_CLASSES, transform=train_tf)
-val_dataset = dataset(val_df, IMAGE_DIR, eunis_lvl=EUNIS_LVL, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
-test_dataset = test_dataset(df_test, IMAGE_DIR, eunis_lvl=EUNIS_LVL, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
-
->>>>>>> Stashed changes
 
 train_tf = transforms.Compose(
     model_specific_transforms + 
