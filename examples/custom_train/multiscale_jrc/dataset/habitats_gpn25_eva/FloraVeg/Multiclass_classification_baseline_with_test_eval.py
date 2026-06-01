@@ -46,7 +46,8 @@ MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['naive', 'random sampling',
 LOSS_FUNCTION = 'CE_soft_ml'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
 LABEL_SMOOTHING = 0.0  # Float in [0, 1]
 
-NUM_UNIQUE_CLASSES = 215  # If None, inferred from the dataset
+EUNIS_LVL = '2'  # Values in [1, 2, 3, 3_4]
+NUM_UNIQUE_CLASSES = 215  # Values in [9, 35, 209, 11, 215] If None, inferred from the dataset
 BATCH_SIZE = 32
 EPOCHS = 20
 LR = 1e-4
@@ -265,31 +266,53 @@ class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
     The __getitem__ function returns a one-hot tensor based on the encoded labels (also expected to
     be in the same format as regular labels).
     """
-    def __init__(self, dataframe, image_dir, n_u_classes=None, transform=None):
+    def __init__(
+        self,
+        dataframe,
+        image_dir,
+        n_u_classes=None,
+        eunis_lvl='3_4',
+        col_code_ID='habitats_code_ID',
+        col_code='habitats_code',
+        col_id='id_floraveg',
+        col_filepath='filename_photos',
+        transform=None
+    ):
         super().__init__(dataframe, image_dir, n_u_classes, transform)
-        self.df['habitats_code_ID'] = self.df['habitats_code_ID'].astype(str)
-        self.df['habitats_code'] = self.df['habitats_code'].astype(str)
+        self.col_code_ID = col_code_ID
+        self.col_code = col_code
+        self.col_id = col_id
+        self.col_filepath = col_filepath
+        if eunis_lvl == '3_4':
+            self.eunis_lvl = ''
+        else:
+            self.eunis_lvl = f'_lvl{eunis_lvl}'
+        self.col_code_ID += self.eunis_lvl if self.eunis_lvl else ''
+        self.col_code += self.eunis_lvl if self.eunis_lvl else ''
+
+        self.df[self.col_code_ID] = self.df[self.col_code_ID].astype(str)
+        self.df[self.col_code] = self.df[self.col_code].astype(str)
         self.label_encoding_table = {}
-        for hc, hcid in zip(self.df["habitats_code"], self.df["habitats_code_ID"]):
+        for hc, hcid in zip(self.df[self.col_code], self.df[self.col_code_ID]):
             labels = [str(i) for i in hc.split(';')]
             labels_enc = [int(i) for i in hcid.split(';')]
             self.label_encoding_table.update(dict(zip(labels_enc, labels)))
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-        floraveg_id = row['id_floraveg']
+        floraveg_id = row[self.col_id]
 
         img_path = os.path.join(
             self.image_dir,
-            row["filename_photos"].strip()
+            row[self.col_filepath].strip()
         )
 
         image = Image.open(img_path).convert("RGB")
 
-        labels_enc = [int(i) for i in row["habitats_code_ID"].split(';')]
+        labels_enc = [int(i) for i in row[self.col_code_ID].split(';')]
         labels_oh = sample_onehot_encode(labels_enc, self.max_unique_classes)
         labels_enc_str = ' '.join(str(i) for i in labels_enc)
-        labels = row['habitats_code']
+        labels = row[self.col_code]
 
         if self.transform:
             image = self.transform(image)
@@ -318,30 +341,32 @@ def batch_onehot_encode(labels, n_classes):
 
 df = pd.read_csv(CSV_FILE)
 df_test = pd.read_csv(CSV_FILE_TEST)
-df['label'] = df['habitats_code_ID']
-df_test['label'] = df['habitats_code_ID']
+
+lvl_suffix = '' if EUNIS_LVL == '3_4' else '_lvl'+str(EUNIS_LVL)
+df['label'] = df[f'habitats_code_ID{lvl_suffix}']
+df_test['label'] = df[f'habitats_code_ID{lvl_suffix}']
 
 if not NUM_UNIQUE_CLASSES:  # Only set based on data if not manually set at the begining of the config section
     if MULTILABEL_CORRESPONDANCE_STRATEGY == 'soft_ml':
-        NUM_UNIQUE_CLASSES = pd.concat([df, df_test])['habitats_code'].nunique()
+        NUM_UNIQUE_CLASSES = pd.concat([df, df_test])[f"habitats_code{lvl_suffix}"].nunique()
     elif MULTILABEL_CORRESPONDANCE_STRATEGY == 'ml':
-        NUM_UNIQUE_CLASSES = pd.concat([df, df_test])['habitats_code'].dropna().str.split(';').explode().nunique()
+        NUM_UNIQUE_CLASSES = pd.concat([df, df_test])[f"habitats_code{lvl_suffix}"].dropna().str.split(';').explode().nunique()
     else:
         le = LabelEncoder()
-        le.fit(pd.concat([df, df_test])["habitats_code"])
-        df["label"] = le.transform(df["habitats_code"])
-        df_test = df_test[df_test["habitats_code"].isin(le.classes_)].copy()  # Should not change anything
-        df_test["label"] = le.transform(df_test["habitats_code"])
+        le.fit(pd.concat([df, df_test])[f"habitats_code{lvl_suffix}"])
+        df["label"] = le.transform(df[f"habitats_code{lvl_suffix}"])
+        df_test = df_test[df_test[f"habitats_code{lvl_suffix}"].isin(le.classes_)].copy()  # Should not change anything
+        df_test["label"] = le.transform(df_test[f"habitats_code{lvl_suffix}"])
         NUM_UNIQUE_CLASSES = len(le.classes_)
 print("[INFO] Total number of unique classes:", NUM_UNIQUE_CLASSES)
 
 if MULTILABEL_CORRESPONDANCE_STRATEGY in ['ml']:
     label_value_counts = {}
-    for fid, hc, hcid in zip(df["id_floraveg"], df["habitats_code"], df["habitats_code_ID"]):
+    for fid, hc, hcid in zip(df["id_floraveg"], df[f"habitats_code{lvl_suffix}"], df[f"habitats_code_ID{lvl_suffix}"]):
         labels = [str(i) for i in hc.split(';')]
         for label in labels:
             label_value_counts[label] = label_value_counts[label] + 1 if label in label_value_counts.keys() else 1
-    df_labels_value_count = pd.DataFrame({'habitats_code_ID': list(label_value_counts.keys()), 'count': list(label_value_counts.values())})
+    df_labels_value_count = pd.DataFrame({f'habitats_code_ID{lvl_suffix}': list(label_value_counts.keys()), 'count': list(label_value_counts.values())})
     habitats_single_occurrence = df_labels_value_count[df_labels_value_count['count']<=1]
 
     habitats_counts = df['label'].value_counts()
@@ -415,12 +440,19 @@ elif MODEL == 'mobilenet_v3':
                                  transforms.CenterCrop(224),]
     MODEL_STATS = MODEL_STATS_IMAGENET
 elif MODEL == 'inception_v3':
+<<<<<<< Updated upstream
     model_specific_transforms = [transforms.Resize(342),
                                  transforms.CenterCrop(299),]
     MODEL_STATS = MODEL_STATS_IMAGENET
 else:
     model_specific_transforms = []
     print(f'[ERROR] Unknown MODEL: {MODEL}, no resize transform applied !')
+=======
+train_dataset = dataset(train_df, IMAGE_DIR, eunis_lvl=EUNIS_LVL, n_u_classes=NUM_UNIQUE_CLASSES, transform=train_tf)
+val_dataset = dataset(val_df, IMAGE_DIR, eunis_lvl=EUNIS_LVL, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
+test_dataset = test_dataset(df_test, IMAGE_DIR, eunis_lvl=EUNIS_LVL, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
+
+>>>>>>> Stashed changes
 
 train_tf = transforms.Compose(
     model_specific_transforms + 
@@ -466,9 +498,9 @@ match MULTILABEL_CORRESPONDANCE_STRATEGY:
     case _:
         print(f'[ERROR] Unknown MULTILABEL_CORRESPONDANCE_STRATEGY: {MULTILABEL_CORRESPONDANCE_STRATEGY}')
 
-train_dataset = dataset(train_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=train_tf)
-val_dataset = dataset(val_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
-test_dataset = test_dataset(df_test, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
+train_dataset = dataset(train_df, IMAGE_DIR, eunis_lvl=EUNIS_LVL, n_u_classes=NUM_UNIQUE_CLASSES, transform=train_tf)
+val_dataset = dataset(val_df, IMAGE_DIR, eunis_lvl=EUNIS_LVL, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
+test_dataset = test_dataset(df_test, IMAGE_DIR, eunis_lvl=EUNIS_LVL, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
 # train_dataset = HabitatDatasetRandomlySampleDuplicateLabelsMatching(train_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=train_tf)
 # val_dataset = HabitatDatasetRandomlySampleDuplicateLabelsMatching(val_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
 # test_dataset = HabitatDatasetSoftMultilabels(df_test, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)

@@ -378,7 +378,7 @@ def stack_bars_habitats(df_occurrences_merged, counts, df_counts_percentage, tit
         df_slice_k = df_occurrences_merged[df_occurrences_merged['id_floraveg'].isin(id_floraveg_multi_k)]  # Slice the merged dataframe accordingly
         habitats_multi_k = df_slice_k['habitats_code_lvl1'].value_counts()  # Get the count of unique habitats of this slice
         habitats_multi_k_pct = habitats_multi_k.apply(lambda x: 100*x/habitats_multi_k.sum())
-        key = f'{k} syntaxon' + ('s' if k != 1 else '')
+        key = f'Ensemble 1 to {k}'
         bars_counts[key] = habitats_multi_k.values.tolist()
         bars_counts_pct[key] = habitats_multi_k_pct.values.tolist()
         bars_labels[key] = habitats_multi_k.index.tolist()
