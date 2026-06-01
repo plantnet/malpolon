@@ -1,6 +1,5 @@
 import sys
 import os
-import re
 import pandas as pd
 import numpy as np
 from PIL import Image
@@ -30,14 +29,15 @@ from sklearn.metrics import (
     roc_auc_score,
     confusion_matrix
 )
-from dino_v2_large_PN22M.models import vit_large
-from habitat_models import get_model
+
+from custom_models import MultiHeadResNet50
+
 # ----------------------------
 # Config
 # ----------------------------
 SPLIT = 'S2'
 BASELINE = 'B2'
-MODEL = "vgg16"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
+MODEL = "vgg16"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext',]
 
 INFERENCE = False
 INFERENCE_SUFFIX = ''
@@ -46,7 +46,9 @@ MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['naive', 'random sampling',
 LOSS_FUNCTION = 'CE_soft_ml'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
 LABEL_SMOOTHING = 0.0  # Float in [0, 1]
 
-NUM_UNIQUE_CLASSES = 215  # If None, inferred from the dataset
+NUM_UNIQUE_CLASSES_LVL3 = 215  # If None, inferred from the dataset
+NUM_UNIQUE_CLASSES_LVL2 = 35
+NUM_UNIQUE_CLASSES_LVL1 = 9
 BATCH_SIZE = 32
 EPOCHS = 20
 LR = 1e-4
@@ -56,8 +58,8 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 CSV_FPS = {
     'CSV_S1_TRAIN': "metadata_labels_merged_S1_stratified_split-10.33%_train.csv",
     'CSV_S1_TEST': "metadata_labels_merged_S1_stratified_split-10.33%_test.csv",
-    'CSV_S2_TRAIN': "metadata_labels_merged_gps_only_S2_encoded_train-0.00225deg.csv",
-    'CSV_S2_TEST': "metadata_labels_merged_gps_only_S2_encoded_test-0.00225deg.csv",
+    'CSV_S2_TRAIN': "metadata_labels_merged_gps_only_S2_encoded_train-0.135min.csv",
+    'CSV_S2_TEST': "metadata_labels_merged_gps_only_S2_encoded_test-0.135min.csv",
     'CSV_S1BIS_TRAIN': f'metadata_labels_merged_S1bis-10%_train{TRAIN_SUFFIX}.csv',
     'CSV_S1BIS_TEST': f'metadata_labels_merged_S1bis-10%_test{INFERENCE_SUFFIX}.csv',  # "metadata_labels_merged_S1bis-10%_test.csv"
     'CSV_S0BIS_TRAIN': f'metadata_labels_merged_S0bis-10%_train{TRAIN_SUFFIX}.csv',
@@ -69,7 +71,7 @@ CSV_FPS = {
 CSV_FILE = CSV_FPS[f'CSV_{SPLIT}_TRAIN']
 CSV_FILE_TEST =  CSV_FPS[f'CSV_{SPLIT}_TEST'] # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
 IMAGE_DIR = "Images"
-OUTPUT_DIR = f"baselines/{BASELINE}_{SPLIT}-250m_{MODEL}/"
+OUTPUT_DIR = f"baselines/{BASELINE}_{SPLIT}_{MODEL}/"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(OUTPUT_DIR, 'inference/'), exist_ok=True)
@@ -79,8 +81,8 @@ VAL_METRICS = os.path.join(OUTPUT_DIR, "val_metrics.csv")
 TEST_METRICS = os.path.join(OUTPUT_DIR, f"inference/test_metrics{INFERENCE_SUFFIX}.csv")
 PREDICTIONS_PATH = os.path.join(OUTPUT_DIR, f"inference/test_predictions{INFERENCE_SUFFIX}.csv")
 
-BEST_MODEL_PATH = os.path.join(f"{OUTPUT_DIR}", "best_model.pth")
-LAST_MODEL_PATH = os.path.join(f"{OUTPUT_DIR}", "last_model.pth")
+BEST_MODEL_PATH = os.path.join(f"baselines/{BASELINE}_{SPLIT}_{MODEL}/", "best_model.pth")
+LAST_MODEL_PATH = os.path.join(f"baselines/{BASELINE}_{SPLIT}_{MODEL}/", "last_model.pth")
 
 TIME_STAMP_START = time()
 
@@ -94,7 +96,7 @@ writer = wandb.init(
             'LOSS_FUNCTION': LOSS_FUNCTION,
             'LABEL_SMOOTHING': LABEL_SMOOTHING,
             'MODEL': MODEL,
-            'NUM_UNIQUE_CLASSES': NUM_UNIQUE_CLASSES,
+            'NUM_UNIQUE_CLASSES_LVL3': NUM_UNIQUE_CLASSES_LVL3,
             'BATCH_SIZE': BATCH_SIZE,
             'EPOCHS': EPOCHS,
             'LR': LR,
@@ -246,7 +248,7 @@ class HabitatDatasetSoftMultilabels(Dataset):
         image = Image.open(img_path).convert("RGB")
 
         labels_enc = df_slice["label"].values.tolist()
-        labels_oh = sample_onehot_encode(labels_enc, self.max_unique_classes)
+        labels_oh = sample_onehot_encode(labels_enc, self.max_unique_classes)  # !!!!!!!! TO DELETE, THIS IS OVERWRITTING PRE-DEFINED LABEL ENCODING
         labels_enc = ' '.join(str(i) for i in labels_enc)
         labels = ' '.join(str(i) for i in df_slice["habitats_code"].values.tolist())
 
@@ -321,19 +323,19 @@ df_test = pd.read_csv(CSV_FILE_TEST)
 df['label'] = df['habitats_code_ID']
 df_test['label'] = df['habitats_code_ID']
 
-if not NUM_UNIQUE_CLASSES:  # Only set based on data if not manually set at the begining of the config section
+if not NUM_UNIQUE_CLASSES_LVL3:  # Only set based on data if not manually set at the begining of the config section
     if MULTILABEL_CORRESPONDANCE_STRATEGY == 'soft_ml':
-        NUM_UNIQUE_CLASSES = pd.concat([df, df_test])['habitats_code'].nunique()
+        NUM_UNIQUE_CLASSES_LVL3 = pd.concat([df, df_test])['habitats_code'].nunique()
     elif MULTILABEL_CORRESPONDANCE_STRATEGY == 'ml':
-        NUM_UNIQUE_CLASSES = pd.concat([df, df_test])['habitats_code'].dropna().str.split(';').explode().nunique()
+        NUM_UNIQUE_CLASSES_LVL3 = pd.concat([df, df_test])['habitats_code'].dropna().str.split(';').explode().nunique()
     else:
         le = LabelEncoder()
         le.fit(pd.concat([df, df_test])["habitats_code"])
         df["label"] = le.transform(df["habitats_code"])
         df_test = df_test[df_test["habitats_code"].isin(le.classes_)].copy()  # Should not change anything
         df_test["label"] = le.transform(df_test["habitats_code"])
-        NUM_UNIQUE_CLASSES = len(le.classes_)
-print("[INFO] Total number of unique classes:", NUM_UNIQUE_CLASSES)
+        NUM_UNIQUE_CLASSES_LVL3 = len(le.classes_)
+print("[INFO] Total number of unique classes:", NUM_UNIQUE_CLASSES_LVL3)
 
 if MULTILABEL_CORRESPONDANCE_STRATEGY in ['ml']:
     label_value_counts = {}
@@ -374,50 +376,30 @@ train_df = pd.concat([train_df, df_habitats_single_occurrence])
 # ----------------------------
 # To check the correct values of resize and centercrop, call torchvision.models.<model>_Weights.IMAGENET1K_V1.transforms()
 # The exact name of the class can be found on the doc page of each specific model, ex: https://docs.pytorch.org/vision/main/models/generated/torchvision.models.inception_v3.html#torchvision.models.inception_v3
-MODEL_STATS_IMAGENET = {
-    "mean": (0.442, 0.469, 0.326),
-    "std": (0.229,0.224,0.225),
-}
-MODEL_STATS_PN22M = {
-    "mean": (0.485,0.456,0.406),
-    "std": (0.235, 0.221, 0.232),
-}
 if MODEL == 'resnet18':
     model_specific_transforms = [transforms.Resize(256),
                                  transforms.CenterCrop(224),]
-    MODEL_STATS = MODEL_STATS_IMAGENET
 elif MODEL == 'resnet50':
     model_specific_transforms = [transforms.Resize(232),  # transforms for IMAGENET1K_V2 are different from V1
                                  transforms.CenterCrop(224),]
-    MODEL_STATS = MODEL_STATS_IMAGENET
 elif MODEL == 'dinov2_vits14':
     model_specific_transforms = [transforms.Resize(520),
                                  transforms.CenterCrop(518),]
-    MODEL_STATS = MODEL_STATS_IMAGENET
-elif MODEL == 'dinov2_PN22M':
-    model_specific_transforms = [transforms.Resize((224, 224)),
-                                 ]
-    MODEL_STATS = MODEL_STATS_PN22M
 elif MODEL == 'convnext':
     model_specific_transforms = [transforms.Resize(236),
                                  transforms.CenterCrop(224),]
-    MODEL_STATS = MODEL_STATS_IMAGENET
 elif MODEL == 'vgg16':
     model_specific_transforms = [transforms.Resize(256),
                                  transforms.CenterCrop(224),]
-    MODEL_STATS = MODEL_STATS_IMAGENET
 elif MODEL == 'vitb32':
     model_specific_transforms = [transforms.Resize(224),
                                  transforms.CenterCrop(224),]
-    MODEL_STATS = MODEL_STATS_IMAGENET
 elif MODEL == 'mobilenet_v3':
     model_specific_transforms = [transforms.Resize(232),
                                  transforms.CenterCrop(224),]
-    MODEL_STATS = MODEL_STATS_IMAGENET
 elif MODEL == 'inception_v3':
     model_specific_transforms = [transforms.Resize(342),
                                  transforms.CenterCrop(299),]
-    MODEL_STATS = MODEL_STATS_IMAGENET
 else:
     model_specific_transforms = []
     print(f'[ERROR] Unknown MODEL: {MODEL}, no resize transform applied !')
@@ -429,8 +411,8 @@ train_tf = transforms.Compose(
         transforms.RandomRotation(10),
         transforms.ToTensor(),
         transforms.Normalize(
-            mean=MODEL_STATS['mean'],
-            std=MODEL_STATS['std']
+            mean=[0.485,0.456,0.406],
+            std=[0.229,0.224,0.225]
         )
     ]
 )
@@ -440,8 +422,8 @@ val_tf = transforms.Compose(
     [
         transforms.ToTensor(),
         transforms.Normalize(
-            mean=MODEL_STATS['mean'],
-            std=MODEL_STATS['std']
+            mean=[0.485,0.456,0.406],
+            std=[0.229,0.224,0.225]
         )
     ]
 )
@@ -466,12 +448,12 @@ match MULTILABEL_CORRESPONDANCE_STRATEGY:
     case _:
         print(f'[ERROR] Unknown MULTILABEL_CORRESPONDANCE_STRATEGY: {MULTILABEL_CORRESPONDANCE_STRATEGY}')
 
-train_dataset = dataset(train_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=train_tf)
-val_dataset = dataset(val_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
-test_dataset = test_dataset(df_test, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
-# train_dataset = HabitatDatasetRandomlySampleDuplicateLabelsMatching(train_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=train_tf)
-# val_dataset = HabitatDatasetRandomlySampleDuplicateLabelsMatching(val_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
-# test_dataset = HabitatDatasetSoftMultilabels(df_test, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES, transform=val_tf)
+train_dataset = dataset(train_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES_LVL3, transform=train_tf)
+val_dataset = dataset(val_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES_LVL3, transform=val_tf)
+test_dataset = test_dataset(df_test, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES_LVL3, transform=val_tf)
+# train_dataset = HabitatDatasetRandomlySampleDuplicateLabelsMatching(train_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES_LVL3, transform=train_tf)
+# val_dataset = HabitatDatasetRandomlySampleDuplicateLabelsMatching(val_df, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES_LVL3, transform=val_tf)
+# test_dataset = HabitatDatasetSoftMultilabels(df_test, IMAGE_DIR, n_u_classes=NUM_UNIQUE_CLASSES_LVL3, transform=val_tf)
 
 train_loader = DataLoader(
     train_dataset,
@@ -503,8 +485,84 @@ print(f"[INFO] Number of classes in the test set: {test_loader.dataset.n_classe
 # ----------------------------
 # Model
 # ----------------------------
-model = get_model(MODEL, NUM_UNIQUE_CLASSES).to(DEVICE)
 
+def get_model(model_name, num_classes):
+    match model_name:
+        case 'resnet18':
+            print("[INFO] Using ResNet18")
+            model = models.resnet18(weights="IMAGENET1K_V1")
+            model.fc = nn.Linear(
+                model.fc.in_features,
+                num_classes,
+            )
+        case 'resnet50':
+            print("[INFO] Using ResNet50")
+            model = MultiHeadResNet50(
+                num_classes_head1=NUM_UNIQUE_CLASSES_LVL3,
+                num_classes_head2=NUM_UNIQUE_CLASSES_LVL2,
+                num_classes_head3=NUM_UNIQUE_CLASSES_LVL1,
+            )
+        case 'dinov2_vits14':
+            print("[INFO] Using DINOv2 ViT-S/14 (partial unfreezing: last 2 transformer blocks and head)")
+            model = timm.create_model('timm/vit_small_patch14_dinov2.lvd142m',
+                                    pretrained=True,
+                                    num_classes=num_classes)
+
+            # Freeze everything first
+            for param in model.parameters():
+                param.requires_grad = False
+
+            # Unfreeze the classifier head
+            for param in model.head.parameters():
+                param.requires_grad = True
+
+            # Unfreeze the last N transformer blocks
+            N = 2
+            for block in model.blocks[-N:]:
+                for param in block.parameters():
+                    param.requires_grad = True
+
+            # Unfreeze the final norm layer
+            for param in model.norm.parameters():
+                param.requires_grad = True
+        case 'convnext':
+            model = models.convnext_base(weights="IMAGENET1K_V1")
+            model.classifier[2] = nn.Linear(
+                model.classifier[2].in_features,
+                num_classes,
+            )
+        case 'vgg16':
+            model = models.vgg16(weights="IMAGENET1K_V1")
+            model.classifier[6] = nn.Linear(
+                model.classifier[6].in_features,
+                num_classes,
+            )
+        case 'vitb32':
+            model = models.vit_b_32(weights="IMAGENET1K_V1")
+            model.heads.head = nn.Linear(
+                model.heads.head.in_features,
+                num_classes,
+            )
+        case 'mobilenet_v3':
+            model = models.mobilenet_v3_large(weights="IMAGENET1K_V1")
+            model.classifier[3] = nn.Linear(
+                model.classifier[3].in_features,
+                num_classes,
+            )
+        case 'inception_v3':
+            model = models.inception_v3(weights="IMAGENET1K_V1")
+            model.fc = nn.Linear(
+                model.fc.in_features,
+                num_classes,
+            )
+            # Also replace the auxiliary classifier head if training
+            model.AuxLogits.fc = nn.Linear(
+                model.AuxLogits.fc.in_features,
+                num_classes,
+            )
+    return model
+
+model = get_model(MODEL, NUM_UNIQUE_CLASSES_LVL3).to(DEVICE)
 
 optimizer = optim.Adam(
     model.parameters(),
@@ -567,7 +625,7 @@ def get_confusion_matrix(all_labels, all_preds, num_classes, normalize=True):
 def compute_metrics(y_true, y_pred, y_prob):
     if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
         acc_top1_softml = top1_soft_multilabels_accuracy(y_true, y_prob)
-        cm, cm_norm = get_confusion_matrix(y_true, y_pred, NUM_UNIQUE_CLASSES, normalize=True)
+        cm, cm_norm = get_confusion_matrix(y_true, y_pred, NUM_UNIQUE_CLASSES_LVL3, normalize=True)
         return [acc_top1_softml, cm, cm_norm]
     else:
         acc = accuracy_score(y_true, y_pred)
@@ -878,6 +936,7 @@ with torch.no_grad():
             }
             for i, fid in enumerate(floraveg_ids)
         })
+
 
 # Decode labels
 pred_df = df_test.reset_index(drop=True).copy()
