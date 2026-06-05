@@ -1,8 +1,16 @@
 import numpy as np
 
-def get_basic_stats(df, labels, return_stats=False):
+def count_u_habitats_multilabel(df, col):
+    u_habitats = {}
+    for rowi, row in df.iterrows():
+        ks = str(row[col]).split(';')
+        for k in ks:
+            u_habitats[k.strip()] = u_habitats.get(k.strip(), 0) + 1
+    return u_habitats
+
+def get_basic_stats(df, col_labels, labels_multilabel=True, return_stats=False):
     unique_fids = df['point_id'].unique()
-    unique_labels = np.unique(labels)
+    unique_labels = np.array(list(count_u_habitats_multilabel(df, col_labels).keys()))
     unique_gps = df.value_counts(['lon', 'lat']).reset_index(name='count')
 
     n_unique_fids = unique_fids.shape[0]
@@ -14,7 +22,7 @@ def get_basic_stats(df, labels, return_stats=False):
     n_unique_habitats = unique_labels.shape[0]
 
     print(f'Nb occurrences (illustrated): {n_occurrences}')
-    print(f'Nb unique FloraVeg IDs: {n_unique_fids}')
+    print(f'Nb unique LUCAS IDs: {n_unique_fids}')
     print(f'Occurrences: {n_occu_valid_gps} ({100*n_occu_valid_gps/n_occurrences:.2f}%) with GPS | {n_occu_invalid_gps} ({100*n_occu_invalid_gps/n_occurrences:.2f}%) without')
     print(f'Nb of unique plots with valid GPS: {n_plots}')
     print()
@@ -22,3 +30,4 @@ def get_basic_stats(df, labels, return_stats=False):
     
     if return_stats:
         return n_unique_fids, n_unique_labels, n_occu_valid_gps, n_occu_invalid_gps, n_occurrences, n_plots, n_unique_habitats
+
