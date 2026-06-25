@@ -69,7 +69,7 @@ DATA_PATHS = {'train': {
 METADATA_PATHS = {
     # 'train':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_train-0.06min_noise_mixture.csv"),
     # 'val':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_noise_mixture.csv"),
-    'test':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_noise_swap.csv"),
+    'test':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_noise_mixture.csv"),
                  }
 SEEDS = [55]# [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
 

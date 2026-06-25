@@ -37,7 +37,7 @@ from habitat_models import get_model
 # ----------------------------
 SPLIT = 'S3'
 BASELINE = 'B2'
-MODEL = "resnet18"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
+MODEL = "resnet50"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
 
 INFERENCE = False
 INFERENCE_SUFFIX = ''
@@ -46,7 +46,7 @@ MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['naive', 'random sampling',
 LOSS_FUNCTION = 'CE_soft_ml'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
 LABEL_SMOOTHING = 0.0  # Float in [0, 1]
 
-EUNIS_LVL = '3_4'  # Values in [1, 2, 3, 3_4]
+EUNIS_LVL = '2'  # Values in [1, 2, 3, 3_4]
 NUM_UNIQUE_CLASSES = 215  # Values in [9, 35, 209, 11, 215] If None, inferred from the dataset
 BATCH_SIZE = 32
 EPOCHS = 20
@@ -63,14 +63,14 @@ CSV_FPS = {
     'CSV_S1BIS_TEST': f'metadata_labels_merged_S1bis-10%_test{INFERENCE_SUFFIX}.csv',  # "metadata_labels_merged_S1bis-10%_test.csv"
     'CSV_S0BIS_TRAIN': f'metadata_labels_merged_S0bis-10%_train{TRAIN_SUFFIX}.csv',
     'CSV_S0BIS_TEST': f'metadata_labels_merged_S0bis-10%_test{INFERENCE_SUFFIX}.csv',
-    'CSV_S3_TRAIN': f'metadata_labels_merged_S3-10%_train{TRAIN_SUFFIX}.csv',
-    'CSV_S3_TEST': f'metadata_labels_merged_S3-10%_test{INFERENCE_SUFFIX}.csv',
+    'CSV_S3_TRAIN': f'metadata_labels_merged_S3-10%_extended_train{TRAIN_SUFFIX}.csv',
+    'CSV_S3_TEST': f'metadata_labels_merged_S3-10%_extended_test{INFERENCE_SUFFIX}.csv',
 }
 
 CSV_FILE = CSV_FPS[f'CSV_{SPLIT}_TRAIN']
 CSV_FILE_TEST =  CSV_FPS[f'CSV_{SPLIT}_TEST'] # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
 IMAGE_DIR = "Images"
-OUTPUT_DIR = "/tmp" #  f"baselines/{BASELINE}_{SPLIT}-250m_{MODEL}/"
+OUTPUT_DIR = f"baselines/{BASELINE}_{SPLIT}_{MODEL}_LVL{EUNIS_LVL}/"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(OUTPUT_DIR, 'inference/'), exist_ok=True)
@@ -740,6 +740,10 @@ if not INFERENCE:
         print("Loss:",train_loss)
         if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
             print("Acc_top1_soft_multilabels:", train_metrics[0])
+            with open(TRAIN_METRICS,"a") as f:
+                f.write(
+                    f"{epoch},{train_loss},{train_metrics[0]}\n"
+                )
         else:
             print("Acc:",train_metrics[0])
             print("Prec:",train_metrics[1])
@@ -752,10 +756,6 @@ if not INFERENCE:
         if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
             print("Acc_top1_soft_multilabel", val_metrics[0])
             # Save logs
-            with open(TRAIN_METRICS,"a") as f:
-                f.write(
-                    f"{epoch},{train_loss},{train_metrics[0]}\n"
-                )
             with open(VAL_METRICS,"a") as f:
                 f.write(
                     f"{epoch},{val_loss},{val_metrics[0]}\n"

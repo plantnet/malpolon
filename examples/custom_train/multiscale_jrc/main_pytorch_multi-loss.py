@@ -321,7 +321,7 @@ if __name__ == "__main__":
         'arch': 'multi-loss',  # always paired with gps
         'OAR_job_id': os.getenv("OAR_JOB_ID", "no_jobid"),
         'batch_size': 32,
-        'ckpt_path': '', # 'wandb/archive/run-20250724_181933-tr7gs4v2/files/best.pth.tar',
+        'ckpt_path': 'wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar', # 'wandb/archive/run-20250724_181933-tr7gs4v2/files/best.pth.tar',
         'resume_wandb_run': False,  # If True, will resume the run from the last checkpoint under the same wandb run id.
         'device': "cuda",
         'disable_cuda': False,
@@ -337,10 +337,10 @@ if __name__ == "__main__":
         'learning_rate': 0.00025,
         'log_every_n_steps': 0.05,  # if float, percentage of the epoch (e.g. 0.25 would log 4 times per epoch). If int, number of steps.
         'max_iter': torch.inf,
-        'name': "[TEST] Multi-loss with KoLeo (ddiag), mean cosine sim PyTorch like", # "SimCLR: multi-loss GPS freeze, symetrix. Landscape = Dinov2small, outdim=2048",
+        'name': "[DEBUG] looking into validation metrics from u6tiioze", # "SimCLR: multi-loss GPS freeze, symetrix. Landscape = Dinov2small, outdim=2048",
         'n_views': 2,  # must be equal to the number of modalities passed to the contrastive loss
         'out_dim': 2048,
-        'subset': 0.5,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
+        'subset': 64,  # nb of random samples for train & val. Either int or float (percentage of the dataset size).
         'symmetric_loss': True,  # If True, the contrastive loss is computed symmetrically (i.e. matching IMG to GPS and also GPS to IMG, i.e. 2 half diagonals in the simMatrix)
         'temperature': 0.07,
         'wandb_project': 'Sandbox', # Takes values in 'Sandbox', 'Contrastive learning pairwise'

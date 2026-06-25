@@ -23,7 +23,7 @@ def accuracy_per_habitatslvl1(df):
     return res
 
 if __name__ == '__main__':
-    OUTPUT_PATH = 'outputs/Downstream_GPS_error_detection_multi-images-avg/Downstream_GPS_error_detection_LUCAS_noise_mixture/
+    OUTPUT_PATH = 'outputs/Downstream_GPS_error_detection_multi-images-avg/Downstream_GPS_error_detection_LUCAS_noise_mixture/'
     fp_scores = os.path.join(OUTPUT_PATH, 'scores_cosine.csv')
     fp_out_socres_enriched = os.path.join(OUTPUT_PATH, 'scores_cosine_best_roc_threshold_and_habitats.csv')
     fp_out_acc_per_hlvl1 = os.path.join(OUTPUT_PATH, 'accuracies-best-roc-threshold_per_habitatslvl1.csv')

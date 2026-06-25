@@ -458,115 +458,115 @@ class SimCLR(object):
             # stats_name = ['min','max','mean','std']
             ###
             self.model.train()
-            for step, train_dict in enumerate(tqdm(train_loader)):
-                batch_inds = train_dict['indices']
-                # species_img = train_dict['species'][0]
-                # species_coords = train_dict['species'][1]
-                # species_idx = train_dict['species'][2]
-                # species_id = train_dict['species'][3]
-                # landscape_img = train_dict['landscape'][0]
-                # landscape_coords = train_dict['landscape'][1]
-                # landscape_idx = train_dict['landscape'][2]
-                # landscape_id = train_dict['landscape'][3]
-                # satellite_img = train_dict['satellite'][0]
-                # satellite_coords = train_dict['satellite'][1]
-                # satellite_idx = train_dict['satellite'][2]
-                # satellite_id = train_dict['satellite'][3]
-                # imgs = [species_img, landscape_img, satellite_img]
-                # coords = [species_coords, landscape_coords, satellite_coords]
-                # all_inds = [species_idx, landscape_idx, satellite_idx]
-                # all_ids = [species_id, landscape_id, satellite_id]
+            # for step, train_dict in enumerate(tqdm(train_loader)):
+            #     batch_inds = train_dict['indices']
+            #     # species_img = train_dict['species'][0]
+            #     # species_coords = train_dict['species'][1]
+            #     # species_idx = train_dict['species'][2]
+            #     # species_id = train_dict['species'][3]
+            #     # landscape_img = train_dict['landscape'][0]
+            #     # landscape_coords = train_dict['landscape'][1]
+            #     # landscape_idx = train_dict['landscape'][2]
+            #     # landscape_id = train_dict['landscape'][3]
+            #     # satellite_img = train_dict['satellite'][0]
+            #     # satellite_coords = train_dict['satellite'][1]
+            #     # satellite_idx = train_dict['satellite'][2]
+            #     # satellite_id = train_dict['satellite'][3]
+            #     # imgs = [species_img, landscape_img, satellite_img]
+            #     # coords = [species_coords, landscape_coords, satellite_coords]
+            #     # all_inds = [species_idx, landscape_idx, satellite_idx]
+            #     # all_ids = [species_id, landscape_id, satellite_id]
 
-                train_dict_items = train_dict.items()
-                train_dict_items = [(k, v) for k, v in train_dict_items if k in modalities_to_process]
-                wandb.log({"train_steps": train_steps})
+            #     train_dict_items = train_dict.items()
+            #     train_dict_items = [(k, v) for k, v in train_dict_items if k in modalities_to_process]
+            #     wandb.log({"train_steps": train_steps})
 
-                with autocast(device_type=str(self.args.device), enabled=self.args.fp16_precision):
-                    loss, all_logits, all_features_img, all_features_gps, all_images, all_inds, all_ids = 0, [], [], [], [], [], []
-                    self.optimizer.zero_grad()
-                    for i, v in enumerate(train_dict_items):
-                        mod_name, (images, gps, inds, survey_ids) = v[0], v[1]
-                    # for i, (images, gps, inds, survey_ids) in enumerate(zip(imgs, coords, all_inds, all_ids)):
-                    #   if i in skip_modalities:
-                    #     continue  # careful about checking if logging functions are compatible with other than 3 modalities
-                        images = images.to(self.args.device)
-                        gps = gps.to(self.args.device)
-                        features_img, features_gps = self.model[mod_name](images, gps)
-                        features = torch.cat([features_img, features_gps], dim=0)
-                        if torch.isnan(features_img).sum() > 0:
-                            print("NaN detected in image features.")
-                        if self.args.symmetric_loss:
-                            logits, labels, sim_matrix = self.info_nce_loss(features, dataset_type=self.args.arch)
-                            koleo = KoLeoLoss()
-                            # criterion = self.criterion(logits, labels)
-                            criterion = cosine_embedding_loss(features_img, features_gps).item()
-                            if mod_name in self.koleo_modalities:
-                                koleo_train = koleo(features, eps=self.koleo_eps[i])
-                                loss += (self.koleo_weights[i] * koleo_train)/len(modalities_to_process)
-                                print(f'KoLeo loss {mod_name}: {self.koleo_weights[i] * koleo_train.item()}')
-                                print(f'Criterion loss {mod_name}: {criterion}')
-                                running_koleo.append(koleo_train.item())
-                            running_criterion.append(criterion)
-                        else:
-                            logits, labels, sim_matrix = self.info_nce_loss_single_diag(features_img, features_gps, dataset_type=self.args.arch)
-                        all_logits.append(logits)
-                        sim_matrices.append(sim_matrix)
-                        loss += criterion/len(modalities_to_process)  # Average loss over the 3 modalities + GPS
-                        # loss = loss/num_steps_par_batch
-                        # loss = loss/batch_size
-                        std_mean_img, std_mean_gps = torch.std_mean(features_img, dim=0), torch.std_mean(features_gps, dim=0)
-                        std_mean_diff = (std_mean_img[0] - std_mean_gps[0], std_mean_img[1] - std_mean_gps[1])
-                        norm_img, norm_gps = torch.norm(features_img, dim=1), torch.norm(features_gps, dim=1)
+            #     with autocast(device_type=str(self.args.device), enabled=self.args.fp16_precision):
+            #         loss, all_logits, all_features_img, all_features_gps, all_images, all_inds, all_ids = 0, [], [], [], [], [], []
+            #         self.optimizer.zero_grad()
+            #         for i, v in enumerate(train_dict_items):
+            #             mod_name, (images, gps, inds, survey_ids) = v[0], v[1]
+            #         # for i, (images, gps, inds, survey_ids) in enumerate(zip(imgs, coords, all_inds, all_ids)):
+            #         #   if i in skip_modalities:
+            #         #     continue  # careful about checking if logging functions are compatible with other than 3 modalities
+            #             images = images.to(self.args.device)
+            #             gps = gps.to(self.args.device)
+            #             features_img, features_gps = self.model[mod_name](images, gps)
+            #             features = torch.cat([features_img, features_gps], dim=0)
+            #             if torch.isnan(features_img).sum() > 0:
+            #                 print("NaN detected in image features.")
+            #             if self.args.symmetric_loss:
+            #                 logits, labels, sim_matrix = self.info_nce_loss(features, dataset_type=self.args.arch)
+            #                 koleo = KoLeoLoss()
+            #                 # criterion = self.criterion(logits, labels)
+            #                 criterion = cosine_embedding_loss(features_img, features_gps).item()
+            #                 if mod_name in self.koleo_modalities:
+            #                     koleo_train = koleo(features, eps=self.koleo_eps[i])
+            #                     loss += (self.koleo_weights[i] * koleo_train)/len(modalities_to_process)
+            #                     print(f'KoLeo loss {mod_name}: {self.koleo_weights[i] * koleo_train.item()}')
+            #                     print(f'Criterion loss {mod_name}: {criterion}')
+            #                     running_koleo.append(koleo_train.item())
+            #                 running_criterion.append(criterion)
+            #             else:
+            #                 logits, labels, sim_matrix = self.info_nce_loss_single_diag(features_img, features_gps, dataset_type=self.args.arch)
+            #             all_logits.append(logits)
+            #             sim_matrices.append(sim_matrix)
+            #             loss += criterion/len(modalities_to_process)  # Average loss over the 3 modalities + GPS
+            #             # loss = loss/num_steps_par_batch
+            #             # loss = loss/batch_size
+            #             std_mean_img, std_mean_gps = torch.std_mean(features_img, dim=0), torch.std_mean(features_gps, dim=0)
+            #             std_mean_diff = (std_mean_img[0] - std_mean_gps[0], std_mean_img[1] - std_mean_gps[1])
+            #             norm_img, norm_gps = torch.norm(features_img, dim=1), torch.norm(features_gps, dim=1)
 
-                        all_images.append(images)  # Randomly select 1/3 of a batch of images from the current modality to later display everything in a batch_size plt image
-                        all_features_img.append(features_img)
-                        all_features_gps.append(features_gps)
-                        all_inds.append(inds)
-                        all_ids.append(survey_ids)
+            #             all_images.append(images)  # Randomly select 1/3 of a batch of images from the current modality to later display everything in a batch_size plt image
+            #             all_features_img.append(features_img)
+            #             all_features_gps.append(features_gps)
+            #             all_inds.append(inds)
+            #             all_ids.append(survey_ids)
                     
-                    print(f"Epoch {epoch_counter} loss: {loss.item():.4f}")
+            #         print(f"Epoch {epoch_counter} loss: {loss.item():.4f}")
 
-                    scaler.scale(loss).backward()  # Gradients are accumulated. Calling backward after each modality loss equals calling backward once after sum + average of losses
-                    running_loss.append(loss.item())
-                    best_train_loss = min(best_train_loss, loss.item())
+            #         scaler.scale(loss).backward()  # Gradients are accumulated. Calling backward after each modality loss equals calling backward once after sum + average of losses
+            #         running_loss.append(loss.item())
+            #         best_train_loss = min(best_train_loss, loss.item())
 
-                scaler.step(self.optimizer)
-                scaler.update()
+            #     scaler.step(self.optimizer)
+            #     scaler.update()
 
-                if step % self.args.log_every_n_steps_train == 0:       
-                    log_input_imgs_multimodalities(all_images, all_inds, all_ids, step, epoch_counter, n_samples=8, n_modalities=len(modalities_to_process), mode='train', log_images=self.log_images)
+            #     if step % self.args.log_every_n_steps_train == 0:       
+            #         log_input_imgs_multimodalities(all_images, all_inds, all_ids, step, epoch_counter, n_samples=8, n_modalities=len(modalities_to_process), mode='train', log_images=self.log_images)
                     
-                    # Log loss and moments step wise
-                    log_loss_scheduler(loss, self.scheduler)
-                    # log_moments(norm_img, norm_gps, std_mean_img, std_mean_gps, std_mean_diff)
+            #         # Log loss and moments step wise
+            #         log_loss_scheduler(loss, self.scheduler)
+            #         # log_moments(norm_img, norm_gps, std_mean_img, std_mean_gps, std_mean_diff)
                     
-                    # Log similarity matrix step wise
-                    log_similarity_matrix_step(sim_matrices, epoch_counter, step, n_modalities=len(modalities_to_process), modalities_name=modalities_to_process, log_images=self.log_images, mode='train')
+            #         # Log similarity matrix step wise
+            #         log_similarity_matrix_step(sim_matrices, epoch_counter, step, n_modalities=len(modalities_to_process), modalities_name=modalities_to_process, log_images=self.log_images, mode='train')
                     
-                    # Log mean of similarity matrices computed over self.args.log_every_n_steps_train steps
-                    sim_matrix_mean = mean_sim_matrices_over_modalities(sim_matrices, n_modalities=len(modalities_to_process))
-                    log_similarity_matrix_mean(sim_matrix_mean, epoch_counter, step, n_modalities=len(modalities_to_process), log_every_n_steps=self.args.log_every_n_steps_train, log_images=self.log_images)
+            #         # Log mean of similarity matrices computed over self.args.log_every_n_steps_train steps
+            #         sim_matrix_mean = mean_sim_matrices_over_modalities(sim_matrices, n_modalities=len(modalities_to_process))
+            #         log_similarity_matrix_mean(sim_matrix_mean, epoch_counter, step, n_modalities=len(modalities_to_process), log_every_n_steps=self.args.log_every_n_steps_train, log_images=self.log_images)
                     
-                    # Log accuracy step wise
-                    for logits, modality_name in zip(all_logits, modalities_to_process):
-                        top1, top5 = log_acc_topk_step(logits, labels, modality_name, topk=(1, 5), mode='train')
-                        # Every step wise top-k is stored in a list where modalities are interleaved. E.g. [topk_modality1, topk_modality2, topk_modality3]
-                        if all(topk is not None for topk in [top1, top5]):
-                            top1s.append(top1)
-                            top5s.append(top5)
-                train_steps += 1
-                if step >= max_iter:  # Debug purposes
-                    break
-            wandb.log({"Loss_epoch (batch avg)/train": np.array(running_loss).mean()})
-            for i, modality_name in enumerate(modalities_to_process):
-                wandb.log({f"acc_epoch (batch avg)/train/top1_{modality_name}": np.array(top1s[i::len(modalities_to_process)]).mean(),
-                           f"acc_epoch (batch avg)/train/top5_{modality_name}": np.array(top5s[i::len(modalities_to_process)]).mean()})
-            wandb.log({"acc_epoch (batch avg)/train/top1": np.array(top1s).mean(),
-                       "acc_epoch (batch avg)/train/top5": np.array(top5s).mean()})
+            #         # Log accuracy step wise
+            #         for logits, modality_name in zip(all_logits, modalities_to_process):
+            #             top1, top5 = log_acc_topk_step(logits, labels, modality_name, topk=(1, 5), mode='train')
+            #             # Every step wise top-k is stored in a list where modalities are interleaved. E.g. [topk_modality1, topk_modality2, topk_modality3]
+            #             if all(topk is not None for topk in [top1, top5]):
+            #                 top1s.append(top1)
+            #                 top5s.append(top5)
+            #     train_steps += 1
+            #     if step >= max_iter:  # Debug purposes
+            #         break
+            # wandb.log({"Loss_epoch (batch avg)/train": np.array(running_loss).mean()})
+            # for i, modality_name in enumerate(modalities_to_process):
+            #     wandb.log({f"acc_epoch (batch avg)/train/top1_{modality_name}": np.array(top1s[i::len(modalities_to_process)]).mean(),
+            #                f"acc_epoch (batch avg)/train/top5_{modality_name}": np.array(top5s[i::len(modalities_to_process)]).mean()})
+            # wandb.log({"acc_epoch (batch avg)/train/top1": np.array(top1s).mean(),
+            #            "acc_epoch (batch avg)/train/top5": np.array(top5s).mean()})
             
-            # Log t-sne projection
-            for features_img, features_gps, modality_name in zip(all_features_img, all_features_gps, modalities_to_process):
-                log_tsne(features_img, features_gps, epoch_counter, modality_name, log_images=self.log_images, mode='train')
+            # # Log t-sne projection
+            # for features_img, features_gps, modality_name in zip(all_features_img, all_features_gps, modalities_to_process):
+            #     log_tsne(features_img, features_gps, epoch_counter, modality_name, log_images=self.log_images, mode='train')
 
             # Evaluation
             self.model.eval()
@@ -656,6 +656,11 @@ class SimCLR(object):
                     if vstep >= max_iter:
                         break
                 wandb.log({"Loss_epoch (batch avg)/val": np.array(running_vloss).mean()})
+                # [TO FIX]: modality_wise accuracies recorded are only those of the 1st batch of an epoch and NOT a mean.
+                # Furthermore, modality-wise acc are appended to vtop1s & vtop5s k by k
+                # Furthermore, keep in mind: modalities being evaluated are NOT aligned on the same survey sites.
+                # These metrics do NOT allow to conclude whether the model is better at predicting the correct GPS from modality A, B or C since the sites are different.
+                # The "Top1" and "Top5" epoch_acc are the mean average of all acc, for all modalities, over 1 epoch.
                 for vtop1, vtop5, modality_name in zip(vtop1s, vtop5s, modalities_name):
                     wandb.log({f"acc_epoch (batch avg)/val/top1_{modality_name}": vtop1,
                                f"acc_epoch (batch avg)/val/top5_{modality_name}": vtop5})
