@@ -12,14 +12,19 @@ dataset/scale_2_landscape/LUCAS_nef_replicated/
 dataset/scale_2_landscape/lucas_harmo*.csv
 dataset/scale_2_landscape/old/
 
+*glc24_pa_test_private*.csv
+
 # Jobs
 *.err
 *.out
 *.sh
 
 # Resources
+resources/
 ./*.png
 ./*.jpeg
 
 # Debug
 debug/
+dataset/scale_2_landscape/lucas_train_val_checked.csv
+dataset/dataset_check_integrity_multiprocessing.py

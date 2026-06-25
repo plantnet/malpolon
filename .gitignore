@@ -11,6 +11,7 @@
 *.stdout
 *.err
 *.out
+*.sh
 
 # Build utilities
 docs/_build
