@@ -54,7 +54,7 @@ SATELLITE_INPUT_SIZE = 128
 
 ROOT_PATH_LUCAS = 'dataset/scale_2_landscape'
 ROOT_PATH_SPECIES = 'dataset/scale_1_species/'
-OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_multi-images-avg/Downstream_GPS_error_detection_Species_noise_mixture/'
+OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_multi-images-avg/Downstream_GPS_error_detection_Species_noise_mixture_test/'
 
 DATA_PATHS = {'train': {
                   'species_dir': os.path.join(ROOT_PATH_SPECIES, 'Gbif_Illustrations_PO_gbif_glc24_PN-only_CBN-med_matching-LUCAS-500/'),

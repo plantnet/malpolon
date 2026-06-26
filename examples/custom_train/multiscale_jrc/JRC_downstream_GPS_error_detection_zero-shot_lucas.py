@@ -54,7 +54,7 @@ LANDSCAPE_INPUT_SIZE = 518
 SATELLITE_INPUT_SIZE = 128
 
 ROOT_PATH_LUCAS = 'dataset/scale_2_landscape'
-OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_multi-images-avg/Downstream_GPS_error_detection_LUCAS_noise_swap/'
+OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_multi-images-avg/Downstream_GPS_error_detection_LUCAS_noise_mixture_test/'
 
 DATA_PATHS = {'train': {
                   'landscape_dir': os.path.join(ROOT_PATH_LUCAS, 'LUCAS/'),
@@ -71,7 +71,7 @@ METADATA_PATHS = {
     # 'val':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/lucas_harmo_cover_exif_nona_fixed_gps_CBN-Med_expanded_essentials_exists_val-0.06min_noise_mixture.csv"),
     'test':  os.path.join(ROOT_PATH_LUCAS, "gps_noisy/glc24_pa_test_private_CBN-med_matching-LUCAS-500m_noise_mixture.csv"),
                  }
-SEEDS = [55]# [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
+SEEDS = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
 
 ## Inference mode
 SCORE_MODE = "cosine"  # "cosine" or "sigmoid"

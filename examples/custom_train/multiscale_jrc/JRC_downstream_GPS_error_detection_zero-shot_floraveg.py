@@ -57,7 +57,7 @@ SATELLITE_INPUT_SIZE = 128
 ROOT_PATH_FLORAVEG = 'dataset/habitats_gpn25_eva/FloraVeg/'
 DATA_PATH = os.path.join(ROOT_PATH_FLORAVEG, 'Images/')
 METADATA_PATHS = {
-    'test':  os.path.join(ROOT_PATH_FLORAVEG, "gps_noisy/metadata_labels_merged_S3-10%_extended_test_noise_mixture.csv"),
+    'test':  os.path.join(ROOT_PATH_FLORAVEG, "gps_noisy/metadata_labels_merged_gps_only_S2_encoded_test-0.00225deg_noise_mixture.csv"),
                  }
 OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_multi-images-avg/Downstream_GPS_error_detection_FloraVeg_noise_mixture/'
 SEEDS = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
@@ -140,10 +140,10 @@ class FloraVegGPSErrorDetection(Dataset):
             gps_noisy = tuple(sample[['lon_noisy', 'lat_noisy']].values.flatten())
             gps_match = bool(sample['gps_match'])
             survey_id = int(sample[self.col_id])
-            floraveg_id = sample[self.col_id]
+            noise_type = sample['noise_type']
 
-        # Order: imgs, gps, gps_noisy, gps_match (binary label), plot ID, LUCAS IDs
-        return image, torch.Tensor(gps), torch.Tensor(gps_noisy), torch.tensor(gps_match), torch.tensor([survey_id]), np.array(floraveg_id), np.array([1]), np.array([0])
+        # Order: imgs, gps, gps_noisy, gps_match (binary label), noise_type
+        return image, torch.Tensor(gps), torch.Tensor(gps_noisy), torch.tensor(gps_match), torch.tensor([survey_id]), noise_type
 
 def transforms_landscape():
     def CenterCropToMaxDim(img):
@@ -367,14 +367,35 @@ def count_unique_last_letters(file_paths, ignore_case=False):
     out_dict['Total_missing_imgs'] = sum(out_dict.values())
     return out_dict
 
-def log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, seed_prefix):
+def log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, seed_prefix, all_noise_types):
     ## AUCs
     print('y_scores: ', y_scores)
     roc_auc = roc_auc_score(y_true, y_scores)
-    pr_auc = average_precision_score(y_true, y_scores)
+    pr_auc = average_precision_score(y_true, y_scores)  # Yes it is the same as computing the AUC under the real PR-curve. Little numerical differences, but otherwise yes
+    
+    ## Compute AUCs per noise type.
+    ## Randomly select the same nb of valid GPS samples as noisy samples.
+    ## Sane samples are randomly chosen multiple times, to avoid randomly selecting easy positive examples. The AUCs are then averaged over those k-fold.
+    roc_auc_per_noise_type, pr_auc_per_noise_type = {'none': np.nan}, {'none': np.nan}
+    u_nt = np.unique(all_noise_types)
+    for nt in u_nt[u_nt != 'none']:
+        mask = np.array(all_noise_types) == nt
+        roc_auc_tmp, pr_auc_tmp = [], []
+        for k in range(50):
+            valid_gps_ids = np.random.choice(np.where(np.array(all_noise_types) == 'none')[0],
+                                    size=sum(mask))
+            mask[valid_gps_ids] = True  # Add some valid GPS samples to the mask to avoid errors when computing AUCs for noise types with only positive or negative samples
+            roc_auc_tmp.append(roc_auc_score(y_true[mask], y_scores[mask]))
+            pr_auc_tmp.append(average_precision_score(y_true[mask], y_scores[mask]))
+        roc_auc_per_noise_type[nt] = np.mean(roc_auc_tmp)
+        pr_auc_per_noise_type[nt] = np.mean(pr_auc_tmp)
 
     print(f"[{score_mode}] ROC-AUC: {roc_auc:.4f}")
+    for nt in u_nt[u_nt != 'none']:
+        print(f"\t ↳ {nt}: {roc_auc_per_noise_type[nt]:.4f}")
     print(f"[{score_mode}] PR-AUC: {pr_auc:.4f}")
+    for nt in u_nt[u_nt != 'none']:
+        print(f"\t ↳ {nt}: {pr_auc_per_noise_type[nt]:.4f}")
     
     ## Curves
     prec, recall, _ = precision_recall_curve(y_true, y_scores)
@@ -420,7 +441,8 @@ def log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, s
     results_df = pd.DataFrame({
         "id": all_ids,
         "label": y_true,
-        "score": y_scores
+        "score": y_scores,
+        "noise_type": all_noise_types
     })
 
     results_path = os.path.join(output_dir, f"scores_{score_mode}{seed_prefix}.csv")
@@ -430,8 +452,11 @@ def log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, s
     metrics_df = pd.DataFrame([{
         "score_mode": score_mode,
         "roc_auc": roc_auc,
-        "pr_auc": pr_auc
+        "pr_auc": pr_auc,
     }])
+    for nt in u_nt[u_nt != 'none']:
+        metrics_df[f"roc_auc_{nt}"] = roc_auc_per_noise_type[nt]
+        metrics_df[f"pr_auc_{nt}"] = pr_auc_per_noise_type[nt]
 
     metrics_path = os.path.join(output_dir, f"metrics_{score_mode}{seed_prefix}.csv")
     metrics_df.to_csv(metrics_path, index=False)
@@ -459,36 +484,26 @@ def run_inference(
     all_labels = []
     all_scores = []
     all_ids = []
+    all_noise_types = []
 
     with torch.no_grad():
         for step, data in tqdm(enumerate(test_loader), total=len(test_loader)):
-            images, gps, gps_noisy, gps_match, surveyIds, floraveg_ids, n_img_per_ids, missing_imgs = data
+            images, gps, gps_noisy, gps_match, surveyIds, noise_type = data
 
             labels = gps_match.float().to(device)
             images = images.to(device)
             gps_noisy = gps_noisy.to(device)
 
             # Forward pass
-            """
-            Since there are 1 to k LUCAS_ID per geolocalized sample;
-            and there are 1 to 6 image per LUCAS_ID,
-            we compute the mean logit values for all LUCAS_IDs tied to a geo-tagged point
-            """
-            logits_img, logits_gps, start, stop = [], [], 0, 0
-            for sample_idx in range(test_loader.batch_size):
-                stop = start + n_img_per_ids[sample_idx].sum()  # Number of loaded images per LUCAS_ID, per surveyId (i.e. plot, i.e. sample)
-                stop = stop + 1 if start == stop else stop  # If no images found for the current LUCAS_ID
-                images_sample = images[start:stop]
-                gps_sample = gps_noisy[sample_idx].repeat(images_sample.shape[0], 1)
-                if isinstance(model, torch.nn.DataParallel):
-                    logit_gps, logit_img = model.module(images_sample, gps_sample)
-                else:
-                    logit_gps, logit_img = model.module(images_sample, gps_sample)
-                logits_img.append(logit_img.mean(dim=0))
-                logits_gps.append(logit_gps[0])  # The same GPS values are passed in forward (se torch.repeat()) so all logits are equal. No need to call mean()
-                start = stop
-            logits_img = torch.stack(logits_img, dim=0)
-            logits_gps = torch.stack(logits_gps, dim=0)
+            logits_img, logits_gps = [], []
+            if isinstance(model, torch.nn.DataParallel):
+                logits_gps, logits_img = model.module(images, gps_noisy)
+            else:
+                logits_gps, logits_img = model(images, gps_noisy)
+            # logits_img = logit_img.mean(dim=0)
+            # logits_gps = logit_gps[0]  # The same GPS values are passed in forward (se torch.repeat()) so all logits are equal. No need to call mean()
+            # logits_img = torch.stack(logits_img, dim=0)
+            # logits_gps = torch.stack(logits_gps, dim=0)
 
             # Score computation options
             if score_mode == "cosine":
@@ -503,13 +518,14 @@ def run_inference(
             all_labels.append(labels.cpu())
             all_scores.append(scores.cpu())
             all_ids.extend(surveyIds.cpu().ravel().tolist())
+            all_noise_types.extend(noise_type)
 
     # Stack
     y_true = torch.cat(all_labels).numpy()
     y_scores = torch.cat(all_scores).numpy()
 
     # Metrics
-    log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, seed_prefix)
+    log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, seed_prefix, all_noise_types)
 
     print(f"Saved results to {output_dir}")
 
