@@ -57,9 +57,9 @@ SATELLITE_INPUT_SIZE = 128
 ROOT_PATH_FLORAVEG = 'dataset/habitats_gpn25_eva/FloraVeg/'
 DATA_PATH = os.path.join(ROOT_PATH_FLORAVEG, 'Images/')
 METADATA_PATHS = {
-    'test':  os.path.join(ROOT_PATH_FLORAVEG, "gps_noisy/metadata_labels_merged_gps_only_S2_encoded_test-0.00225deg_noise_mixture.csv"),
+    'test':  os.path.join(ROOT_PATH_FLORAVEG, "gps_noisy/metadata_labels_merged_gps_only_S2_encoded_gb-16.2%_train_test-250m_noise_mixture.csv"),
                  }
-OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_multi-images-avg/Downstream_GPS_error_detection_FloraVeg_noise_mixture/'
+OUTPUT_DIR = 'outputs/Downstream_GPS_error_detection_multi-images-avg/Downstream_GPS_error_detection_FloraVeg_noise_mixture_multilabel-16.2%-250m/'
 SEEDS = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
 
 ## Inference mode

@@ -312,9 +312,9 @@ def add_ring_exponential_noise(df, noise_meters=100000, min_radius=75, max_radiu
 
     # Generate independent noise in meters
     if noise_version == 'inside_ring':
-        df_noise = generate_radial_points_concentrated_inside_ring(center=(0.0, 0.0), n=len(df), min_radius=min_radius, max_radius=max_radius, inner_scale=inner_scale, outer_scale=30, seed=None)*noise_meters/100
+        df_noise = generate_radial_points_concentrated_inside_ring(center=(0.0, 0.0), n=len(df), min_radius=min_radius, max_radius=max_radius, inner_scale=inner_scale, outer_scale=30, seed=seed)*noise_meters/100
     elif noise_version == 'beyond_ring':
-        df_noise = generate_radial_points_concentrated_beyond_ring(center=(0.0, 0.0), n=len(df), min_radius=min_radius, inner_scale=inner_scale, outer_scale=outer_scale, seed=None)*noise_meters/100
+        df_noise = generate_radial_points_concentrated_beyond_ring(center=(0.0, 0.0), n=len(df), min_radius=min_radius, inner_scale=inner_scale, outer_scale=outer_scale, seed=seed)*noise_meters/100
 
     # Apply noise
     x_noisy = x + df_noise['x']
