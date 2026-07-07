@@ -30,7 +30,7 @@ from sklearn.metrics import (
     roc_auc_score,
     confusion_matrix
 )
-from dino_v2_large_PN22M.models import vit_large
+
 from habitat_models import get_model, MultiHeadModel
 # ----------------------------
 # Config
@@ -69,7 +69,7 @@ CSV_FPS = {
 }
 
 CSV_FILE = CSV_FPS[f'CSV_{SPLIT}_TRAIN']
-CSV_FILE_TEST =  CSV_FPS[f'CSV_{SPLIT}_TEST'] # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
+CSV_FILE_TEST =  CSV_FPS[f'CSV_{SPLIT}_TEST']
 ROOT_DIR = "../LUCAS_habitats/"
 IMAGE_DIR = os.path.join(ROOT_DIR, "")  # No need because for LUCAS data the image paths are already specified in the CSV files as relative paths to the root dir, but this variable can be useful if we want to add a common prefix to the image paths specified in the CSV files.
 OUTPUT_DIR = os.path.join(ROOT_DIR, f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead/")
@@ -553,55 +553,59 @@ def run_epoch(loader, split, epoch_nb, training=True):
 
     running_loss = 0
 
-    for (images,
-         labels_enc_oh_lvl1, labels_enc_oh_lvl2, labels_enc_oh_lvl3, labels_enc_oh_lvl4, labels_enc_oh_lvl3_4,
-         labels_enc_lvl1, labels_enc_lvl2, labels_enc_lvl3, labels_enc_lvl4, labels_enc_lvl3_4,
-         labels_lvl1, labels_lvl2, labels_lvl3, labels_lvl4, labels_lvl3_4,
-         survey_id
-    ) in tqdm(loader):
+    try:
+        for (images,
+            labels_enc_oh_lvl1, labels_enc_oh_lvl2, labels_enc_oh_lvl3, labels_enc_oh_lvl4, labels_enc_oh_lvl3_4,
+            labels_enc_lvl1, labels_enc_lvl2, labels_enc_lvl3, labels_enc_lvl4, labels_enc_lvl3_4,
+            labels_lvl1, labels_lvl2, labels_lvl3, labels_lvl4, labels_lvl3_4,
+            survey_id
+        ) in tqdm(loader):
 
-        labels_enc_ohs = {'1': labels_enc_oh_lvl1,
-                          '2': labels_enc_oh_lvl2,
-                          '3': labels_enc_oh_lvl3,
-                          '4': labels_enc_oh_lvl4,
-                          '3_4': labels_enc_oh_lvl3_4}
-        probs = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
-        preds = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
-        images = images.to(DEVICE)
-        # Only keep labels selected by EUNIS_LVL config constant and move to device
-        for k, v in labels_enc_ohs.items():
-            if k in EUNIS_LVL:
-                labels_enc_ohs[k] = v.to(DEVICE)
+            labels_enc_ohs = {'1': labels_enc_oh_lvl1,
+                            '2': labels_enc_oh_lvl2,
+                            '3': labels_enc_oh_lvl3,
+                            '4': labels_enc_oh_lvl4,
+                            '3_4': labels_enc_oh_lvl3_4}
+            probs = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
+            preds = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
+            images = images.to(DEVICE)
+            # Only keep labels selected by EUNIS_LVL config constant and move to device
+            for k, v in labels_enc_ohs.items():
+                if k in EUNIS_LVL:
+                    labels_enc_ohs[k] = v.to(DEVICE)
+                else:
+                    labels_enc_ohs[k] = None
+
+            if training:
+                optimizer.zero_grad()
+
+            if MODEL == 'inception_v3' and split == 'train':
+                outputs, aux_output = model(images)
             else:
-                labels_enc_ohs[k] = None
+                outputs = model(images)
 
-        if training:
-            optimizer.zero_grad()
+            # loss = get_criterion(outputs, labels_enc_oh)
+            loss = 0
 
-        if MODEL == 'inception_v3' and split == 'train':
-            outputs, aux_output = model(images)
-        else:
-            outputs = model(images)
+            for lvl, weight in zip(EUNIS_LVL, EUNIS_LVL_WEIGHTS):
+                loss += get_criterion(outputs[lvl], labels_enc_ohs[lvl])
 
-        # loss = get_criterion(outputs, labels_enc_oh)
-        loss = 0
+            if training:
+                loss.backward()
+                optimizer.step()
 
-        for lvl, weight in zip(EUNIS_LVL, EUNIS_LVL_WEIGHTS):
-            loss += get_criterion(outputs[lvl], labels_enc_ohs[lvl])
+            running_loss += loss.item()
 
-        if training:
-            loss.backward()
-            optimizer.step()
+            for lvl in EUNIS_LVL:
+                probs[lvl] = torch.softmax(outputs[lvl], dim=1)
+                preds[lvl] = torch.argmax(probs[lvl], dim=1)
 
-        running_loss += loss.item()
-
-        for lvl in EUNIS_LVL:
-            probs[lvl] = torch.softmax(outputs[lvl], dim=1)
-            preds[lvl] = torch.argmax(probs[lvl], dim=1)
-
-            all_labels_enc_oh[lvl].extend(labels_enc_ohs[lvl].cpu().numpy())
-            all_preds[lvl].extend(preds[lvl].cpu().numpy())
-            all_probs[lvl].extend(probs[lvl].detach().cpu().numpy())
+                all_labels_enc_oh[lvl].extend(labels_enc_ohs[lvl].cpu().numpy())
+                all_preds[lvl].extend(preds[lvl].cpu().numpy())
+                all_probs[lvl].extend(probs[lvl].detach().cpu().numpy())
+    except Exception as e:
+        print(f"[ERROR] Exception during {split} epoch {epoch_nb}: {e}")
+        raise e
 
 
     metrics = compute_metrics(
