@@ -6,6 +6,8 @@ FloraVeg/baselines
 FloraVeg/*.csv
 FloraVeg/Wandb
 
+GPN/
+
 *.csv
 habitats.xlsx
 

@@ -72,7 +72,7 @@ CSV_FPS = {
 CSV_FILE = CSV_FPS[f'CSV_{SPLIT}_TRAIN']
 CSV_FILE_TEST =  CSV_FPS[f'CSV_{SPLIT}_TEST'] # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
 IMAGE_DIR = "Images"
-OUTPUT_DIR = f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead_no_watermark_512/"
+OUTPUT_DIR = '/tmp' # f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead_no_watermark_512/"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(OUTPUT_DIR, 'inference/'), exist_ok=True)

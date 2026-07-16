@@ -1,3 +1,11 @@
+## Commands
+1. Pull GPN's habitat predictions from its raster and insert it in the input LUCAS CSV.
+`python extract_labels_from_habitat_raster.py  -r GPN/v1/habitat.tif -i LUCAS_habitats/data/output/csv/LUCAS_metadata_labels_merged_S3-10%_extended_CBN-Med.csv -o out.csv --id_col "point_id"`
+
+2. Merge the habitat\_code and name from the raster's habitat\_IDs
+`python merge_gpn_habitats_to_lucas.py -i out.csv -g GPN/v1/geoplantnet_v1_habitat_eunis2020_metadata.csv -o LUCAS_habitats/data/output/csv/LUCAS_metadata_labels_merged_S3-10%_extended_CBN-Med_GPN-labels.csv`
+
+## Other
 Raw dataset: 21 002 089 rows (obs) with 1 175 186 sites, where each site is expanded for every species it contains. It contains 9290 species.
 eva\_data\_known\_habitats\_collapsed\_species\_small: 559 115 rows, where 1 row = 1 site.
 

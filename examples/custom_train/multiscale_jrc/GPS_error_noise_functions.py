@@ -68,9 +68,23 @@ def add_heavy_tail_noise(df, p=0.01, median_m=100000, sigma=1.5, seed=None):
 
     x_new[idx] += dx
     y_new[idx] += dy
+    # print('x_new: ', x_new[138:141], 'y_new: ', y_new[138:141])
 
     # back transform
     lon_new, lat_new = to_4326.transform(x_new, y_new)
+    
+    # Fail-safe: prevents inf values to being outputed by repeatedly applying -20% on lon/lat in 3035 before projecting them to 4326
+    count = 0
+    while np.any(np.isinf(lon_new)) or np.any(np.isinf(lat_new)):
+        inds_inf = np.argwhere(np.isinf(lon_new) | np.isinf(lat_new))
+        for i in inds_inf: 
+            lon_tmp, lat_tmp = to_4326.transform(x_new[i], y_new[i])
+            x_new[i] = x_new[i] / 1.25 if np.isinf(lon_tmp) else x_new[i]
+            y_new[i] = y_new[i] / 1.25 if np.isinf(lat_tmp) else y_new[i]
+            lon_new, lat_new = to_4326.transform(x_new, y_new)
+        count += 1
+    if count > 0:
+        print(f'WARNING: [seed {seed-1}] some noised coordinates exploded to inf values in EPSG:4326 by reducing values by up to {20*count}%.')
 
     df["lon_noisy"] = lon_new
     df["lat_noisy"] = lat_new
