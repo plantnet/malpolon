@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from typing import List, Union, Optional, Callable, Any
 from tqdm import tqdm
 import torch
+import random
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -48,7 +49,6 @@ from transforms import (transforms_species, transforms_satellite)
 
 
 # Parameters
-
 SPECIES_INPUT_SIZE = 518
 LANDSCAPE_INPUT_SIZE = 518
 SATELLITE_INPUT_SIZE = 128
@@ -68,6 +68,7 @@ METADATA_PATHS = {
 SEEDS = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89]
 
 ## Inference mode
+MULTIVIEW = True  # If True, loads all available LUCAS views and averages their logits per LUCAS_ID (i.e. per geolocalized sample). If False, loads only 1 random LUCAS view per sample + assumes there is only 1 LUCAS_ID per geolocalized sample
 SCORE_MODE = "cosine"  # "cosine" or "sigmoid"
 
 args = {
@@ -93,6 +94,7 @@ args = {
         'downstream_modalities_to_process': ['landscape_img', 'landscape_gps'],  # Will skip modalities during training
         'eval_type': 'linear_probing',  # Evaluation strategy: 'linear_probing', 'fine_tuning', 'knn'
         'predict': True,
+        'multiview': MULTIVIEW,
         'verbose': False,
         'wandb_mode': 'offline',  # 'online', 'offline', 'disabled'
     }
@@ -118,13 +120,16 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
         transform: Callable = None,
         dataset_kwargs: dict = {},
         query_id: str = 'id',
+        multiview: bool = False,
         verbose: bool = False,
         **kwargs
     ) -> None:
         super().__init__(root_path, fp_metadata, transform, dataset_kwargs, query_id=query_id, **kwargs)
         self.verbose = verbose
+        self.multiview = multiview
    
-    def load_LUCAS_imgs_error_detection(
+    # Loading all LUCAS views in memory
+    def load_LUCAS_imgs_error_detection_multi_view(
         self,
         sample,
         root_path: str = "dataset/scale_2_landscape/",
@@ -137,33 +142,32 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
     ):
         imgs = []
         missing_imgs = []
-        lucas_data = {sample['id']: {'fps': sample['filepath'].split(';'), 'n_imgs': 0, 'imgs': []}}
+        lucas_data = {'id': sample['id'], 'fps': sample['filepath'].split(';'), 'n_imgs': 0, 'imgs': []}
 
-        # Iterate over every lucas_id
-        for l_id, v in lucas_data.items():
-            imgs = []
-            # Iterate over every 6 views of each lucas_id
-            for l_fp in v['fps']:
-                try:
-                    imgs.append(torchvision.io.read_image(str(Path(root_path) / Path(l_fp))))
-                except:
-                    if self.verbose:
-                        print(f'[WARNING]: LUCAS image {l_fp} not found.')
-                    missing_imgs.append(l_fp)
-                    continue
-            lucas_data[l_id]['imgs'] = imgs
-            lucas_data[l_id]['n_imgs'] = len(imgs)
-            if sum(len(img) for img in lucas_data[l_id]['imgs']) == 0:
-                lucas_data[l_id]['imgs'] = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE) -1
-            else:
-                imgs = [transform(i) for i in lucas_data[l_id]['imgs']]
-                lucas_data[l_id]['imgs'] = torch.stack(imgs, dim=0)
-        
-        imgs = torch.cat([lucas_data[idx]['imgs'] for idx in lucas_data.keys()], dim=0)
+        imgs = []
+        # Iterate over every 6 views of each lucas_id
+        for l_fp in lucas_data['fps']:
+            try:
+                imgs.append(torchvision.io.read_image(str(Path(root_path) / Path(l_fp))))
+            except:
+                if self.verbose:
+                    print(f'[WARNING]: LUCAS image {l_fp} not found or an error occured when loading the image.')
+                missing_imgs.append(l_fp)
+                continue
+        lucas_data['imgs'] = imgs
+        lucas_data['n_imgs'] = len(imgs)
+        if sum(len(img) for img in lucas_data['imgs']) == 0:
+            lucas_data['imgs'] = torch.zeros(1, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE) -1
+        else:
+            imgs = [transform(i) for i in lucas_data['imgs']]
+            lucas_data['imgs'] = torch.stack(imgs, dim=0)
+
+        imgs = lucas_data['imgs']
         gps = tuple(sample[gps_col].values.flatten())
         fps = sample['filepath']
         ids = str(sample['id'])
-        n_img_per_ids = [lucas_data[l_id]['n_imgs']]
+        n_img_per_ids = [lucas_data['n_imgs']]
+        noise_type = sample['noise_type']
         res = [imgs]
 
         # Order: imgs, gps, ids, fps
@@ -175,6 +179,61 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
             res.append(fps)
         if return_n_img_per_lid:
             res.append(n_img_per_ids)
+        res.append(noise_type)
+        res.append(missing_imgs)
+        return tuple(res)
+    
+    # Loading only 1 random LUCAS view in memory
+    def load_LUCAS_imgs_error_detection_1_view(
+        self,
+        sample,
+        root_path: str = "dataset/scale_2_landscape/",
+        return_gps: Optional[bool] = False,
+        return_ids: Optional[bool] = False,
+        return_fps: Optional[bool] = False,
+        return_n_img_per_lid: Optional[bool] = False,
+        gps_col: list = ['lon', 'lat'],
+        transform: Callable = None,
+    ):
+        imgs = []
+        missing_imgs = []
+        lucas_data = {'id': sample['id'], 'fps': sample['filepath'].split(';'), 'n_imgs': 0, 'imgs': []}
+
+        # Randomly select one locally found image
+        i = 0
+        fps = random.shuffle(lucas_data['fps'])
+        while len(imgs) < 1 and i < len(lucas_data['fps']):
+            l_fp = lucas_data['fps'][i]
+            try:
+                imgs = torchvision.io.read_image(str(Path(root_path) / Path(l_fp)))
+            except:
+                if self.verbose:
+                    print(f'[WARNING]: LUCAS image {l_fp} notor an error occured when loading the image.')
+                missing_imgs.append(l_fp)
+                continue
+
+        lucas_data['n_imgs'] = 1
+        lucas_data['imgs'] = transform(imgs)
+        lucas_data['fps'] = l_fp
+    
+        imgs = lucas_data['imgs']
+        gps = tuple(sample[gps_col].values.flatten())
+        fps = lucas_data['fps']
+        ids = str(lucas_data['id'])
+        n_img_per_ids = [lucas_data['n_imgs']]
+        noise_type = sample['noise_type']
+        res = [imgs]
+
+        # Order: imgs, gps, ids, fps
+        if return_gps:
+            res.append(gps)
+        if return_ids:
+            res.append(ids)
+        if return_fps:
+            res.append(fps)
+        if return_n_img_per_lid:
+            res.append(n_img_per_ids)
+        res.append(noise_type)
         res.append(missing_imgs)
         return tuple(res)
 
@@ -190,7 +249,8 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
         imgs, gps = self.img, self.coords
         if not self.metadata.empty:
             sample = self.metadata.iloc[index]
-            imgs, gps, lucas_ids, fps, n_img_per_ids, missing_imgs = self.load_LUCAS_imgs_error_detection(
+            fun_load = self.load_LUCAS_imgs_error_detection_multi_view if self.multiview else self.load_LUCAS_imgs_error_detection_1_view
+            imgs, gps, lucas_ids, fps, n_img_per_ids, noise_type, missing_imgs = fun_load(
                 sample,
                 self.root_path,
                 **self.dataset_kwargs,
@@ -213,7 +273,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
             lucas_ids = [int(l_id) for l_id in lucas_ids.split(';')]
 
         # Order: imgs, gps, gps_noisy, gps_match (binary label), plot ID, LUCAS IDs
-        return imgs, torch.Tensor(gps), torch.Tensor(gps_noisy), torch.tensor(gps_match), torch.tensor([surveyId]), np.array(lucas_ids), np.array(n_img_per_ids), np.array(missing_imgs)
+        return imgs, torch.Tensor(gps), torch.Tensor(gps_noisy), torch.tensor(gps_match), torch.tensor([surveyId]), np.array(lucas_ids), np.array(n_img_per_ids), np.array(noise_type), np.array(missing_imgs)
 
 def transforms_landscape():
     def CenterCropToMaxDim(img):
@@ -227,21 +287,40 @@ def transforms_landscape():
 
 def collate_landscape(original_batch):
     imgs, gpss, gpss_noisy, gps_match, s_ids, l_ids, n_img_per_ids, missing_imgs = zip(*original_batch)
-
-    # Stackable quantities
-    img_batched = torch.cat(list(imgs), dim=0)
-    gps_batched = torch.stack(list(gpss), dim=0)
-    gpss_noisy_batched = torch.stack(list(gpss_noisy), dim=0)
-    gps_match_batched = torch.stack(list(gps_match), dim=0)
-    s_ids_batched = torch.stack(list(s_ids), dim=0)
     
-    # Quantities with variable amounts (impossible to stack)
-    l_ids_batched = list(l_ids)
-    n_img_per_ids_batched = list(n_img_per_ids)
+    # When having multiple LUCAS images per geolocalized sample
+    if MULTIVIEW:
+        # Stackable quantities
+        imgs2 = [id_imgs.flatten(0, 1) for id_imgs in imgs]  # Flatten the first two dimensions (LUCAS_IDs and images per LUCAS_ID) to have a single batch dimension. Individual images per LUCAS_ID can be re-constructed by reading dim_0 3 by 3
+        img_batched = torch.cat(list(imgs2), dim=0)
+        gps_batched = torch.stack(list(gpss), dim=0)
+        gpss_noisy_batched = torch.stack(list(gpss_noisy), dim=0)
+        gps_match_batched = torch.stack(list(gps_match), dim=0)
+        s_ids_batched = torch.stack(list(s_ids), dim=0)
+        
+        # Quantities with variable amounts (impossible to stack)
+        l_ids_batched = np.stack(list(l_ids))
+        n_img_per_ids_batched = np.stack(list(n_img_per_ids))
 
-    # No stacking needed
-    missing_imgs_batched = np.concatenate(list(missing_imgs), axis=0)
-    return img_batched, gps_batched, gpss_noisy_batched, gps_match_batched, s_ids_batched, l_ids_batched, n_img_per_ids_batched, missing_imgs_batched
+        # No stacking needed
+        missing_imgs_batched = np.concatenate(list(missing_imgs), axis=0)
+        return img_batched, gps_batched, gpss_noisy_batched, gps_match_batched, s_ids_batched, l_ids_batched, n_img_per_ids_batched, missing_imgs_batched
+    else:
+        # When having only 1 LUCAS_ID per geolocalized sample
+        # Stackable quantities
+        img_batched = torch.stack(list(imgs), dim=0)
+        gps_batched = torch.stack(list(gpss), dim=0)
+        gpss_noisy_batched = torch.stack(list(gpss_noisy), dim=0)
+        gps_match_batched = torch.stack(list(gps_match), dim=0)
+        s_ids_batched = torch.stack(list(s_ids), dim=0)
+        
+
+        l_ids_batched = np.stack(list(l_ids))
+        n_img_per_ids_batched = np.stack(list(n_img_per_ids))
+
+        # No stacking needed
+        missing_imgs_batched = np.concatenate(list(missing_imgs), axis=0)
+        return img_batched, gps_batched, gpss_noisy_batched, gps_match_batched, s_ids_batched, l_ids_batched, n_img_per_ids_batched, missing_imgs_batched
 
 
 ## Models
@@ -534,35 +613,55 @@ def run_inference(
         for step, data in tqdm(enumerate(test_loader), total=len(test_loader)):
             images, gps, gps_noisy, gps_match, surveyIds, lucas_ids, n_img_per_ids, missing_imgs = data
             uc_missing_imgs = count_unique_last_letters(missing_imgs)
+            
+            # Loading all available LUCAS views and averaging their logits per LUCAS_ID (i.e. per geolocalized sample)
             if len(missing_imgs) > 0:
                 print(f"[Batch {step}] Missing LUCAS images: {uc_missing_imgs}")
-            print(f"[Batch {step}] Loaded LUCAS images: {images.shape[0]}")
+            # print(f"[Batch {step}] Loaded LUCAS images: {images.shape[0]}")
 
             labels = gps_match.float().to(device)
             images = images.to(device)
             gps_noisy = gps_noisy.to(device)
 
             # Forward pass
-            """
-            Since there are 1 to k LUCAS_ID per geolocalized sample;
-            and there are 1 to 6 image per LUCAS_ID,
-            we compute the mean logit values for all LUCAS_IDs tied to a geo-tagged point
-            """
-            logits_img, logits_gps, start, stop = [], [], 0, 0
-            for sample_idx in range(test_loader.batch_size):
-                stop = start + n_img_per_ids[sample_idx].sum()  # Number of loaded images per LUCAS_ID, per surveyId (i.e. plot, i.e. sample)
-                stop = stop + 1 if start == stop else stop  # If no images found for the current LUCAS_ID
-                images_sample = images[start:stop]
-                gps_sample = gps_noisy[sample_idx].repeat(images_sample.shape[0], 1)
+            if images.shape[0] > test_loader.batch_size:
+                ## Multiple LUCAS images per geolocalized sample
+                """
+                Since there are 1 to k LUCAS_ID per geolocalized sample;
+                and there are 1 to 6 image per LUCAS_ID,
+                we compute the mean logit values for all LUCAS_IDs tied to a geo-tagged point
+                """
+                logits_img, logits_gps, start_idx = [], [], 0
+                
+                for sample_idx, (l_id, n_imgs) in enumerate(zip(lucas_ids, n_img_per_ids)):
+                    n_imgs = n_imgs.item()
+                    images_sample = images[start_idx: start_idx + n_imgs*3]
+                    # Extract images of images_sample 3 by 3 and reshape them to [n_imgs, 3, H, W] 
+                    images_sample = images_sample.reshape(n_imgs, 3, LANDSCAPE_INPUT_SIZE, LANDSCAPE_INPUT_SIZE)
+                    # print(f"ID {l_id.item()} has {images_sample.shape[0]} images:")
+                    start_idx += n_imgs*3
+
+                    gps_sample = gps_noisy[sample_idx].repeat(images_sample.shape[0], 1)
+                    if isinstance(model, torch.nn.DataParallel):
+                        logit_gps, logit_img = model.module(images_sample, gps_sample)
+                    else:
+                        logit_gps, logit_img = model.module(images_sample, gps_sample)
+                    logits_img.append(logit_img.mean(dim=0))
+                    logits_gps.append(logit_gps[0])  # The same GPS values are passed in forward (se torch.repeat()) so all logits are equal. No need to call mean()
+
+                logits_img = torch.stack(logits_img, dim=0)
+                logits_gps = torch.stack(logits_gps, dim=0)
+                
+                if len(missing_imgs) > 0:
+                    print(f"[Batch {step}] Missing LUCAS images: {uc_missing_imgs}")
+
+            else:
+                ## Only 1 LUCAS image per geolocalized sample
+                logits_img, logits_gps = [], []
                 if isinstance(model, torch.nn.DataParallel):
-                    logit_gps, logit_img = model.module(images_sample, gps_sample)
+                    logits_gps, logits_img = model.module(images, gps_noisy)
                 else:
-                    logit_gps, logit_img = model.module(images_sample, gps_sample)
-                logits_img.append(logit_img.mean(dim=0))
-                logits_gps.append(logit_gps[0])  # The same GPS values are passed in forward (se torch.repeat()) so all logits are equal. No need to call mean()
-                start = stop
-            logits_img = torch.stack(logits_img, dim=0)
-            logits_gps = torch.stack(logits_gps, dim=0)
+                    logits_gps, logits_img = model(images, gps_noisy)
 
             # Score computation options
             if score_mode == "cosine":
@@ -596,8 +695,9 @@ for seed in tqdm(SEEDS, 'Test set seeds'):
         fp_metadata = f"{METADATA_PATHS['test'].split('.csv')[0]}_seed{seed}.csv",
         transform = transforms_landscape(),
         subset = args.subset,
-        cls_id=None,
-        verbose=args.verbose,
+        cls_id = None,
+        multiview = MULTIVIEW,
+        verbose = args.verbose,
     )
 
     test_loader = DataLoader(

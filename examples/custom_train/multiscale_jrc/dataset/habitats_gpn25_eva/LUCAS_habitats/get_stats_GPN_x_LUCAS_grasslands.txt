@@ -1,0 +1,59 @@
+
+--- Real accuracies ---
+GPN pseudo-labels EUNIS-lvl2 acc: 29.90%
+GPN pseudo-labels EUNIS-lvl1 acc: 53.31%
+
+--- Details per EUNIS-lvl1 habitat group ---
+Habitat group ['R', 10576 (93.29%) samples] - lvl2 acc: 31.09%, lvl1 acc: 54.57%
+Habitat group ['V', 272 (2.40%) samples] - lvl2 acc: 12.13%, lvl1 acc: 46.32%
+Habitat group ['T', 244 (2.15%) samples] - lvl2 acc: 15.16%, lvl1 acc: 27.46%
+Habitat group ['S', 210 (1.85%) samples] - lvl2 acc: 13.33%, lvl1 acc: 32.86%
+Habitat group ['Q', 34 (0.30%) samples] - lvl2 acc: 8.82%, lvl1 acc: 29.41%
+Habitat group ['N', 1 (0.01%) samples] - lvl2 acc: 100.00%, lvl1 acc: 100.00%
+Habitat group ['MA', 0 (0.00%) samples] - lvl2 acc: 0.00%, lvl1 acc: 0.00%
+Habitat group ['U', 0 (0.00%) samples] - lvl2 acc: 0.00%, lvl1 acc: 0.00%
+
+--- Global EUNIS lvl-2 metrics ---
+
+Accuracy           : 0.3018
+Macro Precision    : 0.0692
+Macro Recall       : 0.1174
+Macro F1-score     : 0.0511
+Weighted Precision : 0.6858
+Weighted Recall    : 0.3018
+Weighted F1-score  : 0.4036
+
+Random baseline (uniform)
+Accuracy        : 0.0420
+Macro Precision : 0.0415
+Macro Recall    : 0.0324
+Macro F1        : 0.0147
+
+Per-class metrics:
+R2              F1=0.510 (rnd=0.026) Precision=0.889 (rnd=0.013) Recall=0.358 (rnd=1.000)Support=8192
+R1              F1=0.178 (rnd=0.093) Precision=0.178 (rnd=0.080) Recall=0.178 (rnd=0.111)Support=1344
+R4              F1=0.163 (rnd=0.000) Precision=0.657 (rnd=0.000) Recall=0.093 (rnd=0.000)Support=248
+R3              F1=0.161 (rnd=0.000) Precision=0.124 (rnd=0.000) Recall=0.228 (rnd=0.000)Support=499
+R6              F1=0.125 (rnd=0.050) Precision=0.074 (rnd=0.028) Recall=0.400 (rnd=0.250)Support=15
+S6              F1=0.100 (rnd=0.178) Precision=0.064 (rnd=0.178) Recall=0.227 (rnd=0.178)Support=44
+Q1              F1=0.093 (rnd=0.510) Precision=0.080 (rnd=0.889) Recall=0.111 (rnd=0.358)Support=18
+S4              F1=0.071 (rnd=0.161) Precision=0.055 (rnd=0.124) Recall=0.100 (rnd=0.228)Support=30
+V1              F1=0.058 (rnd=0.163) Precision=0.037 (rnd=0.657) Recall=0.125 (rnd=0.093)Support=263
+Q4              F1=0.050 (rnd=0.023) Precision=0.028 (rnd=0.014) Recall=0.250 (rnd=0.057)Support=4
+T3              F1=0.048 (rnd=0.125) Precision=0.026 (rnd=0.074) Recall=0.278 (rnd=0.400)Support=36
+T1              F1=0.048 (rnd=0.000) Precision=0.026 (rnd=0.000) Recall=0.271 (rnd=0.000)Support=107
+S3              F1=0.035 (rnd=0.035) Precision=0.019 (rnd=0.019) Recall=0.198 (rnd=0.198)Support=81
+N1              F1=0.026 (rnd=0.071) Precision=0.013 (rnd=0.055) Recall=1.000 (rnd=0.100)Support=1
+R5              F1=0.023 (rnd=0.000) Precision=0.014 (rnd=0.000) Recall=0.057 (rnd=0.000)Support=70
+Q2              F1=0.000 (rnd=0.100) Precision=0.000 (rnd=0.064) Recall=0.000 (rnd=0.227)Support=9
+Q3              F1=0.000 (rnd=0.000) Precision=0.000 (rnd=0.000) Recall=0.000 (rnd=0.000)Support=2
+R7              F1=0.000 (rnd=0.048) Precision=0.000 (rnd=0.026) Recall=0.000 (rnd=0.271)Support=206
+S5              F1=0.000 (rnd=0.000) Precision=0.000 (rnd=0.000) Recall=0.000 (rnd=0.000)Support=54
+S9              F1=0.000 (rnd=0.048) Precision=0.000 (rnd=0.026) Recall=0.000 (rnd=0.278)Support=2
+T2              F1=0.000 (rnd=0.000) Precision=0.000 (rnd=0.000) Recall=0.000 (rnd=0.000)Support=54
+T4              F1=0.000 (rnd=0.058) Precision=0.000 (rnd=0.037) Recall=0.000 (rnd=0.125)Support=49
+V2              F1=0.000 (rnd=0.000) Precision=0.000 (rnd=0.000) Recall=0.000 (rnd=0.000)Support=4
+V4              F1=0.000 (rnd=0.000) Precision=0.000 (rnd=0.000) Recall=0.000 (rnd=0.000)Support=1
+V5              F1=0.000 (rnd=0.000) Precision=0.000 (rnd=0.000) Recall=0.000 (rnd=0.000)Support=4
+Confusion matrix saved as confusion_matrix_lvl-1.png
+Confusion matrix saved as confusion_matrix_lvl-2.png
