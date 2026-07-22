@@ -170,7 +170,7 @@ class HabitatDatasetSoftMultilabels(Dataset):
         self.label_encoding_table = dict(zip(self.df["habitats_code_ID_lvl2"], self.df["habitats_code_lvl2"]))
 
     def __len__(self):
-        return len(self.lucas_ids)
+        return len(self.df)  # len(self.lucas_ids)
 
 class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
     """Same as HabitatDatasetSoftMultilabels but assumes data is pre-formated for multi-labelling.
@@ -206,6 +206,17 @@ class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
         self.n_u_classes = {'1': n_u_classes_lvl1,
                             '2': n_u_classes_lvl2,}
         
+        # Remove rows of dataset if they contain no images compatible with accepted suffixes.
+        rows_to_drop = []
+        for rowi, row in self.df.iterrows():
+            if not any(Path(fp.strip()).stem.endswith(tuple(self.fp_suffix_ok)) for fp in row[self.col_filepath].strip().split(';')):
+                rows_to_drop.append(rowi)
+        self.df.drop(rows_to_drop, inplace=True)
+        if len(rows_to_drop) > 0:
+            print(f"\033[1;32m[WARNING]\033[0m {len(rows_to_drop)} rows were dropped from the dataset because they contained no images with accepted suffixes ({self.fp_suffix_ok}).\n"
+                  f"The following rows were dropped:\n{self.df.iloc[rows_to_drop]}")
+        self.lucas_ids = dataframe['point_id'].value_counts()  # Update the available unique lucas IDs
+        
         for eunis_lvl in self.n_u_classes.keys():
             col_code_ID = 'habitats_code_ID' + f'_lvl{eunis_lvl}'
             col_code = 'habitats_code' + f'_lvl{eunis_lvl}'
@@ -231,7 +242,10 @@ class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
         Views are randomly picked among the selected ones. In average, all views are seen during
         training and validation given a sufficiently high number of epochs.
         """
-        row = self.df.iloc[idx]
+        try:
+            row = self.df.iloc[idx]
+        except IndexError:
+            raise IndexError(f"Index {idx} is out of bounds for dataset of length {len(self.df)}.")
         survey_id = row[self.col_id]
         fps = row[self.col_filepath].strip().split(';')
         fps = [fp for fp in fps if Path(fp).stem.endswith(tuple(self.fp_suffix_ok))]

@@ -142,7 +142,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
     ):
         imgs = []
         missing_imgs = []
-        lucas_data = {'id': sample['id'], 'fps': sample['filepath'].split(';'), 'n_imgs': 0, 'imgs': []}
+        lucas_data = {'id': sample['id'], 'fps': sample['filepath'].split(';'), 'n_imgs': 0, 'imgs': [], 'noise_type': sample['noise_type'].split(';')}
 
         imgs = []
         # Iterate over every 6 views of each lucas_id
@@ -167,7 +167,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
         fps = sample['filepath']
         ids = str(sample['id'])
         n_img_per_ids = [lucas_data['n_imgs']]
-        noise_type = sample['noise_type']
+        noise_types = lucas_data['noise_type']
         res = [imgs]
 
         # Order: imgs, gps, ids, fps
@@ -179,7 +179,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
             res.append(fps)
         if return_n_img_per_lid:
             res.append(n_img_per_ids)
-        res.append(noise_type)
+        res.append(noise_types)
         res.append(missing_imgs)
         return tuple(res)
     
@@ -197,7 +197,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
     ):
         imgs = []
         missing_imgs = []
-        lucas_data = {'id': sample['id'], 'fps': sample['filepath'].split(';'), 'n_imgs': 0, 'imgs': []}
+        lucas_data = {'id': sample['id'], 'fps': sample['filepath'].split(';'), 'n_imgs': 0, 'imgs': [], 'noise_type': sample['noise_type'].split(';')}
 
         # Randomly select one locally found image
         i = 0
@@ -221,7 +221,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
         fps = lucas_data['fps']
         ids = str(lucas_data['id'])
         n_img_per_ids = [lucas_data['n_imgs']]
-        noise_type = sample['noise_type']
+        noise_types = lucas_data['noise_type']
         res = [imgs]
 
         # Order: imgs, gps, ids, fps
@@ -233,7 +233,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
             res.append(fps)
         if return_n_img_per_lid:
             res.append(n_img_per_ids)
-        res.append(noise_type)
+        res.append(noise_types)
         res.append(missing_imgs)
         return tuple(res)
 
@@ -250,7 +250,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
         if not self.metadata.empty:
             sample = self.metadata.iloc[index]
             fun_load = self.load_LUCAS_imgs_error_detection_multi_view if self.multiview else self.load_LUCAS_imgs_error_detection_1_view
-            imgs, gps, lucas_ids, fps, n_img_per_ids, noise_type, missing_imgs = fun_load(
+            imgs, gps, lucas_ids, fps, n_img_per_ids, noise_types, missing_imgs = fun_load(
                 sample,
                 self.root_path,
                 **self.dataset_kwargs,
@@ -273,7 +273,7 @@ class LandscapeGPSErrorDetection(LandscapeDatasetSimple):
             lucas_ids = [int(l_id) for l_id in lucas_ids.split(';')]
 
         # Order: imgs, gps, gps_noisy, gps_match (binary label), plot ID, LUCAS IDs
-        return imgs, torch.Tensor(gps), torch.Tensor(gps_noisy), torch.tensor(gps_match), torch.tensor([surveyId]), np.array(lucas_ids), np.array(n_img_per_ids), np.array(noise_type), np.array(missing_imgs)
+        return imgs, torch.Tensor(gps), torch.Tensor(gps_noisy), torch.tensor(gps_match), torch.tensor([surveyId]), np.array(lucas_ids), np.array(n_img_per_ids), np.array(noise_types), np.array(missing_imgs)
 
 def transforms_landscape():
     def CenterCropToMaxDim(img):
@@ -286,7 +286,7 @@ def transforms_landscape():
     return transforms.Compose(ts)
 
 def collate_landscape(original_batch):
-    imgs, gpss, gpss_noisy, gps_match, s_ids, l_ids, n_img_per_ids, missing_imgs = zip(*original_batch)
+    imgs, gpss, gpss_noisy, gps_match, s_ids, l_ids, n_img_per_ids, noise_types, missing_imgs = zip(*original_batch)
     
     # When having multiple LUCAS images per geolocalized sample
     if MULTIVIEW:
@@ -300,11 +300,12 @@ def collate_landscape(original_batch):
         
         # Quantities with variable amounts (impossible to stack)
         l_ids_batched = np.stack(list(l_ids))
+        noise_types_batched = np.stack(list(noise_types))
         n_img_per_ids_batched = np.stack(list(n_img_per_ids))
 
         # No stacking needed
         missing_imgs_batched = np.concatenate(list(missing_imgs), axis=0)
-        return img_batched, gps_batched, gpss_noisy_batched, gps_match_batched, s_ids_batched, l_ids_batched, n_img_per_ids_batched, missing_imgs_batched
+        return img_batched, gps_batched, gpss_noisy_batched, gps_match_batched, s_ids_batched, l_ids_batched, n_img_per_ids_batched, noise_types_batched, missing_imgs_batched
     else:
         # When having only 1 LUCAS_ID per geolocalized sample
         # Stackable quantities
@@ -316,11 +317,12 @@ def collate_landscape(original_batch):
         
 
         l_ids_batched = np.stack(list(l_ids))
+        noise_types_batched = np.stack(list(noise_types))
         n_img_per_ids_batched = np.stack(list(n_img_per_ids))
 
         # No stacking needed
         missing_imgs_batched = np.concatenate(list(missing_imgs), axis=0)
-        return img_batched, gps_batched, gpss_noisy_batched, gps_match_batched, s_ids_batched, l_ids_batched, n_img_per_ids_batched, missing_imgs_batched
+        return img_batched, gps_batched, gpss_noisy_batched, gps_match_batched, s_ids_batched, l_ids_batched, n_img_per_ids_batched, noise_types_batched, missing_imgs_batched
 
 
 ## Models
@@ -516,7 +518,7 @@ def count_unique_last_letters(file_paths, ignore_case=False):
     out_dict['Total_missing_imgs'] = sum(out_dict.values())
     return out_dict
 
-def log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, seed_prefix):
+def log_results_and_metrics(y_true, y_scores, all_ids, noise_types, output_dir, score_mode, seed_prefix):
     ## AUCs
     print('y_scores: ', y_scores)
     roc_auc = roc_auc_score(y_true, y_scores)
@@ -569,7 +571,8 @@ def log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, s
     results_df = pd.DataFrame({
         "id": all_ids,
         "label": y_true,
-        "score": y_scores
+        "score": y_scores,
+        "noise_type": noise_types,
     })
 
     results_path = os.path.join(output_dir, f"scores_{score_mode}{seed_prefix}.csv")
@@ -579,7 +582,7 @@ def log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, s
     metrics_df = pd.DataFrame([{
         "score_mode": score_mode,
         "roc_auc": roc_auc,
-        "pr_auc": pr_auc
+        "pr_auc": pr_auc,
     }])
 
     metrics_path = os.path.join(output_dir, f"metrics_{score_mode}{seed_prefix}.csv")
@@ -605,13 +608,11 @@ def run_inference(
     model.to(device)
     model.eval()
 
-    all_labels = []
-    all_scores = []
-    all_ids = []
+    all_labels, all_scores, all_ids, all_noise_types = [], [], [], []
 
     with torch.no_grad():
         for step, data in tqdm(enumerate(test_loader), total=len(test_loader)):
-            images, gps, gps_noisy, gps_match, surveyIds, lucas_ids, n_img_per_ids, missing_imgs = data
+            images, gps, gps_noisy, gps_match, surveyIds, lucas_ids, n_img_per_ids, noise_types, missing_imgs = data
             uc_missing_imgs = count_unique_last_letters(missing_imgs)
             
             # Loading all available LUCAS views and averaging their logits per LUCAS_ID (i.e. per geolocalized sample)
@@ -624,6 +625,7 @@ def run_inference(
             gps_noisy = gps_noisy.to(device)
 
             # Forward pass
+            logits_img, logits_gps = [], []
             if images.shape[0] > test_loader.batch_size:
                 ## Multiple LUCAS images per geolocalized sample
                 """
@@ -631,7 +633,7 @@ def run_inference(
                 and there are 1 to 6 image per LUCAS_ID,
                 we compute the mean logit values for all LUCAS_IDs tied to a geo-tagged point
                 """
-                logits_img, logits_gps, start_idx = [], [], 0
+                start_idx = 0
                 
                 for sample_idx, (l_id, n_imgs) in enumerate(zip(lucas_ids, n_img_per_ids)):
                     n_imgs = n_imgs.item()
@@ -648,21 +650,20 @@ def run_inference(
                         logit_gps, logit_img = model.module(images_sample, gps_sample)
                     logits_img.append(logit_img.mean(dim=0))
                     logits_gps.append(logit_gps[0])  # The same GPS values are passed in forward (se torch.repeat()) so all logits are equal. No need to call mean()
-
-                logits_img = torch.stack(logits_img, dim=0)
-                logits_gps = torch.stack(logits_gps, dim=0)
                 
                 if len(missing_imgs) > 0:
                     print(f"[Batch {step}] Missing LUCAS images: {uc_missing_imgs}")
 
             else:
                 ## Only 1 LUCAS image per geolocalized sample
-                logits_img, logits_gps = [], []
                 if isinstance(model, torch.nn.DataParallel):
                     logits_gps, logits_img = model.module(images, gps_noisy)
                 else:
                     logits_gps, logits_img = model(images, gps_noisy)
 
+            logits_img = torch.stack(logits_img, dim=0)
+            logits_gps = torch.stack(logits_gps, dim=0)
+                
             # Score computation options
             if score_mode == "cosine":
                 emb_gps = F.normalize(logits_gps, dim=-1)
@@ -676,13 +677,14 @@ def run_inference(
             all_labels.append(labels.cpu())
             all_scores.append(scores.cpu())
             all_ids.extend(surveyIds.cpu().ravel().tolist())
+            all_noise_types.extend(noise_types.ravel().tolist())
 
     # Stack
     y_true = torch.cat(all_labels).numpy()
     y_scores = torch.cat(all_scores).numpy()
 
     # Metrics
-    log_results_and_metrics(y_true, y_scores, all_ids, output_dir, score_mode, seed_prefix)
+    log_results_and_metrics(y_true, y_scores, all_ids, all_noise_types, output_dir, score_mode, seed_prefix)
 
     print(f"Saved results to {output_dir}")
 
