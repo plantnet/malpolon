@@ -39,7 +39,7 @@ SPLIT = 'S3'
 BASELINE = 'B2'
 MODEL = "dinov2_PN22M"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
 
-INFERENCE = False
+INFERENCE = True
 INFERENCE_SUFFIX = ''
 TRAIN_SUFFIX = ''
 MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['soft_ml', 'ml']
@@ -467,9 +467,9 @@ test_loader = DataLoader(
 print("[INFO] Train size:", len(train_loader.dataset))
 print("[INFO] Number of classes in the training set:", train_loader.dataset.n_classes)
 print("[INFO] Val size:", len(val_loader.dataset))
-print(f"[INFO] Number of classes in the validation set: {val_loader.dataset.n_classes} ({len(set(val_loader.dataset.labels) & set(train_loader.dataset.labels)) / train_loader.dataset.n_classes * 100:.2f}% overlap with train)")
+print(f"[INFO] Number of classes in the validation set: {val_loader.dataset.n_classes} ({len(set(val_loader.dataset.labels) & set(train_loader.dataset.labels)) / train_loader.dataset.n_classes * 100:.2f}% of them overlap with train)")
 print("[INFO] Test size:", len(test_loader.dataset))
-print(f"[INFO] Number of classes in the test set: {test_loader.dataset.n_classes} ({len(set(test_loader.dataset.labels) & set(train_loader.dataset.labels)) / train_loader.dataset.n_classes * 100:.2f}% overlap with train)")
+print(f"[INFO] Number of classes in the test set: {test_loader.dataset.n_classes} ({len(set(test_loader.dataset.labels) & set(train_loader.dataset.labels)) / train_loader.dataset.n_classes * 100:.2f}% of them overlap with train)")
 
 # ----------------------------
 # Model
@@ -752,6 +752,8 @@ if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
     csv_values = f"{test_loss},"
     for lvl in EUNIS_LVL:
         test_metrics = (test_metrics_lvl[0][lvl], test_metrics_lvl[1][lvl], test_metrics_lvl[2][lvl])
+        encoding_table = train_loader.dataset.label_encoding_table[lvl] | test_loader.dataset.label_encoding_table[lvl]
+        ticks_labels = [encoding_table[code_id] for code_id in range(NUM_UNIQUE_CLASSES[lvl])]
         
         print(f"Acc_top1_soft_multilabel_eunis_lvl-{lvl}", test_metrics[0])
         csv_header += f'Acc_top1_soft_multilabel_eunis_lvl-{lvl},'
@@ -762,11 +764,15 @@ if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
         im0 = axes[0].imshow(test_metrics[1])
         axes[0].set_xlabel("Predicted class")
         axes[0].set_ylabel("True class")
+        axes[0].set_xticks(range(len(ticks_labels)), ticks_labels)
+        axes[0].set_yticks(range(len(ticks_labels)), ticks_labels)
         axes[0].set_title(f"Confusion Matrix (EUNIS lvl-{lvl})")
         fig.colorbar(im0, ax=axes[0])
         im1 = axes[1].imshow(test_metrics[2])
         axes[1].set_xlabel("Predicted class")
         axes[1].set_ylabel("True class")
+        axes[1].set_xticks(range(len(ticks_labels)), ticks_labels)
+        axes[1].set_yticks(range(len(ticks_labels)), ticks_labels)
         axes[1].set_title(f"Confusion Matrix (normalized) (EUNIS lvl-{lvl})")
         fig.colorbar(im1, ax=axes[1])
         plt.tight_layout()
@@ -796,7 +802,7 @@ TIME_STAMP_INFERENCE = time()
 
 model.eval()
 
-res = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
+res = {'1': {}, '2': {}, '3': {}, '4': {}, '3_4': {}}
 # all_preds = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
 # all_probs = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
 # all_labels_enc = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
@@ -828,24 +834,28 @@ with torch.no_grad():
                     'all_preds_confidence': confidence[i].cpu().item(),
                     'all_probs': probs[i].cpu().numpy(),
                     'all_labels': labels_lvls[lvl][i],
-                    'all_labels_enc': labels_encs[lvl][i].cpu().numpy(),
+                    'all_labels_enc': labels_encs[lvl][i],
                     'all_labels_enc_oh': labels_enc_ohs[lvl][i],
                 }
                 for i, sid in enumerate(survey_id)
             })
 
 # Decode labels
-pred_df = df_test.reset_index(drop=True).copy()
+pred_df = test_dataset.df.reset_index(drop=True).copy()[['point_id', 'lon', 'lat', 'altitude', 'year',
+                                                         'label',
+                                                         'habitats_code_lvl2_2007',
+                                                         'habitats_code_lvl2', 'habitats_code_lvl1', 'habitats_code_ID_lvl2',
+                                                         'habitats_code_ID_lvl1', 'habitats_code_ID_oh_lvl2', 'habitats_code_ID_oh_lvl1', 'filepath']]
 if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
     # Length of dataset = n_unique id_floraveg
     pred_df = pred_df.drop_duplicates(subset=['point_id']).reset_index(drop=True)
     dataset_labels_table = {**train_loader.dataset.label_encoding_table, **test_loader.dataset.label_encoding_table}
     for i in range(len(pred_df)):
-        lucas_id = pred_df.loc[i, 'point_id']
+        lucas_id = pred_df.iloc[i]['point_id']
         pred_df.loc[i, 'habitats_code_lvl2'] = res[list(res.keys())[0]][lucas_id]['all_labels']
-        pred_df.loc[i, 'habitats_code_ID_lvl2'] = res[list(res.keys())[0]][lucas_id]['all_labels_enc_softml_str']
+        pred_df.loc[i, 'habitats_code_ID_lvl2'] = res[list(res.keys())[0]][lucas_id]['all_labels_enc']
         for lvl in EUNIS_LVL:
-            pred_df.loc[i, f'pred_label_lvl{lvl}'] = dataset_labels_table[res[lvl][lucas_id]['all_preds']]
+            pred_df.loc[i, f'pred_label_lvl{lvl}'] = dataset_labels_table[lvl][res[lvl][lucas_id]['all_preds']]
             pred_df.loc[i, f'pred_label_encoded_lvl{lvl}'] = res[lvl][lucas_id]['all_preds']
             pred_df.loc[i, f'pred_confidence_lvl{lvl}'] = res[lvl][lucas_id]['all_preds_confidence']
             pred_df.loc[i, f'valid_prediction_lvl{lvl}'] = str(int(pred_df.loc[i, f'pred_label_encoded_lvl{lvl}'])) in pred_df.loc[i, 'habitats_code_ID_lvl2']
