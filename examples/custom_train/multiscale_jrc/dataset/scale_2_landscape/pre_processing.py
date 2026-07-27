@@ -1,6 +1,7 @@
 import os
-import pandas as pd
 import argparse
+import pandas as pd
+import numpy as np
 
 from pathlib import Path
 
@@ -28,6 +29,17 @@ def cut_file_path_to_local_path(df, col='file_path'):
     df2['file_path'] = df2['file_path'].apply(lambda x: '/'.join(x.split('/')[-5:]))
     return df2
     
+
+def keep_essentials_cols(df, cols_to_keep):
+    """Reduce the size of the dataframe file by keeping only certain columns."""
+    cols_to_keep = np.array(cols_to_keep)
+    cols_exist = np.array([col in df.columns for col in cols_to_keep])
+    try:
+        assert all(cols_exist)
+    except AssertionError as e:
+        print(f"\n[Error] The following cols aren't in the input dataframe and thus can't be kept: {cols_to_keep[np.array(~cols_exist)]}\n")
+        raise e
+    return df[cols_to_keep]
     
 def check_existing_file_paths(df_ref, prefix='LUCAS/'):
      """Check if file paths lead to actually existing files on the disk."""
@@ -52,9 +64,10 @@ def check_existing_file_paths(df_ref, prefix='LUCAS/'):
 
 def main(df_fp, fp_out):
     df = pd.read_csv(df_fp)
-    #df = expand(df)
-    #df = cut_file_path_to_local_path(df)
+    df = expand(df)
+    df = cut_file_path_to_local_path(df)
     df = check_existing_file_paths(df)
+    df = keep_essentials_cols(df, ['id', 'gps_long', 'gps_lat', 'gps_altitude', 'file_path', 'full_path', 'image_source'])
     df.to_csv(f'{fp_out}')
     
 
