@@ -1,4 +1,4 @@
-lucas_cover_exif.csv
-lucas_harmo_cover_exif.csv
-lucas_harmo_cover_exif_mini_10000.csv
-
+backend_scripts/
+*.csv
+check_files_on_disk_*.txt
+lucas_harmo_2006-2022_essentials_fps.txt

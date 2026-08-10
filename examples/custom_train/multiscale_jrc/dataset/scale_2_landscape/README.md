@@ -1,9 +1,35 @@
+## General
+
 LUCAS photos (orthogonal & cover) go here.
 
 The metadata file to be used should be a slice of the LUCAS exif file, over the `id` column.
 
 The file paths are directly taken from columns `file_path_gisco_<view>` as the file structure is kept form the year of the survey and down.
 GPS coordinates are registered in columns `['gps_long', 'gps_lat']`.
+
+## France subset
+- Train file: `lucas_harmo_cover_exif_fixed_gps_France-nuts0_expanded_essentials_exists_train-500m.csv`
+- Tets file: `lucas_harmo_cover_exif_fixed_gps_France-nuts0_expanded_essentials_exists_test-500m.csv`
+
+The subset was obtained by:
+1. Manually slicing `lucas_harmo_cover_exif` over col `nuts0`
+2. Running `pre-processing.py` with these methods:
+```python
+    df = pd.read_csv(df_fp)
+    df = clean_bad_file_paths(df)
+    df = cut_file_path_to_local_path(df)
+    # df = gather_file_paths(df)
+    df = expand(df)
+    # df = check_existing_file_paths(df)
+    df = keep_essentials_cols(df)
+    df = rename_cols(df)
+    df.to_csv(f'{fp_out}', index=False)
+```
+3. [Optional] Verifying existing files on disk: export col `file_path` to a txt file, run `check_file_exist_on_disk_multithread_simple_progressbar.sh`, remove the still missing and/or corrupted files based on `check_files_on_disk_MISSING_FILES_France-nuts0.txt` and `check_files_on_disk_SMALL_FILES_France-nuts0.txt`.
+4. Spliting the data to train/test:
+    4.1. Manually create a version of the dataframe with unique `point_id` (as there as are multiple duplicates because 1 row = set(point_id, year))
+    4.2. Run `toolbox/split_obs_spatially.py` on that version
+    4.3. Split the original dataframe from step 3. based on col `subset` of the unique-sites version.
 
 ## Filepaths formats
 `lucas_photos_all_before_2022/`: <ID><view initial> (`26381956C.jpg`)
