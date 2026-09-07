@@ -75,8 +75,9 @@ CSV_FPS = {
     'CSV_S3_TEST': f'metadata_labels_merged_S3-10%_extended_test{INFERENCE_SUFFIX}.csv',
 }
 
-CSV_FILE = CSV_FPS[f'CSV_{SPLIT}_TRAIN']
-CSV_FILE_TEST =  CSV_FPS[f'CSV_{SPLIT}_TEST'] # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
+METADATA_ROOT_PATH = 'metadata/'
+CSV_FILE = os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TRAIN'])
+CSV_FILE_TEST = os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TEST']) # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
 IMAGE_DIR = "Images"
 OUTPUT_DIR = # f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead_LoRA/"
 

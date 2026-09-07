@@ -26,11 +26,11 @@ from sklearn.metrics import (
 # ----------------------------
 # Config
 # ----------------------------
-
-CSV_FILE_TRAIN_FREQ_SPLIT = "metadata_labels_merged_freq_split-10.33%_train.csv"
-CSV_FILE_TRAIN_SPATIAL_SPLIT = "metadata_labels_merged_gps_only_train-0.54min.csv"
-# CSV_FILE = "metadata_labels_merged_no_single_habitats.csv"
-CSV_FILE = "metadata_labels_merged_freq_split-10.33%_train.csv"
+METADATA_ROOT_PATH = 'metadata/'
+CSV_FILE_TRAIN_FREQ_SPLIT = os.path.join(METADATA_ROOT_PATH, "metadata_labels_merged_freq_split-10.33%_train.csv")
+CSV_FILE_TRAIN_SPATIAL_SPLIT = os.path.join(METADATA_ROOT_PATH, "metadata_labels_merged_gps_only_train-0.54min.csv")
+# CSV_FILE = os.path.join(METADATA_ROOT_PATH, "metadata_labels_merged_no_single_habitats.csv")
+CSV_FILE = os.path.join(METADATA_ROOT_PATH, "metadata_labels_merged_freq_split-10.33%_train.csv")
 IMAGE_DIR = "Images"
 
 OUTPUT_DIR = "baselines"

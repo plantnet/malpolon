@@ -85,9 +85,9 @@ def get_model(model_name, num_classes, **kwargs):
         case 'dinov2_vits14':
             print("[INFO] Using DINOv2 ViT-S/14 (partial unfreezing: last 2 transformer blocks and head)")
             model = timm.create_model('timm/vit_small_patch14_dinov2.lvd142m',
-                                    pretrained=True,
-                                    num_classes=num_classes,
-                                    **kwargs)
+                                      pretrained=True,
+                                      num_classes=num_classes,
+                                      **kwargs)
             freeze_dinov2_backbone(model, N=2)
         case 'dinov2_PN22M':    
             def load_state_dict(weights_path):
@@ -143,7 +143,7 @@ def get_model(model_name, num_classes, **kwargs):
     return model
 
 
-def get_in_features(model, model_name):
+def get_in_features(model, model_name, use_gps_encoder=False):
     match model_name:
         case 'resnet18' | 'resnet50':
             return model.fc.in_features
@@ -161,18 +161,28 @@ def get_in_features(model, model_name):
             return model.classifier[3].in_features
         case 'inception_v3':
             return model.fc.in_features
+        case 'simclr_landscape_dinov2':
+            return model.head.out_features
+        case 'simclr_landscape_resnet':
+            features = model.modality_contrastive_head.head.out_features
+            if use_gps_encoder:
+                features += model.gps_contrastive_head.head.out_features
+            return features
+
 
 class MultiHeadModel(nn.Module):
     def __init__(self, backbone, bb_model_name, eunis_lvl, n_classes1, n_classes2, n_classes3, n_classes4, n_classes3_4,
-                 gradcam_head=None):
+                 gradcam_head=None, use_gps_encoder=False, fusion_strategy=None):
         super().__init__()
 
         self.backbone = backbone if not isinstance(backbone, DinoV2ClassifierPN22M) else backbone.backbone
+        self.use_gps_encoder = use_gps_encoder
         self.bb_model_name = bb_model_name
-        self.in_features = get_in_features(backbone, bb_model_name)
         self.eunis_lvl = eunis_lvl
         self.gradcam_head = gradcam_head
-        
+        self.fusion_strategy = fusion_strategy
+        self.in_features = get_in_features(backbone, bb_model_name, self.use_gps_encoder)
+
         self.heads = nn.ModuleDict({
             '1': nn.Linear(self.in_features, n_classes1),
             '2': nn.Linear(self.in_features, n_classes2),
@@ -181,19 +191,57 @@ class MultiHeadModel(nn.Module):
             '3_4': nn.Linear(self.in_features, n_classes3_4),
         })
 
-    def forward(self, x):
+        if self.fusion_strategy == 'mean_pooling_img_gps':
+            img_encoder = nn.Sequential(self.backbone.modality_encoder, self.backbone.modality_contrastive_head)
+            gps_encoder = None if not self.use_gps_encoder else nn.Sequential(self.backbone.gps_encoder, self.backbone.gps_contrastive_head)
+            self.transfer_heads = nn.ModuleDict({
+                '1': TransferModel(img_encoder, gps_encoder, embed_dim=get_in_features(backbone, bb_model_name), num_classes=n_classes1),
+                '2': TransferModel(img_encoder, gps_encoder, embed_dim=get_in_features(backbone, bb_model_name), num_classes=n_classes2),
+                '3': TransferModel(img_encoder, gps_encoder, embed_dim=get_in_features(backbone, bb_model_name), num_classes=n_classes3),
+                '4': TransferModel(img_encoder, gps_encoder, embed_dim=get_in_features(backbone, bb_model_name), num_classes=n_classes4),
+                '3_4': TransferModel(img_encoder, gps_encoder, embed_dim=get_in_features(backbone, bb_model_name), num_classes=n_classes3_4),
+            })
 
-        features = self.extract_features(x)
+    def fusion(self, fusion_strategy: str, embs: list[torch.Tensor]):
+        match fusion_strategy:
+            case 'concatenation':
+                features = torch.concat(embs, dim=-1)
+            case _:
+                raise NotImplementedError(f"Fusion strategy '{fusion_strategy}' not implemented.")
+        return features
+
+    def forward(self, x, x_gps=None):
+        # 🔽 Short-circuit forward if using Claude's fusing strategies 🔽
+        if self.fusion_strategy == 'mean_pooling_img_gps':
+            return {
+                lvl: self.transfer_heads[lvl](x, x_gps)
+                for lvl in self.eunis_lvl
+            }
+
+        # 🔽 Non-Claude fusing strategies 🔽
+        features = self.extract_features_img(x)
+        if self.use_gps_encoder:
+            features_gps = self.extract_features_gps(x_gps)
+            features = self.fusion(self.fusion_strategy, [features, features_gps])
 
         if self.gradcam_head:
             return self.heads[self.gradcam_head](features)
-        
+
         return {
             lvl: self.heads[lvl](features)
             for lvl in self.eunis_lvl
         }
 
-    def extract_features(self, x):
+    def extract_features_gps(self, x):
+        if self.bb_model_name in ['simclr_landscape_resnet']:
+            # self.backbone.modality_contrastive_head.head = nn.Identity()
+            feat = self.backbone.gps_encoder(x)
+            feat = self.backbone.gps_contrastive_head(feat)
+        else:
+            raise NotImplementedError(f"Feature extraction not implemented for model {self.bb_model_name}")
+        return feat
+
+    def extract_features_img(self, x):
         # DINOv2
         if ('dinov2' in self.bb_model_name):
             feat = self.backbone.forward_features(x)
@@ -205,6 +253,78 @@ class MultiHeadModel(nn.Module):
         elif self.bb_model_name in ['resnet18', 'resnet50']:
             self.backbone.fc = nn.Identity()
             feat = self.backbone(x)
+        elif self.bb_model_name in ['simclr_landscape_resnet']:
+            # self.backbone.modality_contrastive_head.head = nn.Identity()
+            feat = self.backbone.modality_encoder(x)
+            feat = self.backbone.modality_contrastive_head(feat)
         else:
             raise NotImplementedError(f"Feature extraction not implemented for model {self.bb_model_name}")
         return feat
+
+
+# ==== Claude (Sonnet 5) models ====
+
+class MeanPoolFusionHead(nn.Module):
+    """
+    Mean-pooling fusion for embeddings that already live in a shared contrastive
+    space (e.g. image and GPS encoders trained under the same InfoNCE loss).
+
+    Requires image_embed_dim == gps_embed_dim, since you're averaging, not projecting.
+    If dims differ, you need a linear projection first (see note below).
+    """
+
+    def __init__(self, embed_dim: int, hidden_dim: int = 256, num_classes: int = 10,
+                 dropout: float = 0.3, skip_gps: bool = False):
+        super().__init__()
+        self.skip_gps = skip_gps
+        self.head = nn.Sequential(
+            nn.Linear(embed_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, num_classes),
+        )
+
+    def forward(self, img_embed: torch.Tensor, gps_embed: torch.Tensor):
+        # Normalize to match pretraining-time geometry (SimCLR embeddings are
+        # typically L2-normalized before the InfoNCE loss is computed)
+        if not self.skip_gps:
+            img_embed = F.normalize(img_embed, dim=-1)
+            gps_embed = F.normalize(gps_embed, dim=-1)
+
+            # Mean pool in the shared space
+            fused = (img_embed + gps_embed) / 2.0   # (B, D)
+
+            # Optional: re-normalize after averaging, since averaging two unit
+            # vectors does NOT generally produce a unit vector (it shrinks toward
+            # the origin as the two vectors diverge, which is actually informative —
+            # see note below — but re-normalize if your head expects unit-norm input)
+            # fused = F.normalize(fused, dim=-1)
+
+            return self.head(fused)
+        return self.head(F.normalize(img_embed, dim=-1))
+
+# --- Wiring it up with frozen pretrained encoders ---
+
+class TransferModel(nn.Module):
+    def __init__(self, image_encoder: nn.Module, gps_encoder: nn.Module,
+                 embed_dim: int, num_classes: int, freeze_encoders: bool = True):
+        super().__init__()
+        self.image_encoder = image_encoder
+        self.gps_encoder = gps_encoder
+        self.skip_gps = gps_encoder is None
+
+        if freeze_encoders:
+            for enc in (self.image_encoder, self.gps_encoder):
+                if enc:
+                    for p in enc.parameters():
+                        p.requires_grad = False
+
+        self.fusion_head = MeanPoolFusionHead(embed_dim, num_classes=num_classes, skip_gps=self.skip_gps)
+
+    def forward(self, image: torch.Tensor, gps: torch.Tensor):
+        img_embed = self.image_encoder(image)   # (B, D)
+        if not self.skip_gps:
+            gps_embed = self.gps_encoder(gps)        # (B, D)
+            return self.fusion_head(img_embed, gps_embed)
+        return self.fusion_head(img_embed, None)
