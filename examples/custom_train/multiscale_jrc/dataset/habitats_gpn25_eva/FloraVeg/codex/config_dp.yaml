@@ -1,0 +1,42 @@
+# Paths are resolved relative to this file (the codex directory).
+data:
+  train_csv: ../metadata/metadata_labels_merged_S3-10%_extended_train.csv
+  test_csv: ../metadata/metadata_labels_merged_S3-10%_extended_test.csv
+  image_dir: ../Images
+  site_id_column: id_floraveg
+  image_column: filename_photos
+  latitude_column: lat
+  longitude_column: lon
+  use_gps: false
+  validation_fraction: 0.10
+  split_seed: 42
+  # debug parameters
+  subset_fraction: 1.0  # Use a fraction of the dataset for debugging (1.0 = full dataset)
+
+model:
+  name_img: dinov2_PN22M  # Any of: dinov2_vits14, dinov2_PN22M, resnet18, resnet50, convnext, vgg16, vitb32, mobilenet_v3, inception_v3. Defaults to resnet18 if not provided.
+  name_gps: geoclip  # Any of: mlp, geoclip, <None>. Defaults to None if not provided.
+  # Pretrained network downloads are deliberately disabled by the offline pipeline.
+  pretrained: true  # if pretrained checkpoint: provide string path
+  gps_embedding_dim: 2048
+  fusion: concat
+  freeze_img_backbone: true
+  freeze_gps_backbone: false  # For now, GPS backbone is a new linearLayer
+
+training:
+  # Use [1, 2, 3] with matching weights for the requested level-1/2/3 experiment.
+  levels: ["1", "2", "3"]
+  class_counts: {"1": 9, "2": 35, "3": 209, "4": 11, "3_4": 215}
+  level_weights: [0.3, 0.5, 0.85]
+  epochs: 20
+  batch_size: 16
+  learning_rate: 0.0001
+  num_workers: 8
+  label_smoothing: 0.0
+  device: auto
+
+runtime:
+  resume: false
+  evaluate_only: false
+
+output_dir: outputs/eunis_multihead/direct_sl/img-dinov2_PN22M-frozenBB+gps-GeoClip_LinearProbing_LVL-1-2-3_concat_dp

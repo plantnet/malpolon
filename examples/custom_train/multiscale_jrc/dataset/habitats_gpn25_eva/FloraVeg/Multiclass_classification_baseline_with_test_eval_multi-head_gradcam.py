@@ -41,19 +41,19 @@ from pytorch_grad_cam.utils.image import show_cam_on_image
 # ----------------------------
 # Config
 # ----------------------------
-SPLIT = 'S3'
+SPLIT = 'S2'
 BASELINE = 'B2'
 MODEL = "dinov2_PN22M"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
 
-INFERENCE = True
+INFERENCE = False
 INFERENCE_SUFFIX = ''
 TRAIN_SUFFIX = ''
 MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['soft_ml', 'ml']
 LOSS_FUNCTION = 'CE_soft_ml'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
 LABEL_SMOOTHING = 0.0  # Float in [0, 1]
 
-EUNIS_LVL = ['3_4']  # List of values in [1, 2, 3, 3_4]
-EUNIS_LVL_WEIGHTS = [0.85]
+EUNIS_LVL = ['1', '2', '3']  # List of values in [1, 2, 3, 3_4]
+EUNIS_LVL_WEIGHTS = [0.3, 0.5, 0.85]
 NUM_UNIQUE_CLASSES = {'1': 9, '2': 35, '3': 209, '4': 11, '3_4': 215} # Values in [9, 35, 209, 11, 215] If None, inferred from the dataset
 BATCH_SIZE = 32
 EPOCHS = 20
@@ -64,8 +64,8 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 CSV_FPS = {
     'CSV_S1_TRAIN': "metadata_labels_merged_S1_stratified_split-10.33%_train.csv",
     'CSV_S1_TEST': "metadata_labels_merged_S1_stratified_split-10.33%_test.csv",
-    'CSV_S2_TRAIN': "metadata_labels_merged_gps_only_S2_encoded_train-0.00225deg.csv",
-    'CSV_S2_TEST': "metadata_labels_merged_gps_only_S2_encoded_test-0.00225deg.csv",
+    'CSV_S2_TRAIN': "metadata_labels_merged_gps_only_S2_encoded_gb-16.2%_train-250m.csv",
+    'CSV_S2_TEST': "metadata_labels_merged_gps_only_S2_encoded_gb-16.2%_test-250m.csv",
     'CSV_S1BIS_TRAIN': f'metadata_labels_merged_S1bis-10%_train{TRAIN_SUFFIX}.csv',
     'CSV_S1BIS_TEST': f'metadata_labels_merged_S1bis-10%_test{INFERENCE_SUFFIX}.csv',  # "metadata_labels_merged_S1bis-10%_test.csv"
     'CSV_S0BIS_TRAIN': f'metadata_labels_merged_S0bis-10%_train{TRAIN_SUFFIX}.csv',
@@ -78,7 +78,7 @@ METADATA_ROOT_PATH = 'metadata/'
 CSV_FILE = os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TRAIN'])
 CSV_FILE_TEST =  os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TEST']) # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
 IMAGE_DIR = "Images"
-OUTPUT_DIR = f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead_no_watermark_512/"
+OUTPUT_DIR = f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead_img-partialFreeze-N=2/"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(OUTPUT_DIR, 'inference/'), exist_ok=True)
@@ -92,6 +92,7 @@ BEST_MODEL_PATH = os.path.join(f"{OUTPUT_DIR}", "best_model.pth")
 LAST_MODEL_PATH = os.path.join(f"{OUTPUT_DIR}", "last_model.pth")
 
 TIME_STAMP_START = time()
+config = {k: v for k, v in locals().items() if k.isupper() and k not in ['F']}
 
 writer = wandb.init(
     entity="tlarcher-phd-jrc",
@@ -99,27 +100,7 @@ writer = wandb.init(
     name=f'{OUTPUT_DIR} (train {TRAIN_SUFFIX}, test {INFERENCE_SUFFIX})',  #'Unique surveyId spatial split 0.06min, dropout',
     notes="B2: Custom loss & metrics adapted for soft multilabelling.\n"
           "S1bis: Split over unique FLoraveg IDs (no leakeage) Stratified 1-to-k soft multilabels.",
-    config={'MULTILABEL_CORRESPONDANCE_STRATEGY': MULTILABEL_CORRESPONDANCE_STRATEGY,
-            'LOSS_FUNCTION': LOSS_FUNCTION,
-            'LABEL_SMOOTHING': LABEL_SMOOTHING,
-            'MODEL': MODEL,
-            'EUNIS_LVL': EUNIS_LVL,
-            'EUNIS_LVL_WEIGHTS': EUNIS_LVL_WEIGHTS,
-            'NUM_UNIQUE_CLASSES': NUM_UNIQUE_CLASSES,
-            'BATCH_SIZE': BATCH_SIZE,
-            'EPOCHS': EPOCHS,
-            'LR': LR,
-            'NUM_WORKERS': NUM_WORKERS,
-            'DEVICE': DEVICE,
-            'CSV_FILE': CSV_FILE,
-            'CSV_FILE_TEST': CSV_FILE_TEST,
-            'OUTPUT_DIR': OUTPUT_DIR,
-            'TRAIN_METRICS': TRAIN_METRICS,
-            'VAL_METRICS': VAL_METRICS,
-            'PREDICTIONS_PATH': PREDICTIONS_PATH,
-            'BEST_MODEL_PATH': BEST_MODEL_PATH,
-            'LAST_MODEL_PATH': LAST_MODEL_PATH,
-            },
+    config=config,
     job_type='train' if INFERENCE else 'train',
     mode='disabled',  # any of "online", "offline", "disabled"
 )

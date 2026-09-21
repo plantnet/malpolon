@@ -67,7 +67,7 @@ CSV_FPS = {
     'CSV_S3_TEST': f'../LUCAS_habitats/data/output/csv/LUCAS_metadata_labels_merged_S3-10%_extended_test_CBN-Med{INFERENCE_SUFFIX}.csv',
 }
 
-METADATA_ROOT_PATH = 'metadata/'
+METADATA_ROOT_PATH = ''
 CSV_FILE = os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TRAIN'])
 CSV_FILE_TEST = os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TEST'])
 ROOT_DIR = "../LUCAS_habitats/"

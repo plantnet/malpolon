@@ -1,60 +1,62 @@
-import sys
 import os
 import re
-import pandas as pd
-import numpy as np
-from PIL import Image
-from tqdm import tqdm
-from time import time
+import sys
+import datetime
 from pathlib import Path
+from time import time
 
-from collections import OrderedDict
 import json
+import numpy as np
+import pandas as pd
+import timm
 import torch
 import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import Dataset, DataLoader
 import torch.nn.functional as F
-import wandb
-import timm
-from matplotlib import pyplot as plt
-
-import torchvision.transforms as transforms
+import torch.optim as optim
 import torchvision.models as models
-
-from codex.eunis_pipeline.models import build_gps_encoder
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+import torchvision.transforms as transforms
+from habitat_models import MultiHeadModel, get_model
+from matplotlib import pyplot as plt
+from PIL import Image
 from sklearn.metrics import (
     accuracy_score,
+    confusion_matrix,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
     roc_auc_score,
-    confusion_matrix
 )
-from dino_v2_large_PN22M.models import vit_large
-from habitat_models import get_model, MultiHeadModel
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
+
+import wandb
+from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_model import (
+    ModelSimCLR,
+)
+
 # ----------------------------
 # Config
 # ----------------------------
-SPLIT = 'S2'
+SPLIT = 'S3'
 BASELINE = 'B2'
-MODEL = "dinov2_PN22M"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
-MODALITIES = ['img', 'gps']
+MODEL = "resnet18"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
+TRANSFER_MODEL = 'simclr_landscape_resnet-partial-img-ch' # One of ['simclr_landscape_resnet-partial-img-ch', 'simclr_landscape_resnet_all-ch']
+MODALITIES = ['img']
 FUSION_STRATEGY = "concatenation"  # Any of: ['concatenation', 'mean_pooling_img_gps']
+CONTRASTIVE_HEAD_LAYERS_TO_KEEP = 1  # Nb of layer of pretext task head to not discard and keep un-froozen
 
 INFERENCE = False
-RESUME_TRAINING = False
 INFERENCE_SUFFIX = ''
 TRAIN_SUFFIX = ''
 MULTILABEL_CORRESPONDANCE_STRATEGY = 'ml'  # One of ['soft_ml', 'ml']
 LOSS_FUNCTION = 'CE_soft_ml'  # One of ['CE', 'CE_soft_ml', 'KL_divergence']
 LABEL_SMOOTHING = 0.0  # Float in [0, 1]
 
-EUNIS_LVL = ['1', '2', '3']  # List of values in [1, 2, 3, 3_4]
-EUNIS_LVL_WEIGHTS = [0.3, 0.5, 0.85]
-NUM_UNIQUE_CLASSES = {'1': 9, '2': 35, '3': 209, '4': 11, '3_4': 215} # Values in [9, 35, 209, 11, 215] If None, inferred from the dataset
+EUNIS_LVL = ['1', '2']  # List of values in [1, 2, 3, 3_4]
+EUNIS_LVL_WEIGHTS = [0.5, 0.85]
+NUM_UNIQUE_CLASSES = {'1': 6, '2': 25, '3': 0, '4': 0, '3_4': 0} # Values in [6, 25] If None, inferred from the dataset
 BATCH_SIZE = 32
 EPOCHS = 20
 LR = 1e-4
@@ -64,21 +66,22 @@ DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 CSV_FPS = {
     'CSV_S1_TRAIN': "metadata_labels_merged_S1_stratified_split-10.33%_train.csv",
     'CSV_S1_TEST': "metadata_labels_merged_S1_stratified_split-10.33%_test.csv",
-    'CSV_S2_TRAIN': "metadata_labels_merged_gps_only_S2_encoded_gb-16.2%_train-250m.csv",
-    'CSV_S2_TEST': "metadata_labels_merged_gps_only_S2_encoded_gb-16.2%_test-250m.csv",
+    'CSV_S2_TRAIN': "metadata_labels_merged_gps_only_S2_encoded_train-0.00225deg.csv",
+    'CSV_S2_TEST': "metadata_labels_merged_gps_only_S2_encoded_test-0.00225deg.csv",
     'CSV_S1BIS_TRAIN': f'metadata_labels_merged_S1bis-10%_train{TRAIN_SUFFIX}.csv',
     'CSV_S1BIS_TEST': f'metadata_labels_merged_S1bis-10%_test{INFERENCE_SUFFIX}.csv',  # "metadata_labels_merged_S1bis-10%_test.csv"
     'CSV_S0BIS_TRAIN': f'metadata_labels_merged_S0bis-10%_train{TRAIN_SUFFIX}.csv',
     'CSV_S0BIS_TEST': f'metadata_labels_merged_S0bis-10%_test{INFERENCE_SUFFIX}.csv',
-    'CSV_S3_TRAIN': f'metadata_labels_merged_S3-10%_extended_train{TRAIN_SUFFIX}.csv',
-    'CSV_S3_TEST': f'metadata_labels_merged_S3-10%_extended_test{INFERENCE_SUFFIX}.csv',
+    'CSV_S3_TRAIN': f'../LUCAS_habitats/data/output/csv/lucas_grasslands_habitats_groupby_multilabel_ALL_CBN-Med_S3-50%_minTrainTresh5_train{TRAIN_SUFFIX}.csv',
+    'CSV_S3_TEST': f'../LUCAS_habitats/data/output/csv/lucas_grasslands_habitats_groupby_multilabel_ALL_CBN-Med_S3-50%_minTrainTresh5_test{INFERENCE_SUFFIX}.csv',
 }
 
-METADATA_ROOT_PATH = 'metadata/'
+METADATA_ROOT_PATH = ''
 CSV_FILE = os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TRAIN'])
-CSV_FILE_TEST =  os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TEST']) # 'baselines/B1_freq/metadata_labels_merged_S1_stratified_split-10.33%_test_1-to-1_enc.csv'
-IMAGE_DIR = "Images"
-OUTPUT_DIR = f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead_img-partialFreeze-N=2+gps-partialFreeze-N=2/"
+CSV_FILE_TEST = os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TEST'])
+ROOT_DIR = "../LUCAS_habitats/"
+IMAGE_DIR = os.path.join(ROOT_DIR, "")  # No need because for LUCAS data the image paths are already specified in the CSV files as relative paths to the root dir, but this variable can be useful if we want to add a common prefix to the image paths specified in the CSV files.
+OUTPUT_DIR = '/tmp'# os.path.join(ROOT_DIR, f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead_transfer-SimCLR_PARTIAL-CONTRASTIVE-HEAD_{'+'.join(MODALITIES)}{'_'+str(FUSION_STRATEGY) if len(MODALITIES)>1 else ''}_CBN-Med_{datetime.date.today()}/")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(OUTPUT_DIR, 'inference/'), exist_ok=True)
@@ -88,6 +91,7 @@ VAL_METRICS = os.path.join(OUTPUT_DIR, "val_metrics.csv")
 TEST_METRICS = os.path.join(OUTPUT_DIR, f"inference/test_metrics{INFERENCE_SUFFIX}.csv")
 PREDICTIONS_PATH = os.path.join(OUTPUT_DIR, f"inference/test_predictions{INFERENCE_SUFFIX}.csv")
 
+TRANSFER_MODEL_PATH = os.path.join(f"../../../wandb/archive/run-20251012_185226-u6tiioze/files/best.pth.tar")
 BEST_MODEL_PATH = os.path.join(f"{OUTPUT_DIR}", "best_model.pth")
 LAST_MODEL_PATH = os.path.join(f"{OUTPUT_DIR}", "last_model.pth")
 
@@ -105,7 +109,7 @@ writer = wandb.init(
     notes="B2: Custom loss & metrics adapted for soft multilabelling.\n"
           "S1bis: Split over unique FLoraveg IDs (no leakeage) Stratified 1-to-k soft multilabels.",
     config=config,
-    job_type='test' if INFERENCE else 'train',
+    job_type='train' if INFERENCE else 'train',
     mode='disabled',  # any of "online", "offline", "disabled"
 )
 # Print wandb config
@@ -130,38 +134,38 @@ class TestHabitatDataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
-        floraveg_id = row['id_floraveg']
+        lucas_id = row['point_id']
 
         img_path = os.path.join(
             self.image_dir,
-            row["filename_photos"].strip()
+            row["filepath"].strip()
         )
 
         image = Image.open(img_path).convert("RGB")
 
-        # label = self.df[self.df['id_floraveg'] == row["id_floraveg"]]['label'].values.tolist()
+        # label = self.df[self.df['point_id'] == row["point_id"]]['label'].values.tolist()
         # print(f'Dataset Label: {label}')
         label_enc = row['label']
-        label = row['habitats_code']
+        label = row['habitats_code_lvl2']
 
         if self.transform:
             image = self.transform(image)
 
-        return image, label_enc, [-1], label, floraveg_id
+        return image, label_enc, [-1], label, lucas_id
 
 class HabitatDatasetSoftMultilabels(Dataset):
     def __init__(self, dataframe, image_dir, transform=None):
         self.df = dataframe.reset_index(drop=True)
-        self.df['label'] = self.df['habitats_code_ID'].copy()
-        self.floraveg_ids = dataframe['id_floraveg'].value_counts()
+        self.df['label'] = self.df['habitats_code_ID_lvl2'].copy()
+        self.lucas_ids = dataframe['point_id'].value_counts()
         self.labels = self.df['label']
         self.image_dir = image_dir
         self.transform = transform
         self.n_classes = dataframe['label'].nunique()
-        self.label_encoding_table = dict(zip(self.df["habitats_code_ID"], self.df["habitats_code"]))
+        self.label_encoding_table = dict(zip(self.df["habitats_code_ID_lvl2"], self.df["habitats_code_lvl2"]))
 
     def __len__(self):
-        return len(self.floraveg_ids)
+        return len(self.df)  # len(self.lucas_ids)
 
 class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
     """Same as HabitatDatasetSoftMultilabels but assumes data is pre-formated for multi-labelling.
@@ -177,15 +181,12 @@ class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
         self,
         dataframe,
         image_dir,
-        col_code_ID='habitats_code_ID',
-        col_code='habitats_code',
-        col_id='id_floraveg',
-        col_filepath='filename_photos',
+        col_code_ID='habitats_code_ID_lvl2',
+        col_code='habitats_code_lvl2',
+        col_id='point_id',
+        col_filepath='filepath',
         n_u_classes_lvl1=None,
         n_u_classes_lvl2=None,
-        n_u_classes_lvl3=None,
-        n_u_classes_lvl4=None,
-        n_u_classes_lvl3_4=None,
         transform=None
     ):
         super().__init__(dataframe, image_dir, transform)
@@ -194,17 +195,27 @@ class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
         self.col_code_ID_ohs = []
         self.col_id = col_id
         self.col_filepath = col_filepath
-        self.label_encoding_table = {'1': {}, '2': {}, '3': {}, '4': {}, '3_4': {}}
+        self.fp_suffix_ok = ['N', 'S', 'E', 'W', 'A', 'P', 'Q', 'U',        # 2018 suffixes
+                             'TransectStart', 'TransectEnd', 'UnclearAge']  # 2022 suffixes
+        self.label_encoding_table = {'1': {}, '2': {}}
         self.n_u_classes = {'1': n_u_classes_lvl1,
-                            '2': n_u_classes_lvl2,
-                            '3': n_u_classes_lvl3,
-                            '4': n_u_classes_lvl4,
-                            '3_4': n_u_classes_lvl3_4}
+                            '2': n_u_classes_lvl2,}
+        
+        # Remove rows of dataset if they contain no images compatible with accepted suffixes.
+        rows_to_drop = []
+        for rowi, row in self.df.iterrows():
+            if not any(Path(fp.strip()).stem.endswith(tuple(self.fp_suffix_ok)) for fp in row[self.col_filepath].strip().split(';')):
+                rows_to_drop.append(rowi)
+        self.df.drop(rows_to_drop, inplace=True)
+        if len(rows_to_drop) > 0:
+            print(f"\033[1;32m[WARNING]\033[0m {len(rows_to_drop)} rows were dropped from the dataset because they contained no images with accepted suffixes ({self.fp_suffix_ok}).\n"
+                  f"The following rows were dropped:\n{self.df.iloc[rows_to_drop]}")
+        self.lucas_ids = dataframe['point_id'].value_counts()  # Update the available unique lucas IDs
         
         for eunis_lvl in self.n_u_classes.keys():
-            col_code_ID = 'habitats_code_ID' + (f'_lvl{eunis_lvl}' if eunis_lvl != '3_4' else '')
-            col_code = 'habitats_code' + (f'_lvl{eunis_lvl}' if eunis_lvl != '3_4' else '')
-            col_code_ID_oh = 'habitats_code_ID_oh' + (f'_lvl{eunis_lvl}' if eunis_lvl != '3_4' else '')
+            col_code_ID = 'habitats_code_ID' + f'_lvl{eunis_lvl}'
+            col_code = 'habitats_code' + f'_lvl{eunis_lvl}'
+            col_code_ID_oh = 'habitats_code_ID_oh' + f'_lvl{eunis_lvl}'
             self.col_code_ID_ohs.append(col_code_ID_oh)
             self.col_code_IDs.append(col_code_ID)
             self.col_codes.append(col_code)
@@ -221,43 +232,43 @@ class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
                 self.label_encoding_table[eunis_lvl].update(dict(zip(labels_enc, labels)))
 
     def __getitem__(self, idx):
-        row = self.df.iloc[idx]
+        """Return the image and the labels for all EUNIS levels.
+        
+        Views are randomly picked among the selected ones. In average, all views are seen during
+        training and validation given a sufficiently high number of epochs.
+        """
+        try:
+            row = self.df.iloc[idx]
+        except IndexError:
+            raise IndexError(f"Index {idx} is out of bounds for dataset of length {len(self.df)}.")
         survey_id = row[self.col_id]
-        gps = (row['lon'], row['lat'])
+        gps = torch.Tensor((row['lon'], row['lat']))
+        fps = row[self.col_filepath].strip().split(';')
+        fps = [fp for fp in fps if Path(fp).stem.endswith(tuple(self.fp_suffix_ok))]
 
         img_path = os.path.join(
             self.image_dir,
-            row[self.col_filepath].strip()
+            np.random.choice(fps).strip()
         )
 
         image = Image.open(img_path).convert("RGB")
         # Labels
         labels_lvl1 = row[f'{self.col_codes[0]}']
         labels_lvl2 = row[f'{self.col_codes[1]}']
-        labels_lvl3 = row[f'{self.col_codes[2]}']
-        labels_lvl4 = row[f'{self.col_codes[3]}']
-        labels_lvl3_4 = row[f'{self.col_codes[4]}']
         # Labels pre-encoded
         labels_enc_lvl1 = row[f'{self.col_code_IDs[0]}']
         labels_enc_lvl2 = row[f'{self.col_code_IDs[1]}']
-        labels_enc_lvl3 = row[f'{self.col_code_IDs[2]}']
-        labels_enc_lvl4 = row[f'{self.col_code_IDs[3]}']
-        labels_enc_lvl3_4 = row[f'{self.col_code_IDs[4]}']
         # Labels pre-encoded and one-hot encoded
         labels_enc_oh_lvl1 = torch.tensor(row[f'{self.col_code_ID_ohs[0]}'])
         labels_enc_oh_lvl2 = torch.tensor(row[f'{self.col_code_ID_ohs[1]}'])
-        labels_enc_oh_lvl3 = torch.tensor(row[f'{self.col_code_ID_ohs[2]}'])
-        labels_enc_oh_lvl4 = torch.tensor(row[f'{self.col_code_ID_ohs[3]}'])
-        labels_enc_oh_lvl3_4 = torch.tensor(row[f'{self.col_code_ID_ohs[4]}'])
 
         if self.transform:
             image = self.transform(image)
-        gps = torch.Tensor(gps)
 
         return (image, gps,
-                labels_enc_oh_lvl1, labels_enc_oh_lvl2, labels_enc_oh_lvl3, labels_enc_oh_lvl4, labels_enc_oh_lvl3_4,
-                labels_enc_lvl1, labels_enc_lvl2, labels_enc_lvl3, labels_enc_lvl4, labels_enc_lvl3_4,
-                labels_lvl1, labels_lvl2, labels_lvl3, labels_lvl4, labels_lvl3_4,
+                labels_enc_oh_lvl1, labels_enc_oh_lvl2, torch.tensor([-1]), torch.tensor([-1]), torch.tensor([-1]),
+                labels_enc_lvl1, labels_enc_lvl2, torch.tensor([-1]), torch.tensor([-1]), torch.tensor([-1]),
+                labels_lvl1, labels_lvl2, torch.tensor([-1]), torch.tensor([-1]), torch.tensor([-1]),
                 survey_id)
     
     def labels_value_counts(self, label_id):
@@ -267,7 +278,7 @@ class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
 # ----------------------------
 # Load CSV
 # ----------------------------
-#region load_csv_floraveg
+
 def sample_onehot_encode(labels, n_labels):
     t = torch.zeros(n_labels, dtype=int)
     t[torch.tensor(labels)] = 1
@@ -280,10 +291,124 @@ def batch_onehot_encode(labels, n_classes):
 
     return out
 
+def count_unique_cls_multilabel(df, col_code_ID_lvl1=None, col_code_ID_lvl2=None, col_code_ID_lvl3=None, col_code_ID_lvl4=None, col_code_ID_lvl3_4=None):
+    cols = {'1': col_code_ID_lvl1, '2': col_code_ID_lvl2, '3': col_code_ID_lvl3, '4': col_code_ID_lvl4, '3_4': col_code_ID_lvl3_4}
+    u_cls = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
+
+    for lvl, col in cols.items():
+        if col is None:
+            continue
+        for v in df[col].values:
+            u_cls[lvl].extend(v.split(';'))
+        u_cls[lvl] = list(set(u_cls[lvl]))
+
+    u_cls_count = {lvl: len(u_cls[lvl]) for lvl in u_cls.keys()}
+    return u_cls_count, u_cls
+
+def rewrite_labels_if_unique_classes_differ_from_constant(
+    df,
+    col_code_ID_lvl1=None,
+    col_code_ID_lvl2=None,
+    col_code_ID_lvl3=None,
+    col_code_ID_lvl4=None,
+    col_code_ID_lvl3_4=None,
+    col_code_ID_oh_lvl1=None,
+    col_code_ID_oh_lvl2=None,
+    col_code_ID_oh_lvl3=None,
+    col_code_ID_oh_lvl4=None,
+    col_code_ID_oh_lvl3_4=None,
+):
+    """Re-calculate classes if N_u_classes of dataframe != NUM_UNIQUE_CLASSES.
+
+    This method uses sklearn's LabelEncoder to re-encode the labels (both ID and one-hot) in the
+    dataframe if the number of unique classes represented in the data file is different from the
+    constant NUM_UNIQUE_CLASSES set in the config section. This is useful if the dataset is
+    a subset of the original dataset.
+    NOTE: this will change the size of the confusion matrix and the interpretation of the predicted
+    labels in the inference output.
+    """
+    cols = {
+        '1': (col_code_ID_lvl1, col_code_ID_oh_lvl1),
+        '2': (col_code_ID_lvl2, col_code_ID_oh_lvl2),
+        '3': (col_code_ID_lvl3, col_code_ID_oh_lvl3),
+        '4': (col_code_ID_lvl4, col_code_ID_oh_lvl4),
+        '3_4': (col_code_ID_lvl3_4, col_code_ID_oh_lvl3_4),
+    }
+    def _label_values(series):
+        values = []
+        for v in series.dropna():
+            if isinstance(v, str):
+                values.extend([s.strip() for s in v.split(';') if s.strip()])
+            else:
+                values.append(str(v).strip())
+        return values
+
+    for lvl, (col_id, col_oh) in cols.items():
+        if col_id is None:
+            continue
+
+        expected_n = NUM_UNIQUE_CLASSES.get(lvl)
+        if expected_n is None:
+            continue
+
+        unique_labels = sorted(set(_label_values(df[col_id])))
+        if len(unique_labels) == 0:
+            continue
+
+        # Re-encode the semicolon-separated class IDs to a compact contiguous encoding.
+        if len(unique_labels) != int(expected_n):
+            NUM_UNIQUE_CLASSES[lvl] = len(unique_labels)  # Breaks scopes-compliant linting rules but necessary and easiest
+            encoder = LabelEncoder()
+            encoder.fit(unique_labels)
+            n_classes = len(encoder.classes_)
+
+            def _encode_multilabel_value(v):
+                if pd.isna(v):
+                    return v
+                labels = [s.strip() for s in str(v).split(';') if s.strip()]
+                if len(labels) == 0:
+                    return ''
+                encoded = encoder.transform(labels)
+                return ';'.join(str(int(i)) for i in encoded)
+
+            df[col_id] = df[col_id].map(_encode_multilabel_value)
+
+            if col_oh is not None:
+                def _make_oh(v):
+                    # v is the re-encoded class ID string for this row (e.g. '0;2;4')
+                    arr = np.zeros(n_classes, dtype=int)
+                    if pd.isna(v):
+                        return str(arr)  # Keep as str because the dataset class takes care of casting it to a tensor later.
+                    ids = [int(s.strip()) for s in str(v).split(';') if s.strip()]
+                    try:
+                        arr[ids] = 1
+                    except IndexError:
+                        print(f"[ERROR] IndexError when trying to re-label one-hot labels, could not set '1' to indices {ids}. Maybe the ID(s) is/are out of range of n_classes.")
+                    return str(arr)  # Keep as str because the dataset class takes care of casting it to a tensor later.
+
+                df[col_oh] = df[col_id].map(_make_oh)
+
+            print(
+                f"[INFO] Re-encoded {col_id} from {len(unique_labels)} unique labels to {n_classes} labels "
+                f"(expected: {expected_n})."
+            )
+
+    return df
+
+
 df = pd.read_csv(CSV_FILE)
 df_test = pd.read_csv(CSV_FILE_TEST)
+df_all = rewrite_labels_if_unique_classes_differ_from_constant(
+    pd.concat([df, df_test], ignore_index=True),
+    col_code_ID_lvl1='habitats_code_ID_lvl1',
+    col_code_ID_lvl2='habitats_code_ID_lvl2',
+    col_code_ID_oh_lvl1='habitats_code_ID_oh_lvl1',
+    col_code_ID_oh_lvl2='habitats_code_ID_oh_lvl2',
+)
+df = df_all.iloc[:len(df)].reset_index(drop=True)
+df_test = df_all.iloc[len(df):].reset_index(drop=True)
 
-lvl_suffix = ''  # '' if EUNIS_LVL == '3_4' else '_lvl'+str(EUNIS_LVL)
+lvl_suffix = '_lvl2'  # '' if EUNIS_LVL == '3_4' else '_lvl'+str(EUNIS_LVL)
 df['label'] = df[f'habitats_code_ID{lvl_suffix}']
 df_test['label'] = df[f'habitats_code_ID{lvl_suffix}']
 
@@ -293,7 +418,7 @@ print("[INFO] Unique classes per EUNIS level:", NUM_UNIQUE_CLASSES)
 
 if MULTILABEL_CORRESPONDANCE_STRATEGY in ['ml']:
     label_value_counts = {}
-    for fid, hc, hcid in zip(df["id_floraveg"], df[f"habitats_code{lvl_suffix}"], df[f"habitats_code_ID{lvl_suffix}"]):
+    for fid, hc, hcid in zip(df["point_id"], df[f"habitats_code{lvl_suffix}"], df[f"habitats_code_ID{lvl_suffix}"]):
         labels = [str(i) for i in hc.split(';')]
         for label in labels:
             label_value_counts[label] = label_value_counts[label] + 1 if label in label_value_counts.keys() else 1
@@ -310,167 +435,6 @@ if len(habitats_single_occurrence) > 1:
     df_habitats_single_occurrence = df[df['label'].isin(habitats_single_occurrence.index)]
     df = df[~df['label'].isin(habitats_single_occurrence.index)]
     print(f'[WARNING]: The following habitat codes were excluded from validation and kept in train because they only have one occurrence: {habitats_single_occurrence.index.tolist()}')
-#endregion
-
-#region load_csv_lucas
-# def sample_onehot_encode(labels, n_labels):
-#     t = torch.zeros(n_labels, dtype=int)
-#     t[torch.tensor(labels)] = 1
-#     return t
-
-# def batch_onehot_encode(labels, n_classes):
-#     batch_size = labels.size(0)
-#     out = torch.zeros(batch_size, n_classes, device=labels.device)
-#     out.scatter_(1, labels.long(), 1)
-
-#     return out
-
-# def count_unique_cls_multilabel(df, col_code_ID_lvl1=None, col_code_ID_lvl2=None, col_code_ID_lvl3=None, col_code_ID_lvl4=None, col_code_ID_lvl3_4=None):
-#     cols = {'1': col_code_ID_lvl1, '2': col_code_ID_lvl2, '3': col_code_ID_lvl3, '4': col_code_ID_lvl4, '3_4': col_code_ID_lvl3_4}
-#     u_cls = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
-
-#     for lvl, col in cols.items():
-#         if col is None:
-#             continue
-#         for v in df[col].values:
-#             u_cls[lvl].extend(v.split(';'))
-#         u_cls[lvl] = list(set(u_cls[lvl]))
-
-#     u_cls_count = {lvl: len(u_cls[lvl]) for lvl in u_cls.keys()}
-#     return u_cls_count, u_cls
-
-# def rewrite_labels_if_unique_classes_differ_from_constant(
-#     df,
-#     col_code_ID_lvl1=None,
-#     col_code_ID_lvl2=None,
-#     col_code_ID_lvl3=None,
-#     col_code_ID_lvl4=None,
-#     col_code_ID_lvl3_4=None,
-#     col_code_ID_oh_lvl1=None,
-#     col_code_ID_oh_lvl2=None,
-#     col_code_ID_oh_lvl3=None,
-#     col_code_ID_oh_lvl4=None,
-#     col_code_ID_oh_lvl3_4=None,
-# ):
-#     """Re-calculate classes if N_u_classes of dataframe != NUM_UNIQUE_CLASSES.
-
-#     This method uses sklearn's LabelEncoder to re-encode the labels (both ID and one-hot) in the
-#     dataframe if the number of unique classes represented in the data file is different from the
-#     constant NUM_UNIQUE_CLASSES set in the config section. This is useful if the dataset is
-#     a subset of the original dataset.
-#     NOTE: this will change the size of the confusion matrix and the interpretation of the predicted
-#     labels in the inference output.
-#     """
-#     cols = {
-#         '1': (col_code_ID_lvl1, col_code_ID_oh_lvl1),
-#         '2': (col_code_ID_lvl2, col_code_ID_oh_lvl2),
-#         '3': (col_code_ID_lvl3, col_code_ID_oh_lvl3),
-#         '4': (col_code_ID_lvl4, col_code_ID_oh_lvl4),
-#         '3_4': (col_code_ID_lvl3_4, col_code_ID_oh_lvl3_4),
-#     }
-#     def _label_values(series):
-#         values = []
-#         for v in series.dropna():
-#             if isinstance(v, str):
-#                 values.extend([s.strip() for s in v.split(';') if s.strip()])
-#             else:
-#                 values.append(str(v).strip())
-#         return values
-
-#     for lvl, (col_id, col_oh) in cols.items():
-#         if col_id is None:
-#             continue
-
-#         expected_n = NUM_UNIQUE_CLASSES.get(lvl)
-#         if expected_n is None:
-#             continue
-
-#         unique_labels = sorted(set(_label_values(df[col_id])))
-#         if len(unique_labels) == 0:
-#             continue
-
-#         # Re-encode the semicolon-separated class IDs to a compact contiguous encoding.
-#         if len(unique_labels) != int(expected_n):
-#             NUM_UNIQUE_CLASSES[lvl] = len(unique_labels)  # Breaks scopes-compliant linting rules but necessary and easiest
-#             encoder = LabelEncoder()
-#             encoder.fit(unique_labels)
-#             n_classes = len(encoder.classes_)
-
-#             def _encode_multilabel_value(v):
-#                 if pd.isna(v):
-#                     return v
-#                 labels = [s.strip() for s in str(v).split(';') if s.strip()]
-#                 if len(labels) == 0:
-#                     return ''
-#                 encoded = encoder.transform(labels)
-#                 return ';'.join(str(int(i)) for i in encoded)
-
-#             df[col_id] = df[col_id].map(_encode_multilabel_value)
-
-#             if col_oh is not None:
-#                 def _make_oh(v):
-#                     # v is the re-encoded class ID string for this row (e.g. '0;2;4')
-#                     arr = np.zeros(n_classes, dtype=int)
-#                     if pd.isna(v):
-#                         return str(arr)  # Keep as str because the dataset class takes care of casting it to a tensor later.
-#                     ids = [int(s.strip()) for s in str(v).split(';') if s.strip()]
-#                     try:
-#                         arr[ids] = 1
-#                     except IndexError:
-#                         print(f"[ERROR] IndexError when trying to re-label one-hot labels, could not set '1' to indices {ids}. Maybe the ID(s) is/are out of range of n_classes.")
-#                     return str(arr)  # Keep as str because the dataset class takes care of casting it to a tensor later.
-
-#                 df[col_oh] = df[col_id].map(_make_oh)
-
-#             print(
-#                 f"[INFO] Re-encoded {col_id} from {len(unique_labels)} unique labels to {n_classes} labels "
-#                 f"(expected: {expected_n})."
-#             )
-
-#     return df
-
-
-# df = pd.read_csv(CSV_FILE)
-# df_test = pd.read_csv(CSV_FILE_TEST)
-# df_all = rewrite_labels_if_unique_classes_differ_from_constant(
-#     pd.concat([df, df_test], ignore_index=True),
-#     col_code_ID_lvl1='habitats_code_ID_lvl1',
-#     col_code_ID_lvl2='habitats_code_ID_lvl2',
-#     col_code_ID_oh_lvl1='habitats_code_ID_oh_lvl1',
-#     col_code_ID_oh_lvl2='habitats_code_ID_oh_lvl2',
-# )
-# df = df_all.iloc[:len(df)].reset_index(drop=True)
-# df_test = df_all.iloc[len(df):].reset_index(drop=True)
-
-# lvl_suffix = '_lvl2'  # '' if EUNIS_LVL == '3_4' else '_lvl'+str(EUNIS_LVL)
-# df['label'] = df[f'habitats_code_ID{lvl_suffix}']
-# df_test['label'] = df[f'habitats_code_ID{lvl_suffix}']
-
-# if not NUM_UNIQUE_CLASSES:  # Only set based on data if not manually set at the begining of the config section
-#     raise NotImplementedError(f"No auto-computation of NUM_UNIQUE_CLASSES in this multi-head version. Please set it manually in the config section.")
-# print("[INFO] Unique classes per EUNIS level:", NUM_UNIQUE_CLASSES)
-
-# if MULTILABEL_CORRESPONDANCE_STRATEGY in ['ml']:
-#     label_value_counts = {}
-#     for fid, hc, hcid in zip(df["point_id"], df[f"habitats_code{lvl_suffix}"], df[f"habitats_code_ID{lvl_suffix}"]):
-#         labels = [str(i) for i in hc.split(';')]
-#         for label in labels:
-#             label_value_counts[label] = label_value_counts[label] + 1 if label in label_value_counts.keys() else 1
-#     df_labels_value_count = pd.DataFrame({f'habitats_code_ID{lvl_suffix}': list(label_value_counts.keys()), 'count': list(label_value_counts.values())})
-#     habitats_single_occurrence = df_labels_value_count[df_labels_value_count['count']<=1]
-
-#     habitats_counts = df['label'].value_counts()
-#     habitats_single_occurrence = habitats_counts[habitats_counts == 1]
-# else:
-#     habitats_counts = df['label'].value_counts()
-#     habitats_single_occurrence = habitats_counts[habitats_counts == 1]
-
-# if len(habitats_single_occurrence) > 1:
-#     df_habitats_single_occurrence = df[df['label'].isin(habitats_single_occurrence.index)]
-#     df = df[~df['label'].isin(habitats_single_occurrence.index)]
-#     print(f'[WARNING]: The following habitat codes were excluded from validation and kept in train because they only have one occurrence: {habitats_single_occurrence.index.tolist()}')
-#endregion
-
 # ----------------------------
 # Train / Val split
 # ----------------------------
@@ -482,8 +446,8 @@ train_df, val_df = train_test_split(
     random_state=42
 )
 
-
-train_df = pd.concat([train_df, df_habitats_single_occurrence])
+if len(habitats_single_occurrence) > 1:
+    train_df = pd.concat([train_df, df_habitats_single_occurrence])
 
 # ----------------------------
 # Transforms
@@ -511,9 +475,7 @@ elif MODEL == 'dinov2_vits14':
                                  transforms.CenterCrop(518),]
     MODEL_STATS = MODEL_STATS_IMAGENET
 elif MODEL == 'dinov2_PN22M':
-    model_specific_transforms = [# transforms.Resize((224, 224)),
-                                 transforms.Resize(540),  # gap between resize and centercrop is to remove copyright watermark on images
-                                 transforms.CenterCrop((512, 512)),
+    model_specific_transforms = [transforms.Resize((224, 224)),
                                  ]
     MODEL_STATS = MODEL_STATS_PN22M
 elif MODEL == 'convnext':
@@ -580,15 +542,15 @@ match MULTILABEL_CORRESPONDANCE_STRATEGY:
 
 train_dataset = dataset(train_df,
                         IMAGE_DIR,
-                        n_u_classes_lvl1=NUM_UNIQUE_CLASSES['1'], n_u_classes_lvl2=NUM_UNIQUE_CLASSES['2'], n_u_classes_lvl3=NUM_UNIQUE_CLASSES['3'], n_u_classes_lvl4=NUM_UNIQUE_CLASSES['4'], n_u_classes_lvl3_4=NUM_UNIQUE_CLASSES['3_4'],
+                        n_u_classes_lvl1=NUM_UNIQUE_CLASSES['1'], n_u_classes_lvl2=NUM_UNIQUE_CLASSES['2'],
                         transform=train_tf)
 val_dataset = dataset(val_df,
                       IMAGE_DIR,
-                      n_u_classes_lvl1=NUM_UNIQUE_CLASSES['1'], n_u_classes_lvl2=NUM_UNIQUE_CLASSES['2'], n_u_classes_lvl3=NUM_UNIQUE_CLASSES['3'], n_u_classes_lvl4=NUM_UNIQUE_CLASSES['4'], n_u_classes_lvl3_4=NUM_UNIQUE_CLASSES['3_4'],
+                      n_u_classes_lvl1=NUM_UNIQUE_CLASSES['1'], n_u_classes_lvl2=NUM_UNIQUE_CLASSES['2'],
                       transform=val_tf)
 test_dataset = test_dataset(df_test,
                             IMAGE_DIR,
-                            n_u_classes_lvl1=NUM_UNIQUE_CLASSES['1'], n_u_classes_lvl2=NUM_UNIQUE_CLASSES['2'], n_u_classes_lvl3=NUM_UNIQUE_CLASSES['3'], n_u_classes_lvl4=NUM_UNIQUE_CLASSES['4'], n_u_classes_lvl3_4=NUM_UNIQUE_CLASSES['3_4'],
+                            n_u_classes_lvl1=NUM_UNIQUE_CLASSES['1'], n_u_classes_lvl2=NUM_UNIQUE_CLASSES['2'],
                             transform=val_tf)
 
 train_loader = DataLoader(
@@ -614,40 +576,46 @@ test_loader = DataLoader(
 print("[INFO] Train size:", len(train_loader.dataset))
 print("[INFO] Number of classes in the training set:", train_loader.dataset.n_classes)
 print("[INFO] Val size:", len(val_loader.dataset))
-print(f"[INFO] Number of classes in the validation set: {val_loader.dataset.n_classes} ({len(set(val_loader.dataset.labels) & set(train_loader.dataset.labels)) / train_loader.dataset.n_classes * 100:.2f}% overlap with train)")
+print(f"[INFO] Number of classes in the validation set: {val_loader.dataset.n_classes} ({len(set(val_loader.dataset.labels) & set(train_loader.dataset.labels)) / train_loader.dataset.n_classes * 100:.2f}% of them overlap with train)")
 print("[INFO] Test size:", len(test_loader.dataset))
-print(f"[INFO] Number of classes in the test set: {test_loader.dataset.n_classes} ({len(set(test_loader.dataset.labels) & set(train_loader.dataset.labels)) / train_loader.dataset.n_classes * 100:.2f}% overlap with train)")
+print(f"[INFO] Number of classes in the test set: {test_loader.dataset.n_classes} ({len(set(test_loader.dataset.labels) & set(train_loader.dataset.labels)) / train_loader.dataset.n_classes * 100:.2f}% of them overlap with train)")
 
 # ----------------------------
 # Model
 # ----------------------------
-model = get_model(MODEL, 10).to(DEVICE)  # Doesn't mater what number of classes we put here since we are going to replace the head with a custom one adapted for multilabels. This is just to re-use code written to instantiate models.
-
-# ad-hoc fix to allow using the MultiHeadModel class with GPS, without transfer from pretext class
-if 'gps' in MODALITIES:
-    gps_encoder = build_gps_encoder('geoclip', 2048).to(DEVICE)  # GPSEncoder wrapper as defined in codex/models
-    # model.gps_contrastive_head = torch.nn.Sequential(
-    #             OrderedDict(
-    #                 [
-    #                     ("head", nn.Identity()),
-    #                 ]
-    #             )
-    #         )
-
-else:
-    model.gps_backbone = nn.Sequential(nn.Identity())
-    model.gps_contrastive_head = nn.Sequential(nn.Identity())
-# end ad-hoc
-
-model = MultiHeadModel(model, MODEL, EUNIS_LVL,
-                       NUM_UNIQUE_CLASSES['1'], NUM_UNIQUE_CLASSES['2'], NUM_UNIQUE_CLASSES['3'], NUM_UNIQUE_CLASSES['4'], NUM_UNIQUE_CLASSES['3_4'],
-                       use_gps_encoder='gps' in MODALITIES, fusion_strategy=FUSION_STRATEGY,
-                       gps_encoder=gps_encoder, gps_model_name='geoclip').to(DEVICE)
+model = ModelSimCLR(base_model='landscape', out_dim=2048, dropout=0.1,
+                    freeze_modality_backbone=True, freeze_gps_backbone=True).to(DEVICE)
 
 optimizer = optim.Adam(
     model.parameters(),
     lr=LR
 )
+
+def get_state_dict_branch(sd, branch_name):
+    return {k.split(f'{branch_name}.')[1]:v for k,v in sd.items() if k.startswith(f'{branch_name}.')}
+
+if TRANSFER_MODEL_PATH:
+    checkpoint = torch.load(TRANSFER_MODEL_PATH, map_location=DEVICE)
+    state_dict_landscape = get_state_dict_branch(checkpoint['state_dict'], 'landscape')
+    model.load_state_dict(state_dict_landscape)
+    print(f"Checkpoint loaded from {TRANSFER_MODEL_PATH}")
+    # No optimizer state dict loaded because we are not resuming training from a previous checkpoint, but rather using a pre-trained model for transfer learning.
+
+model = MultiHeadModel(model, TRANSFER_MODEL, EUNIS_LVL,
+                       NUM_UNIQUE_CLASSES['1'], NUM_UNIQUE_CLASSES['2'], NUM_UNIQUE_CLASSES['3'], NUM_UNIQUE_CLASSES['4'], NUM_UNIQUE_CLASSES['3_4'],
+                       use_gps_encoder='gps' in MODALITIES, fusion_strategy=FUSION_STRATEGY).to(DEVICE)
+
+# ==== Claude (Sonnet 5) models / optimizers ====
+
+# --- Optimizer: only the head has trainable params if encoders are frozen ---
+def build_optimizer(model: nn.Module, lr=1e-3, weight_decay=1e-4):
+    # trainable = [p for name, p in dict(model.named_parameters()).items() if p.requires_grad and 'transfer_heads' in name]
+    trainable = [p for name, p in dict(model.named_parameters()).items() if p.requires_grad]
+    return torch.optim.AdamW(trainable, lr=lr, weight_decay=weight_decay)
+
+optimizer = build_optimizer(model, lr=LR)
+# ==== Claude (Sonnet 5) models / optimizers ====
+
 
 def get_criterion(logits, labels):
     match LOSS_FUNCTION:
@@ -674,6 +642,11 @@ def get_criterion(logits, labels):
 # ----------------------------
 
 def top1_soft_multilabels_accuracy(y_true, y_pred):
+    """Compute top1 accuracy with soft multilabels.
+
+    The top1 prediction is considered correct if it is among the true labels (even if there are multiple true labels).
+    This requires giving one-hot encoded labels.
+    """
     top_indices = np.argmax(y_pred, axis=1)
     result = (y_true[np.arange(y_true.shape[0]), top_indices] == 1).astype(int)
     return result.mean()
@@ -733,56 +706,64 @@ def run_epoch(loader, split, epoch_nb, training=True):
 
     running_loss = 0
 
-    for (images, gps,
-         labels_enc_oh_lvl1, labels_enc_oh_lvl2, labels_enc_oh_lvl3, labels_enc_oh_lvl4, labels_enc_oh_lvl3_4,
-         labels_enc_lvl1, labels_enc_lvl2, labels_enc_lvl3, labels_enc_lvl4, labels_enc_lvl3_4,
-         labels_lvl1, labels_lvl2, labels_lvl3, labels_lvl4, labels_lvl3_4,
-         survey_id
-    ) in tqdm(loader):
+    try:
+        for (images, gpss,
+            labels_enc_oh_lvl1, labels_enc_oh_lvl2, labels_enc_oh_lvl3, labels_enc_oh_lvl4, labels_enc_oh_lvl3_4,
+            labels_enc_lvl1, labels_enc_lvl2, labels_enc_lvl3, labels_enc_lvl4, labels_enc_lvl3_4,
+            labels_lvl1, labels_lvl2, labels_lvl3, labels_lvl4, labels_lvl3_4,
+            survey_id
+        ) in tqdm(loader):
 
-        labels_enc_ohs = {'1': labels_enc_oh_lvl1,
-                          '2': labels_enc_oh_lvl2,
-                          '3': labels_enc_oh_lvl3,
-                          '4': labels_enc_oh_lvl4,
-                          '3_4': labels_enc_oh_lvl3_4}
-        probs = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
-        preds = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
-        images = images.to(DEVICE)
-        gps = gps.to(DEVICE)
-        # Only keep labels selected by EUNIS_LVL config constant and move to device
-        for k, v in labels_enc_ohs.items():
-            if k in EUNIS_LVL:
-                labels_enc_ohs[k] = v.to(DEVICE)
+            labels_enc_ohs = {'1': labels_enc_oh_lvl1,
+                            '2': labels_enc_oh_lvl2,
+                            '3': labels_enc_oh_lvl3,
+                            '4': labels_enc_oh_lvl4,
+                            '3_4': labels_enc_oh_lvl3_4}
+            probs = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
+            preds = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
+            images = images.to(DEVICE)
+            if 'gps' in MODALITIES:
+                gpss = gpss.to(DEVICE)
+            # Only keep labels selected by EUNIS_LVL config constant and move to device
+            for k, v in labels_enc_ohs.items():
+                if k in EUNIS_LVL:
+                    labels_enc_ohs[k] = v.to(DEVICE)
+                else:
+                    labels_enc_ohs[k] = None
+
+            if training:
+                optimizer.zero_grad()
+
+            if MODEL == 'inception_v3' and split == 'train':
+                outputs, aux_output = model(images)
             else:
-                labels_enc_ohs[k] = None
+                if all(x in MODALITIES for x in ['gps', 'img']):
+                    outputs = model(images, gpss)
+                elif 'img' in MODALITIES:
+                    outputs = model(images)
 
-        if training:
-            optimizer.zero_grad()
+            # loss = get_criterion(outputs, labels_enc_oh)
+            loss = 0
 
-        if MODEL == 'inception_v3' and split == 'train':
-            outputs, aux_output = model(images, x_gps=gps)
-        else:
-            outputs = model(images, x_gps=gps)
+            for lvl, weight in zip(EUNIS_LVL, EUNIS_LVL_WEIGHTS):
+                loss += get_criterion(outputs[lvl], labels_enc_ohs[lvl])
 
-        # loss = get_criterion(outputs, labels_enc_oh)
-        loss = 0
+            if training:
+                loss.backward()
+                optimizer.step()
 
-        for lvl, weight in zip(EUNIS_LVL, EUNIS_LVL_WEIGHTS):
-            loss += get_criterion(outputs[lvl], labels_enc_ohs[lvl])
+            running_loss += loss.item()
 
-        if training:
-            loss.backward()
-            optimizer.step()
+            for lvl in EUNIS_LVL:
+                probs[lvl] = torch.softmax(outputs[lvl], dim=1)
+                preds[lvl] = torch.argmax(probs[lvl], dim=1)
 
-        running_loss += loss.item()
-
-        for lvl in EUNIS_LVL:
-            probs[lvl] = torch.softmax(outputs[lvl], dim=1)
-            preds[lvl] = torch.argmax(probs[lvl], dim=1)
-
-            all_labels_enc_oh[lvl].extend(labels_enc_ohs[lvl].cpu().numpy())
-            all_preds[lvl].extend(preds[lvl].cpu().numpy())
-            all_probs[lvl].extend(probs[lvl].detach().cpu().numpy())
+                all_labels_enc_oh[lvl].extend(labels_enc_ohs[lvl].cpu().numpy())
+                all_preds[lvl].extend(preds[lvl].cpu().numpy())
+                all_probs[lvl].extend(probs[lvl].detach().cpu().numpy())
+    except Exception as e:
+        print(f"[ERROR] Exception during {split} epoch {epoch_nb}: {e}")
+        raise e
 
 
     metrics = compute_metrics(
@@ -812,6 +793,10 @@ if not INFERENCE:
     # ----------------------------
     # Init logs
     # ----------------------------
+    with open(os.path.join(OUTPUT_DIR, "config.txt"), "w") as f:
+        f.write("==== Run configuration ====\n\n")
+        for key, value in writer.config.items():
+            f.write(f"{key}: {value}\n")
 
     with open(TRAIN_METRICS,"w") as f:
         f.write("epoch,loss,accuracy,precision,recall,f1,auroc\n")
@@ -820,15 +805,8 @@ if not INFERENCE:
         f.write("epoch,loss,accuracy,precision,recall,f1,auroc\n")
 
     best_val_loss = float("inf")
-    start_epoch = 0
-    if os.path.exists(LAST_MODEL_PATH) and RESUME_TRAINING:
-        print(f"[INFO] Resuming training from last model: {LAST_MODEL_PATH}")
-        checkpoint = torch.load(LAST_MODEL_PATH)
-        model.load_state_dict(checkpoint["model_state_dict"])
-        optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        start_epoch = checkpoint["epoch"] + 1
 
-    for epoch in range(start_epoch, EPOCHS, 1):
+    for epoch in range(EPOCHS):
 
         print("\nEpoch",epoch)
 
@@ -852,10 +830,9 @@ if not INFERENCE:
             for lvl in EUNIS_LVL:
                 train_metrics = (train_metrics_lvl[0][lvl], train_metrics_lvl[1][lvl], train_metrics_lvl[2][lvl])
                 print(f"Acc_top1_soft_multilabels_lvl-{lvl}:", train_metrics[0])
-                mode = "a" if os.path.exists(TRAIN_METRICS) else "w"
-                with open(TRAIN_METRICS, mode) as f:
+                with open(TRAIN_METRICS,"a") as f:
                     f.write(
-                        f"{epoch},{train_loss},eunis_lvl-{lvl}_{train_metrics[0]}\n"
+                        f"{epoch},{train_loss},eunis_lvl-{lvl}{train_metrics[0]}\n"
                     )
         else:
             raise NotImplementedError(f"Unknown MULTILABEL_CORRESPONDANCE_STRATEGY: {MULTILABEL_CORRESPONDANCE_STRATEGY} (train metrics logging)")
@@ -867,10 +844,9 @@ if not INFERENCE:
                 val_metrics = (train_metrics_lvl[0][lvl], train_metrics_lvl[1][lvl], train_metrics_lvl[2][lvl])
                 print(f"Acc_top1_soft_multilabel_lvl-{lvl}", val_metrics[0])
                 # Save logs
-                mode = "a" if os.path.exists(VAL_METRICS) else "w"
-                with open(VAL_METRICS, mode) as f:
+                with open(VAL_METRICS,"a") as f:
                     f.write(
-                        f"{epoch},{val_loss},eunis_lvl-{lvl}_{val_metrics[0]}\n"
+                        f"{epoch},{val_loss},eunis_lvl-{lvl}{val_metrics[0]}\n"
                     )
         else:
             raise NotImplementedError(f"Unknown MULTILABEL_CORRESPONDANCE_STRATEGY: {MULTILABEL_CORRESPONDANCE_STRATEGY} (val metrics logging)")
@@ -924,6 +900,8 @@ if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
     csv_values = f"{test_loss},"
     for lvl in EUNIS_LVL:
         test_metrics = (test_metrics_lvl[0][lvl], test_metrics_lvl[1][lvl], test_metrics_lvl[2][lvl])
+        encoding_table = train_loader.dataset.label_encoding_table[lvl] | test_loader.dataset.label_encoding_table[lvl]
+        ticks_labels = [encoding_table[code_id] for code_id in range(NUM_UNIQUE_CLASSES[lvl])]
         
         print(f"Acc_top1_soft_multilabel_eunis_lvl-{lvl}", test_metrics[0])
         csv_header += f'Acc_top1_soft_multilabel_eunis_lvl-{lvl},'
@@ -934,19 +912,20 @@ if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
         im0 = axes[0].imshow(test_metrics[1])
         axes[0].set_xlabel("Predicted class")
         axes[0].set_ylabel("True class")
+        axes[0].set_xticks(range(len(ticks_labels)), ticks_labels)
+        axes[0].set_yticks(range(len(ticks_labels)), ticks_labels)
         axes[0].set_title(f"Confusion Matrix (EUNIS lvl-{lvl})")
         fig.colorbar(im0, ax=axes[0])
         im1 = axes[1].imshow(test_metrics[2])
         axes[1].set_xlabel("Predicted class")
         axes[1].set_ylabel("True class")
-        axes[1].set_title(f"Confusion Matrix (normalized) (EUNIS lvl-{lvl})")
+        axes[1].set_xticks(range(len(ticks_labels)), ticks_labels)
+        axes[1].set_yticks(range(len(ticks_labels)), ticks_labels)
+        axes[1].set_title(f"Confusion Matrix (row-normalized) (EUNIS lvl-{lvl})\n'For a given true label, what's the distribution of associated predicted labels ?'")
         fig.colorbar(im1, ax=axes[1])
         plt.tight_layout()
         plt.savefig(f'{Path(TEST_METRICS).parent}/confusion_matrix_eunis_lvl-{lvl}.png')
         plt.close()
-        
-        np.save(f'{Path(TEST_METRICS).parent}/confusion_matrix_eunis-{lvl}', test_metrics[1])
-        np.save(f'{Path(TEST_METRICS).parent}/confusion_matrix_norm_eunis-{lvl}', test_metrics[2])
     # Save logs
     with open(TEST_METRICS,"w") as f:
         f.write(f"{csv_header}\n")
@@ -971,14 +950,14 @@ TIME_STAMP_INFERENCE = time()
 
 model.eval()
 
-res = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
+res = {'1': {}, '2': {}, '3': {}, '4': {}, '3_4': {}}
 # all_preds = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
 # all_probs = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
 # all_labels_enc = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
 # all_labels_enc_softml_str = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
 
 with torch.no_grad():
-    for (images,
+    for (images, gpss,
          labels_enc_oh_lvl1, labels_enc_oh_lvl2, labels_enc_oh_lvl3, labels_enc_oh_lvl4, labels_enc_oh_lvl3_4,
          labels_enc_lvl1, labels_enc_lvl2, labels_enc_lvl3, labels_enc_lvl4, labels_enc_lvl3_4,
          labels_lvl1, labels_lvl2, labels_lvl3, labels_lvl4, labels_lvl3_4,
@@ -990,7 +969,13 @@ with torch.no_grad():
         probs, preds = None, None
 
         images = images.to(DEVICE)
-        outputs = model(images)
+        if 'gps' in MODALITIES:
+            gpss = gpss.to(DEVICE)
+
+        if all(x in MODALITIES for x in ['gps', 'img']):
+            outputs = model(images, gpss)
+        elif 'img' in MODALITIES:
+            outputs = model(images)
 
         for lvl in EUNIS_LVL:
             probs = torch.softmax(outputs[lvl], dim=1)
@@ -1003,30 +988,36 @@ with torch.no_grad():
                     'all_preds_confidence': confidence[i].cpu().item(),
                     'all_probs': probs[i].cpu().numpy(),
                     'all_labels': labels_lvls[lvl][i],
-                    'all_labels_enc': labels_encs[lvl][i].cpu().numpy(),
+                    'all_labels_enc': labels_encs[lvl][i],
                     'all_labels_enc_oh': labels_enc_ohs[lvl][i],
                 }
                 for i, sid in enumerate(survey_id)
             })
 
 # Decode labels
-pred_df = df_test.reset_index(drop=True).copy()
+pred_df = test_dataset.df.reset_index(drop=True).copy()[['point_id', 'lon', 'lat', 'altitude', 'year',
+                                                         'label',
+                                                         'habitats_code_lvl2_2007',
+                                                         'habitats_code_lvl2', 'habitats_code_lvl1', 'habitats_code_ID_lvl2',
+                                                         'habitats_code_ID_lvl1', 'habitats_code_ID_oh_lvl2', 'habitats_code_ID_oh_lvl1', 'filepath']]
 if MULTILABEL_CORRESPONDANCE_STRATEGY in ['soft_ml', 'ml']:
     # Length of dataset = n_unique id_floraveg
-    pred_df = pred_df.drop_duplicates(subset=['id_floraveg']).reset_index(drop=True)
-    dataset_labels_table = {**train_loader.dataset.label_encoding_table, **test_loader.dataset.label_encoding_table}
+    pred_df = pred_df.drop_duplicates(subset=['point_id']).reset_index(drop=True)
+    dataset_labels_table = {}
+    for lvl in EUNIS_LVL:
+        dataset_labels_table[lvl] = {**train_loader.dataset.label_encoding_table[lvl], **test_loader.dataset.label_encoding_table[lvl]}
     for i in range(len(pred_df)):
-        floraveg_id = pred_df.loc[i, 'id_floraveg']
-        pred_df.loc[i, 'habitats_code'] = res[list(res.keys())[0]][floraveg_id]['all_labels']
-        pred_df.loc[i, 'habitats_code_ID'] = res[list(res.keys())[0]][floraveg_id]['all_labels_enc_softml_str']
+        lucas_id = pred_df.iloc[i]['point_id']
+        pred_df.loc[i, 'habitats_code_lvl2'] = res[list(res.keys())[0]][lucas_id]['all_labels']
+        pred_df.loc[i, 'habitats_code_ID_lvl2'] = res[list(res.keys())[0]][lucas_id]['all_labels_enc']
         for lvl in EUNIS_LVL:
-            pred_df.loc[i, f'pred_label_lvl{lvl}'] = dataset_labels_table[res[lvl][floraveg_id]['all_preds']]
-            pred_df.loc[i, f'pred_label_encoded_lvl{lvl}'] = res[lvl][floraveg_id]['all_preds']
-            pred_df.loc[i, f'pred_confidence_lvl{lvl}'] = res[lvl][floraveg_id]['all_preds_confidence']
-            pred_df.loc[i, f'valid_prediction_lvl{lvl}'] = str(int(pred_df.loc[i, f'pred_label_encoded_lvl{lvl}'])) in pred_df.loc[i, 'habitats_code_ID']
+            pred_df.loc[i, f'pred_label_lvl{lvl}'] = dataset_labels_table[lvl][res[lvl][lucas_id]['all_preds']]
+            pred_df.loc[i, f'pred_label_encoded_lvl{lvl}'] = res[lvl][lucas_id]['all_preds']
+            pred_df.loc[i, f'pred_confidence_lvl{lvl}'] = res[lvl][lucas_id]['all_preds_confidence']
+            pred_df.loc[i, f'valid_prediction_lvl{lvl}'] = str(int(pred_df.loc[i, f'pred_label_encoded_lvl{lvl}'])) in pred_df.loc[i, 'habitats_code_ID_lvl2']
     for lvl in EUNIS_LVL:
         pred_df[f'pred_label_encoded_lvl{lvl}'] = pred_df[f'pred_label_encoded_lvl{lvl}'].astype(int)
-    pred_df['label'] = pred_df['habitats_code_ID']
+    pred_df['label'] = pred_df['habitats_code_ID_lvl2']
 else:
     raise NotImplementedError(f"Unknown MULTILABEL_CORRESPONDANCE_STRATEGY: {MULTILABEL_CORRESPONDANCE_STRATEGY} (predictions export)")
 
