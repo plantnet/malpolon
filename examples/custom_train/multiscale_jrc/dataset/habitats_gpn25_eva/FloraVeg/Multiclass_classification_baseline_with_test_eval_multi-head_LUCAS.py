@@ -1,9 +1,12 @@
 import os
 import re
 import sys
+import datetime
 from pathlib import Path
 from time import time
+from collections import Counter
 
+import json
 import numpy as np
 import pandas as pd
 import timm
@@ -16,6 +19,7 @@ import torchvision.transforms as transforms
 from habitat_models import MultiHeadModel, get_model
 from matplotlib import pyplot as plt
 from PIL import Image
+from codex.eunis_pipeline.models import build_gps_encoder
 from sklearn.metrics import (
     accuracy_score,
     confusion_matrix,
@@ -30,13 +34,18 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 import wandb
+from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_model import (
+    ModelSimCLR,
+)
 
 # ----------------------------
 # Config
 # ----------------------------
 SPLIT = 'S3'
 BASELINE = 'B2'
-MODEL = "dinov2_vits14"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
+MODEL = "resnet18"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
+MODALITIES = ['img']
+FUSION_STRATEGY = "concatenation"  # Any of: ['concatenation', 'mean_pooling_img_gps']
 
 INFERENCE = False
 INFERENCE_SUFFIX = ''
@@ -51,6 +60,7 @@ NUM_UNIQUE_CLASSES = {'1': 6, '2': 25, '3': 0, '4': 0, '3_4': 0} # Values in [9,
 BATCH_SIZE = 32
 EPOCHS = 20
 LR = 1e-4
+WEIGHT_DECAY = 1e-2
 NUM_WORKERS = 4
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -63,8 +73,8 @@ CSV_FPS = {
     'CSV_S1BIS_TEST': f'metadata_labels_merged_S1bis-10%_test{INFERENCE_SUFFIX}.csv',  # "metadata_labels_merged_S1bis-10%_test.csv"
     'CSV_S0BIS_TRAIN': f'metadata_labels_merged_S0bis-10%_train{TRAIN_SUFFIX}.csv',
     'CSV_S0BIS_TEST': f'metadata_labels_merged_S0bis-10%_test{INFERENCE_SUFFIX}.csv',
-    'CSV_S3_TRAIN': f'../LUCAS_habitats/data/output/csv/LUCAS_metadata_labels_merged_S3-10%_extended_train_CBN-Med{TRAIN_SUFFIX}.csv',
-    'CSV_S3_TEST': f'../LUCAS_habitats/data/output/csv/LUCAS_metadata_labels_merged_S3-10%_extended_test_CBN-Med{INFERENCE_SUFFIX}.csv',
+    'CSV_S3_TRAIN': f'../LUCAS_habitats/data/output/csv/lucas_grasslands_habitats_groupby_multilabel_ALL_CBN-Med_S3-50%_minTrainTresh5_train{TRAIN_SUFFIX}.csv',
+    'CSV_S3_TEST': f'../LUCAS_habitats/data/output/csv/lucas_grasslands_habitats_groupby_multilabel_ALL_CBN-Med_S3-50%_minTrainTresh5_test{INFERENCE_SUFFIX}.csv',
 }
 
 METADATA_ROOT_PATH = ''
@@ -72,7 +82,7 @@ CSV_FILE = os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TRAIN'])
 CSV_FILE_TEST = os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TEST'])
 ROOT_DIR = "../LUCAS_habitats/"
 IMAGE_DIR = os.path.join(ROOT_DIR, "")  # No need because for LUCAS data the image paths are already specified in the CSV files as relative paths to the root dir, but this variable can be useful if we want to add a common prefix to the image paths specified in the CSV files.
-OUTPUT_DIR = os.path.join(ROOT_DIR, f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead_CBN-Med/")
+OUTPUT_DIR = os.path.join(ROOT_DIR, f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead_ImageNet-frozen_weighted-cls_{'+'.join(MODALITIES)}{'_'+str(FUSION_STRATEGY) if len(MODALITIES)>1 else ''}_CBN-Med_{datetime.date.today()}/")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(OUTPUT_DIR, 'inference/'), exist_ok=True)
@@ -231,6 +241,7 @@ class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
         except IndexError:
             raise IndexError(f"Index {idx} is out of bounds for dataset of length {len(self.df)}.")
         survey_id = row[self.col_id]
+        gps = torch.Tensor((row['lon'], row['lat']))
         fps = row[self.col_filepath].strip().split(';')
         fps = [fp for fp in fps if Path(fp).stem.endswith(tuple(self.fp_suffix_ok))]
 
@@ -253,7 +264,7 @@ class HabitatDatasetMultilabels(HabitatDatasetSoftMultilabels):
         if self.transform:
             image = self.transform(image)
 
-        return (image,
+        return (image, gps,
                 labels_enc_oh_lvl1, labels_enc_oh_lvl2, torch.tensor([-1]), torch.tensor([-1]), torch.tensor([-1]),
                 labels_enc_lvl1, labels_enc_lvl2, torch.tensor([-1]), torch.tensor([-1]), torch.tensor([-1]),
                 labels_lvl1, labels_lvl2, torch.tensor([-1]), torch.tensor([-1]), torch.tensor([-1]),
@@ -282,16 +293,18 @@ def batch_onehot_encode(labels, n_classes):
 def count_unique_cls_multilabel(df, col_code_ID_lvl1=None, col_code_ID_lvl2=None, col_code_ID_lvl3=None, col_code_ID_lvl4=None, col_code_ID_lvl3_4=None):
     cols = {'1': col_code_ID_lvl1, '2': col_code_ID_lvl2, '3': col_code_ID_lvl3, '4': col_code_ID_lvl4, '3_4': col_code_ID_lvl3_4}
     u_cls = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
+    u_cls_count = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
 
     for lvl, col in cols.items():
         if col is None:
             continue
         for v in df[col].values:
             u_cls[lvl].extend(v.split(';'))
+        u_cls_count[lvl] = Counter(u_cls[lvl])
         u_cls[lvl] = list(set(u_cls[lvl]))
 
-    u_cls_count = {lvl: len(u_cls[lvl]) for lvl in u_cls.keys()}
-    return u_cls_count, u_cls
+    n_cls = {lvl: len(u_cls[lvl]) for lvl in u_cls.keys()}
+    return u_cls_count, u_cls, n_cls
 
 def rewrite_labels_if_unique_classes_differ_from_constant(
     df,
@@ -402,7 +415,7 @@ df_test['label'] = df_test[f'habitats_code_ID{lvl_suffix}']
 
 if not NUM_UNIQUE_CLASSES:  # Only set based on data if not manually set at the begining of the config section
     raise NotImplementedError(f"No auto-computation of NUM_UNIQUE_CLASSES in this multi-head version. Please set it manually in the config section.")
-    # Must not infer the nb of clases because if it differs from the pre-formatted multilabels in df => loss computation won't work as shapes with un-sync.
+    # Must not infer the nb of classes because if it differs from the pre-formatted multilabels in df => loss computation won't work as shapes will un-sync.
     # NUM_UNIQUE_CLASSES_INFERED, UNIQUE_CLASSES = count_unique_cls_multilabel(df, col_code_ID_lvl1='habitats_code_lvl1', col_code_ID_lvl2='habitats_code_lvl2')
     # NUM_UNIQUE_CLASSES = NUM_UNIQUE_CLASSES_INFERED
 print("[INFO] Unique classes per EUNIS level:", NUM_UNIQUE_CLASSES)
@@ -438,8 +451,8 @@ train_df, val_df = train_test_split(
     random_state=42
 )
 
-
-train_df = pd.concat([train_df, df_habitats_single_occurrence])
+if len(habitats_single_occurrence) > 1:
+    train_df = pd.concat([train_df, df_habitats_single_occurrence])
 
 # ----------------------------
 # Transforms
@@ -575,16 +588,48 @@ print(f"[INFO] Number of classes in the test set: {test_loader.dataset.n_classe
 # ----------------------------
 # Model
 # ----------------------------
-model = get_model(MODEL, 10).to(DEVICE)  # Doesn't mater what number of classes we put here since we are going to replace the head with a custom one adapted for multilabels. This is just to re-use code written to instantiate models.
+model = get_model(MODEL, 10, freeze_backbone=True).to(DEVICE)  # Doesn't mater what number of classes we put here since we are going to replace the head with a custom one adapted for multilabels. This is just to re-use code written to instantiate models.
+for p in model.parameters():
+    p.requires_grad = False
+# ad-hoc fix to allow using the MultiHeadModel class with GPS, without transfer from pretext class
+if 'gps' in MODALITIES:
+    # gps_encoder = build_gps_encoder('geoclip', 2048).to(DEVICE)  # GPSEncoder wrapper as defined in codex/models
+    gps_encoder = build_gps_encoder('geoclip', 2048).to(DEVICE)  # GPSEncoder wrapper as defined in codex/models
+    for p in gps_encoder.parameters():
+        p.requires_grad = False
+else:
+    gps_encoder = None
+# end ad-hoc
+
 model = MultiHeadModel(model, MODEL, EUNIS_LVL,
-                       NUM_UNIQUE_CLASSES['1'], NUM_UNIQUE_CLASSES['2'], NUM_UNIQUE_CLASSES['3'], NUM_UNIQUE_CLASSES['4'], NUM_UNIQUE_CLASSES['3_4']).to(DEVICE)
+                       NUM_UNIQUE_CLASSES['1'], NUM_UNIQUE_CLASSES['2'], NUM_UNIQUE_CLASSES['3'], NUM_UNIQUE_CLASSES['4'], NUM_UNIQUE_CLASSES['3_4'],
+                       use_gps_encoder='gps' in MODALITIES, fusion_strategy=FUSION_STRATEGY,
+                       gps_encoder=gps_encoder, gps_model_name='geoclip').to(DEVICE)
 
-optimizer = optim.Adam(
-    model.parameters(),
-    lr=LR
-)
 
-def get_criterion(logits, labels):
+# --- Regularization ---
+## Class weighting: forwarded to the loss
+u_cls_count, u_cls, n_cls = count_unique_cls_multilabel(train_loader.dataset.df, col_code_ID_lvl1='habitats_code_ID_lvl1', col_code_ID_lvl2='habitats_code_ID_lvl2')
+num_classes = train_loader.dataset.n_u_classes
+weights_cls = {'1': [], '2': []}
+for lvl in EUNIS_LVL:
+    total = sum(u_cls_count[lvl].values())
+    weights_cls[lvl] = torch.tensor([
+        total / (num_classes[lvl] * u_cls_count[lvl][str(c)]) for c in range(num_classes[lvl])
+    ], dtype=torch.float)
+model.weights_cls = weights_cls
+
+# ==== Claude (Sonnet 5) models / optimizers ====
+# --- Optimizer: only the head has trainable params if encoders are frozen ---
+def build_optimizer(model: nn.Module, lr=1e-3, weight_decay=1e-4):
+    # trainable = [p for name, p in dict(model.named_parameters()).items() if p.requires_grad and 'transfer_heads' in name]
+    trainable = [p for name, p in dict(model.named_parameters()).items() if p.requires_grad]
+    return torch.optim.AdamW(trainable, lr=lr, weight_decay=weight_decay)
+
+optimizer = build_optimizer(model, lr=LR, weight_decay=WEIGHT_DECAY)
+# ==== Claude (Sonnet 5) models / optimizers ====
+
+def get_criterion(logits, labels, weights_cls=None):
     match LOSS_FUNCTION:
         case 'CE':
             criterion = nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
@@ -671,7 +716,7 @@ def run_epoch(loader, split, epoch_nb, training=True):
     running_loss = 0
 
     try:
-        for (images,
+        for (images, gpss,
             labels_enc_oh_lvl1, labels_enc_oh_lvl2, labels_enc_oh_lvl3, labels_enc_oh_lvl4, labels_enc_oh_lvl3_4,
             labels_enc_lvl1, labels_enc_lvl2, labels_enc_lvl3, labels_enc_lvl4, labels_enc_lvl3_4,
             labels_lvl1, labels_lvl2, labels_lvl3, labels_lvl4, labels_lvl3_4,
@@ -686,6 +731,8 @@ def run_epoch(loader, split, epoch_nb, training=True):
             probs = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
             preds = {'1': None, '2': None, '3': None, '4': None, '3_4': None}
             images = images.to(DEVICE)
+            if 'gps' in MODALITIES:
+                gpss = gpss.to(DEVICE)
             # Only keep labels selected by EUNIS_LVL config constant and move to device
             for k, v in labels_enc_ohs.items():
                 if k in EUNIS_LVL:
@@ -699,13 +746,16 @@ def run_epoch(loader, split, epoch_nb, training=True):
             if MODEL == 'inception_v3' and split == 'train':
                 outputs, aux_output = model(images)
             else:
-                outputs = model(images)
+                if all(x in MODALITIES for x in ['gps', 'img']):
+                    outputs = model(images, gpss)
+                elif 'img' in MODALITIES:
+                    outputs = model(images)
 
             # loss = get_criterion(outputs, labels_enc_oh)
             loss = 0
 
-            for lvl, weight in zip(EUNIS_LVL, EUNIS_LVL_WEIGHTS):
-                loss += get_criterion(outputs[lvl], labels_enc_ohs[lvl])
+            for lvl, weight_eunis in zip(EUNIS_LVL, EUNIS_LVL_WEIGHTS):
+                loss += get_criterion(outputs[lvl], labels_enc_ohs[lvl], model.weights_cls[lvl].to(DEVICE))
 
             if training:
                 loss.backward()
@@ -918,7 +968,7 @@ res = {'1': {}, '2': {}, '3': {}, '4': {}, '3_4': {}}
 # all_labels_enc_softml_str = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
 
 with torch.no_grad():
-    for (images,
+    for (images, gpss,
          labels_enc_oh_lvl1, labels_enc_oh_lvl2, labels_enc_oh_lvl3, labels_enc_oh_lvl4, labels_enc_oh_lvl3_4,
          labels_enc_lvl1, labels_enc_lvl2, labels_enc_lvl3, labels_enc_lvl4, labels_enc_lvl3_4,
          labels_lvl1, labels_lvl2, labels_lvl3, labels_lvl4, labels_lvl3_4,
@@ -930,7 +980,13 @@ with torch.no_grad():
         probs, preds = None, None
 
         images = images.to(DEVICE)
-        outputs = model(images)
+        if 'gps' in MODALITIES:
+            gpss = gpss.to(DEVICE)
+
+        if all(x in MODALITIES for x in ['gps', 'img']):
+            outputs = model(images, gpss)
+        elif 'img' in MODALITIES:
+            outputs = model(images)
 
         for lvl in EUNIS_LVL:
             probs = torch.softmax(outputs[lvl], dim=1)

@@ -767,8 +767,8 @@ def run_epoch(loader, split, epoch_nb, training=True):
         # loss = get_criterion(outputs, labels_enc_oh)
         loss = 0
 
-        for lvl, weight in zip(EUNIS_LVL, EUNIS_LVL_WEIGHTS):
-            loss += get_criterion(outputs[lvl], labels_enc_ohs[lvl])
+        for lvl, weight_eunis in zip(EUNIS_LVL, EUNIS_LVL_WEIGHTS):
+            loss += weight_eunis * get_criterion(outputs[lvl], labels_enc_ohs[lvl])
 
         if training:
             loss.backward()

@@ -4,6 +4,7 @@ import sys
 import datetime
 from pathlib import Path
 from time import time
+from collections import Counter
 
 import json
 import numpy as np
@@ -42,10 +43,11 @@ from malpolon.models.custom_models.jrc_multiscale.jrc_multiscale_geo_encoder_mod
 SPLIT = 'S3'
 BASELINE = 'B2'
 MODEL = "resnet18"  # One of ['mobilenet_v3', 'resnet18', 'resnet50', 'vitb32', 'inception_v3', 'dinov2_vits14', 'vgg16', 'convnext', 'dinov2_PN22M']
-TRANSFER_MODEL = 'simclr_landscape_resnet-partial-img-ch' # One of ['simclr_landscape_resnet-partial-img-ch', 'simclr_landscape_resnet_all-ch']
+TRANSFER_MODEL = 'simclr_landscape_resnet_no-ch' # One of ['simclr_landscape_resnet-partial-img-ch', 'simclr_landscape_resnet_all-ch', 'simclr_landscape_resnet_no-ch']
 MODALITIES = ['img']
 FUSION_STRATEGY = "concatenation"  # Any of: ['concatenation', 'mean_pooling_img_gps']
-CONTRASTIVE_HEAD_LAYERS_TO_KEEP = 1  # Nb of layer of pretext task head to not discard and keep un-froozen
+FREEZE_IMG_BB = True
+FREEZE_GPS_BB = True
 
 INFERENCE = False
 INFERENCE_SUFFIX = ''
@@ -60,6 +62,7 @@ NUM_UNIQUE_CLASSES = {'1': 6, '2': 25, '3': 0, '4': 0, '3_4': 0} # Values in [6,
 BATCH_SIZE = 32
 EPOCHS = 20
 LR = 1e-4
+WEIGHT_DECAY = 1e-2
 NUM_WORKERS = 4
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -77,11 +80,12 @@ CSV_FPS = {
 }
 
 METADATA_ROOT_PATH = ''
+CH_NAME = {'simclr_landscape_resnet_no-ch': 'NO', 'simclr_landscape_resnet_partial-img-ch': 'PARTIAL', 'simclr_landscape_resnet_all-ch': 'ALL'}[TRANSFER_MODEL]
 CSV_FILE = os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TRAIN'])
 CSV_FILE_TEST = os.path.join(METADATA_ROOT_PATH, CSV_FPS[f'CSV_{SPLIT}_TEST'])
 ROOT_DIR = "../LUCAS_habitats/"
 IMAGE_DIR = os.path.join(ROOT_DIR, "")  # No need because for LUCAS data the image paths are already specified in the CSV files as relative paths to the root dir, but this variable can be useful if we want to add a common prefix to the image paths specified in the CSV files.
-OUTPUT_DIR = '/tmp'# os.path.join(ROOT_DIR, f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead_transfer-SimCLR_PARTIAL-CONTRASTIVE-HEAD_{'+'.join(MODALITIES)}{'_'+str(FUSION_STRATEGY) if len(MODALITIES)>1 else ''}_CBN-Med_{datetime.date.today()}/")
+OUTPUT_DIR =  os.path.join(ROOT_DIR, f"baselines/{BASELINE}_{SPLIT}_{MODEL}_multihead_transfer-SimCLR_{CH_NAME}-CONTRASTIVE-HEAD_weighted-cls_{'+'.join(MODALITIES)}{'_'+str(FUSION_STRATEGY) if len(MODALITIES)>1 else ''}_CBN-Med_{datetime.date.today()}_new-L2-norm/")
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(os.path.join(OUTPUT_DIR, 'inference/'), exist_ok=True)
@@ -294,16 +298,18 @@ def batch_onehot_encode(labels, n_classes):
 def count_unique_cls_multilabel(df, col_code_ID_lvl1=None, col_code_ID_lvl2=None, col_code_ID_lvl3=None, col_code_ID_lvl4=None, col_code_ID_lvl3_4=None):
     cols = {'1': col_code_ID_lvl1, '2': col_code_ID_lvl2, '3': col_code_ID_lvl3, '4': col_code_ID_lvl4, '3_4': col_code_ID_lvl3_4}
     u_cls = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
+    u_cls_count = {'1': [], '2': [], '3': [], '4': [], '3_4': []}
 
     for lvl, col in cols.items():
         if col is None:
             continue
         for v in df[col].values:
             u_cls[lvl].extend(v.split(';'))
+        u_cls_count[lvl] = Counter(u_cls[lvl])
         u_cls[lvl] = list(set(u_cls[lvl]))
 
-    u_cls_count = {lvl: len(u_cls[lvl]) for lvl in u_cls.keys()}
-    return u_cls_count, u_cls
+    n_cls = {lvl: len(u_cls[lvl]) for lvl in u_cls.keys()}
+    return u_cls_count, u_cls, n_cls
 
 def rewrite_labels_if_unique_classes_differ_from_constant(
     df,
@@ -605,25 +611,36 @@ model = MultiHeadModel(model, TRANSFER_MODEL, EUNIS_LVL,
                        NUM_UNIQUE_CLASSES['1'], NUM_UNIQUE_CLASSES['2'], NUM_UNIQUE_CLASSES['3'], NUM_UNIQUE_CLASSES['4'], NUM_UNIQUE_CLASSES['3_4'],
                        use_gps_encoder='gps' in MODALITIES, fusion_strategy=FUSION_STRATEGY).to(DEVICE)
 
-# ==== Claude (Sonnet 5) models / optimizers ====
+# --- Regularization ---
+## Class weighting: forwarded to the loss
+u_cls_count, u_cls, n_cls = count_unique_cls_multilabel(train_loader.dataset.df, col_code_ID_lvl1='habitats_code_ID_lvl1', col_code_ID_lvl2='habitats_code_ID_lvl2')
+num_classes = train_loader.dataset.n_u_classes
+weights_cls = {'1': [], '2': []}
+for lvl in EUNIS_LVL:
+    total = sum(u_cls_count[lvl].values())
+    weights_cls[lvl] = torch.tensor([
+        total / (num_classes[lvl] * u_cls_count[lvl][str(c)]) for c in range(num_classes[lvl])
+    ], dtype=torch.float)
+model.weights_cls = weights_cls
 
+# ==== Claude (Sonnet 5) models / optimizers ====
 # --- Optimizer: only the head has trainable params if encoders are frozen ---
 def build_optimizer(model: nn.Module, lr=1e-3, weight_decay=1e-4):
     # trainable = [p for name, p in dict(model.named_parameters()).items() if p.requires_grad and 'transfer_heads' in name]
     trainable = [p for name, p in dict(model.named_parameters()).items() if p.requires_grad]
     return torch.optim.AdamW(trainable, lr=lr, weight_decay=weight_decay)
 
-optimizer = build_optimizer(model, lr=LR)
+optimizer = build_optimizer(model, lr=LR, weight_decay=WEIGHT_DECAY)
 # ==== Claude (Sonnet 5) models / optimizers ====
 
 
-def get_criterion(logits, labels):
+def get_criterion(logits, labels, weights_cls=None):
     match LOSS_FUNCTION:
         case 'CE':
             criterion = nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
             loss = criterion(logits, labels)
         case 'CE_soft_ml':  #  Expects class probabilities
-            criterion = nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
+            criterion = nn.CrossEntropyLoss(weight=weights_cls, label_smoothing=LABEL_SMOOTHING)
             ones_per_row = labels.sum(dim=1, keepdim=True)
             labels = labels / ones_per_row.clamp(min=1)
             for row in labels:
@@ -745,8 +762,8 @@ def run_epoch(loader, split, epoch_nb, training=True):
             # loss = get_criterion(outputs, labels_enc_oh)
             loss = 0
 
-            for lvl, weight in zip(EUNIS_LVL, EUNIS_LVL_WEIGHTS):
-                loss += get_criterion(outputs[lvl], labels_enc_ohs[lvl])
+            for lvl, weight_eunis in zip(EUNIS_LVL, EUNIS_LVL_WEIGHTS):
+                loss += weight_eunis * get_criterion(outputs[lvl], labels_enc_ohs[lvl], model.weights_cls[lvl].to(DEVICE))
 
             if training:
                 loss.backward()

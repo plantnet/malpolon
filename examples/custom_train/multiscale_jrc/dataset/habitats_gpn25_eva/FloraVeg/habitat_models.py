@@ -180,7 +180,15 @@ def get_model(model_name, num_classes, **kwargs):
 def get_in_features(model, model_name, use_gps_encoder=False, gps_encoder=None, gps_model_name=None):
     match model_name:
         case 'resnet18' | 'resnet50':
-            return model.fc.in_features
+            features =  model.fc.in_features
+            if use_gps_encoder:
+                if isinstance(gps_encoder, GPSEncoder):
+                    features += gps_encoder.output_dim
+                elif gps_model_name in ['geoclip']:
+                    features += gps_encoder.LocEnc1.head[0].out_features
+                else:
+                    raise NotImplementedError(f'Cannot retrieve backbone out_dim from GPS encoder because class {type(gps_encoder)} is not handled.')
+            return features
         case 'dinov2_vits14':
             return model.head.in_features
         case 'dinov2_PN22M':
@@ -214,7 +222,13 @@ def get_in_features(model, model_name, use_gps_encoder=False, gps_encoder=None, 
             features = model.modality_contrastive_head.fc.out_features  # 1st layer of img contrastive head only
             if use_gps_encoder:
                 features += model.gps_contrastive_head.head.out_features  # 1st (and only) layer of gps contrastive head only
-            return features
+        case 'simclr_landscape_resnet_no-ch':
+            features = model.modality_encoder.head_hidden_size
+            if use_gps_encoder:
+                features += model.gps_encoder.LocEnc1.head[0].out_features  # 1st (and only) layer of gps contrastive head only
+        case _:
+            raise ValueError(f'Model name not supported: {model_name}')
+    return features
 
 
 class MultiHeadModel(nn.Module):
@@ -224,21 +238,28 @@ class MultiHeadModel(nn.Module):
         super().__init__()
 
         self.backbone = backbone if not isinstance(backbone, DinoV2ClassifierPN22M) else backbone.backbone
-        self.use_gps_encoder = use_gps_encoder
         self.bb_model_name = bb_model_name
         self.eunis_lvl = eunis_lvl
         self.gradcam_head = gradcam_head
         self.fusion_strategy = fusion_strategy
-        self.gps_encoder = gps_encoder
+        self.use_gps_encoder = use_gps_encoder
+        self.gps_encoder = gps_encoder  # manual overwrite parameter to allow passing custom gps encoder
         self.gps_model_name = gps_model_name
         self.in_features = get_in_features(self.backbone, self.bb_model_name,
                                            self.use_gps_encoder, self.gps_encoder, self.gps_model_name)
         
-        # Modifying contrastive heads
+        # --- Modifying contrastive heads ---
+        ## Remove un-wanted parameters that might influence the gradient
+        if not self.use_gps_encoder:
+            self.backbone.gps_contrastive_head = None
         ## Keep 1st layer
         if bb_model_name in ['simclr_landscape_resnet_partial-img-ch']:
             # self.gps_encoder.contrastive_head = collapse_layers_from_gps_contrastive_head(self.gps_encoder.contrastive_head)  # not usable with u6tiioze because gps_encoder was frozen
             self.backbone.modality_contrastive_head = collapse_layers_from_modality_contrastive_head(self.backbone.modality_contrastive_head)
+        elif bb_model_name in ['simclr_landscape_resnet_no-ch']:
+            del self.backbone.gps_contrastive_head
+            del self.backbone.modality_contrastive_head
+        # --- Modifying contrastive heads ---
 
         self.heads = nn.ModuleDict({
             '1': nn.Linear(self.in_features, n_classes1),
@@ -279,6 +300,8 @@ class MultiHeadModel(nn.Module):
         features = self.extract_features_img(x)
         if self.use_gps_encoder:
             features_gps = self.extract_features_gps(x_gps)
+            features = F.normalize(features, dim=-1)  # L2-norm
+            features_gps = F.normalize(features_gps, dim=-1)  # L2-norm
             features = self.fusion(self.fusion_strategy, [features, features_gps])
 
         if self.gradcam_head:
@@ -290,17 +313,20 @@ class MultiHeadModel(nn.Module):
         }
 
     def extract_features_gps(self, x):
-        if self.bb_model_name in ['simclr_landscape_resnet_all-ch', 'simclr_landscape_resnet-partial-img-ch']:
-            # self.backbone.modality_contrastive_head.head = nn.Identity()
+        if self.bb_model_name in ['simclr_landscape_resnet_all-ch']:
             feat = self.backbone.gps_encoder(x)
-            feat = self.backbone.gps_contrastive_head(feat)  # in the case of u6tiioze, the gps contrastive head is only 1 layer so we keep it as is (plus gps branch was frozen)
-        elif self.bb_model_name in ['dinov2_PN22M']:
+            feat = self.backbone.gps_contrastive_head(feat)
+        # in the case of u6tiioze, the gps contrastive head is only 1 layer so we keep it as is (plus gps branch was frozen)
+        elif self.bb_model_name in ['simclr_landscape_resnet_partial-img-ch']:
+            feat = self.backbone.gps_encoder(x)
+            feat = self.backbone.gps_contrastive_head(feat)
+        elif self.bb_model_name in ['simclr_landscape_resnet_no-ch']:
+            feat = self.backbone.gps_encoder(x)
+        else:
             if self.gps_model_name == 'geoclip':
                 feat = self.gps_encoder(x)
             else:
-                raise NotImplementedError(f'GPS feature extraction not implemented for DinoV2_PN22M img bb and gps bb {type(self.gps_encoder)}')
-        else:
-            raise NotImplementedError(f"Feature extraction not implemented for model {self.bb_model_name}")
+                raise NotImplementedError(f'GPS feature extraction not implemented for gps bb {type(self.gps_encoder)}')
         return feat
 
     def extract_features_img(self, x):
@@ -315,9 +341,14 @@ class MultiHeadModel(nn.Module):
         elif self.bb_model_name in ['resnet18', 'resnet50']:
             self.backbone.fc = nn.Identity()
             feat = self.backbone(x)
-        elif self.bb_model_name in ['simclr_landscape_resnet_all-ch', 'simclr_landscape_resnet_partial-img-ch']:
+        elif self.bb_model_name in ['simclr_landscape_resnet_all-ch']:
+            feat = self.backbone.modality_encoder(x)
+            feat = self.backbone.modality_contrastive_head(feat)
+        elif self.bb_model_name in ['simclr_landscape_resnet_partial-img-ch']:
             feat = self.backbone.modality_encoder(x)
             feat = self.backbone.modality_contrastive_head.fc(feat) # 1st layer of the contrastive head only
+        elif self.bb_model_name in ['simclr_landscape_resnet_no-ch']:
+            feat = self.backbone.modality_encoder(x)
         else:
             raise NotImplementedError(f"Feature extraction not implemented for model {self.bb_model_name}")
         return feat
