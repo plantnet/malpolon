@@ -31,12 +31,21 @@ def main():
 
     # Average numeric columns
     numeric_mean = numeric_df.groupby(level=0).mean()
+    numeric_mean = numeric_mean.rename(
+            columns={"roc_auc": "roc_auc_seeds_mean",
+                     "pr_auc": "pr_auc_seeds_mean"}
+        )
+    numeric_std = numeric_df.groupby(level=0).std()
+    numeric_std = numeric_std.rename(
+            columns={"roc_auc": "roc_auc_seeds_std",
+                     "pr_auc": "pr_auc_seeds_std"}
+        )
 
     # For string columns: keep first occurrence per index
     string_first = string_df.groupby(level=0).first()
 
     # Combine back
-    result = pd.concat([string_first, numeric_mean], axis=1)
+    result = pd.concat([string_first, numeric_mean, numeric_std], axis=1)
 
     result.to_csv(args.output, index=False)
 
